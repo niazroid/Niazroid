@@ -35,14 +35,10 @@ jobs:
           mkdir project
           unzip -q "$ZIP_FILE" -d project
 
-          echo "Files after unzip:"
-          find project -maxdepth 4 -type f | sed 's#^#- #' | head -n 80
-
           SETTINGS_FILE="$(find project -maxdepth 5 -type f -name "settings.gradle" | head -n 1)"
 
           if [ -z "$SETTINGS_FILE" ]; then
             echo "Could not find settings.gradle after unzip."
-            echo "This ZIP is probably not the Android project ZIP."
             exit 1
           fi
 
@@ -50,12 +46,12 @@ jobs:
           echo "Android project directory: $PROJECT_DIR"
           echo "project_dir=$PROJECT_DIR" >> $GITHUB_OUTPUT
 
-      - name: Fix AndroidX Gradle properties
+      - name: Fix Gradle settings
         shell: bash
         run: |
           PROJECT_DIR="${{ steps.unzip.outputs.project_dir }}"
-          touch "$PROJECT_DIR/gradle.properties"
 
+          touch "$PROJECT_DIR/gradle.properties"
           grep -q "^android.useAndroidX=" "$PROJECT_DIR/gradle.properties" \
             && sed -i 's/^android.useAndroidX=.*/android.useAndroidX=true/' "$PROJECT_DIR/gradle.properties" \
             || echo "android.useAndroidX=true" >> "$PROJECT_DIR/gradle.properties"
@@ -64,55 +60,321 @@ jobs:
             && sed -i 's/^android.enableJetifier=.*/android.enableJetifier=true/' "$PROJECT_DIR/gradle.properties" \
             || echo "android.enableJetifier=true" >> "$PROJECT_DIR/gradle.properties"
 
-          echo "Final gradle.properties:"
-          cat "$PROJECT_DIR/gradle.properties"
-
-      - name: Fix Java and Kotlin JVM target
-        shell: bash
-        run: |
-          PROJECT_DIR="${{ steps.unzip.outputs.project_dir }}"
           APP_GRADLE="$PROJECT_DIR/app/build.gradle"
-          APP_GRADLE_KTS="$PROJECT_DIR/app/build.gradle.kts"
-
           if [ -f "$APP_GRADLE" ]; then
             cat >> "$APP_GRADLE" <<'EOF'
 
-          android {
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
-              }
+android {
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
 
-              kotlinOptions {
-                  jvmTarget = '17'
-              }
-          }
-          EOF
-          elif [ -f "$APP_GRADLE_KTS" ]; then
-            cat >> "$APP_GRADLE_KTS" <<'EOF'
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+}
+EOF
+          fi
 
-          android {
-              compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_17
-                  targetCompatibility = JavaVersion.VERSION_17
-              }
+      - name: Patch PlayerActivity to safe build version
+        shell: bash
+        run: |
+          PROJECT_DIR="${{ steps.unzip.outputs.project_dir }}"
+          PLAYER_FILE="$(find "$PROJECT_DIR/app/src/main/java" -type f -name "PlayerActivity.kt" | head -n 1)"
 
-              kotlinOptions {
-                  jvmTarget = "17"
-              }
-          }
-          EOF
-          else
-            echo "Could not find app/build.gradle or app/build.gradle.kts"
+          if [ -z "$PLAYER_FILE" ]; then
+            echo "PlayerActivity.kt not found"
             exit 1
           fi
 
-          echo "Updated app build file:"
-          if [ -f "$APP_GRADLE" ]; then
-            tail -n 40 "$APP_GRADLE"
-          else
-            tail -n 40 "$APP_GRADLE_KTS"
-          fi
+          cat > "$PLAYER_FILE" <<'EOF'
+package ir.bankmoviee.app
+
+import android.app.Activity
+import android.content.Intent
+import android.content.pm.ActivityInfo
+import android.net.Uri
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.View
+import android.view.WindowManager
+import android.widget.ImageButton
+import android.widget.LinearLayout
+import android.widget.SeekBar
+import android.widget.TextView
+import android.widget.Toast
+import org.videolan.libvlc.LibVLC
+import org.videolan.libvlc.Media
+import org.videolan.libvlc.MediaPlayer
+import org.videolan.libvlc.util.VLCVideoLayout
+import java.util.Locale
+import kotlin.math.max
+import kotlin.math.min
+
+class PlayerActivity : Activity() {
+
+    companion object {
+        const val EXTRA_VIDEO_URL = "video_url"
+        const val EXTRA_SUBTITLE_URL = "subtitle_url"
+        const val EXTRA_TITLE = "title"
+        const val EXTRA_REFERER = "referer"
+    }
+
+    private lateinit var vlcLayout: VLCVideoLayout
+    private lateinit var topBar: LinearLayout
+    private lateinit var bottomBar: LinearLayout
+    private lateinit var titleText: TextView
+    private lateinit var statusText: TextView
+    private lateinit var currentTimeText: TextView
+    private lateinit var durationText: TextView
+    private lateinit var playPauseBtn: ImageButton
+    private lateinit var seekBar: SeekBar
+
+    private var libVLC: LibVLC? = null
+    private var mediaPlayer: MediaPlayer? = null
+    private val handler = Handler(Looper.getMainLooper())
+    private var isSeeking = false
+    private var controlsVisible = true
+    private var videoUrl: String = ""
+    private var referer: String = ""
+
+    private val progressRunnable = object : Runnable {
+        override fun run() {
+            updateProgress()
+            handler.postDelayed(this, 500)
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        window.decorView.systemUiVisibility = (
+            View.SYSTEM_UI_FLAG_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+        )
+        setContentView(R.layout.activity_player)
+
+        bindViews()
+        readIntent()
+        setupControls()
+
+        if (!UrlTools.isHttpUrl(videoUrl)) {
+            Toast.makeText(this, "لینک پخش معتبر نیست", Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
+
+        titleText.text = intent.getStringExtra(EXTRA_TITLE)?.takeIf { it.isNotBlank() } ?: "BankMoviee Player"
+        startVlc(videoUrl)
+    }
+
+    private fun bindViews() {
+        vlcLayout = findViewById(R.id.vlcVideoLayout)
+        topBar = findViewById(R.id.playerTopBar)
+        bottomBar = findViewById(R.id.playerBottomBar)
+        titleText = findViewById(R.id.playerTitle)
+        statusText = findViewById(R.id.playerStatus)
+        currentTimeText = findViewById(R.id.currentTime)
+        durationText = findViewById(R.id.durationTime)
+        playPauseBtn = findViewById(R.id.playPauseBtn)
+        seekBar = findViewById(R.id.seekBar)
+    }
+
+    private fun readIntent() {
+        val data = intent.data
+        videoUrl = intent.getStringExtra(EXTRA_VIDEO_URL)
+            ?: data?.getQueryParameter("video")
+            ?: ""
+        referer = intent.getStringExtra(EXTRA_REFERER)
+            ?: data?.getQueryParameter("referer")
+            ?: ""
+    }
+
+    private fun setupControls() {
+        findViewById<ImageButton>(R.id.closeBtn).setOnClickListener { finish() }
+        playPauseBtn.setOnClickListener { togglePlayPause() }
+        findViewById<ImageButton>(R.id.rewindBtn).setOnClickListener { seekBy(-10_000) }
+        findViewById<ImageButton>(R.id.forwardBtn).setOnClickListener { seekBy(10_000) }
+        findViewById<ImageButton>(R.id.rotateBtn).setOnClickListener { toggleOrientation() }
+
+        findViewById<ImageButton>(R.id.audioBtn).setOnClickListener {
+            Toast.makeText(this, "انتخاب ترک صدا در نسخه بعدی فعال می‌شود", Toast.LENGTH_SHORT).show()
+        }
+        findViewById<ImageButton>(R.id.subtitleBtn).setOnClickListener {
+            Toast.makeText(this, "زیرنویس داخلی با موتور VLC پشتیبانی می‌شود", Toast.LENGTH_SHORT).show()
+        }
+        findViewById<ImageButton>(R.id.addSubtitleBtn).setOnClickListener {
+            Toast.makeText(this, "اضافه کردن فایل زیرنویس در نسخه بعدی فعال می‌شود", Toast.LENGTH_SHORT).show()
+        }
+
+        findViewById<View>(R.id.playerRoot).setOnClickListener { toggleControls() }
+
+        seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onStartTrackingTouch(seekBar: SeekBar?) { isSeeking = true }
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                val mp = mediaPlayer ?: return
+                val length = mp.length
+                if (length > 0) {
+                    val target = (seekBar?.progress ?: 0) * length / 1000L
+                    mp.time = target
+                }
+                isSeeking = false
+            }
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) {
+                    val length = mediaPlayer?.length ?: 0L
+                    if (length > 0) currentTimeText.text = formatMs(progress * length / 1000L)
+                }
+            }
+        })
+    }
+
+    private fun startVlc(url: String) {
+        statusText.text = "در حال آماده‌سازی پلیر VLC..."
+
+        val args = arrayListOf(
+            "--network-caching=2500",
+            "--file-caching=2500",
+            "--live-caching=2500",
+            "--http-reconnect",
+            "--audio-time-stretch",
+            "--subsdec-encoding=UTF-8",
+            "--android-display-chroma=RV32"
+        )
+
+        val vlc = LibVLC(this, args)
+        libVLC = vlc
+
+        val player = MediaPlayer(vlc)
+        mediaPlayer = player
+
+        player.attachViews(vlcLayout, null, false, false)
+        player.setEventListener { event ->
+            runOnUiThread {
+                when (event.type) {
+                    MediaPlayer.Event.Opening -> statusText.text = "در حال باز کردن لینک..."
+                    MediaPlayer.Event.Buffering -> statusText.text = "در حال بافر..."
+                    MediaPlayer.Event.Playing -> {
+                        statusText.text = "در حال پخش با موتور VLC"
+                        setPlayIcon(false)
+                    }
+                    MediaPlayer.Event.Paused -> {
+                        statusText.text = "توقف موقت"
+                        setPlayIcon(true)
+                    }
+                    MediaPlayer.Event.Stopped -> setPlayIcon(true)
+                    MediaPlayer.Event.EndReached -> {
+                        statusText.text = "پخش تمام شد"
+                        setPlayIcon(true)
+                    }
+                    MediaPlayer.Event.EncounteredError -> {
+                        statusText.text = "خطا در پخش. لینک یا دسترسی سرور را بررسی کن."
+                        Toast.makeText(this, "خطا در پخش ویدیو", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        }
+
+        val media = Media(vlc, Uri.parse(url))
+        media.setHWDecoderEnabled(true, false)
+        media.addOption(":network-caching=2500")
+        media.addOption(":http-reconnect")
+        media.addOption(":http-user-agent=Mozilla/5.0 BankMovieeAndroid/1.0")
+        if (referer.isNotBlank()) media.addOption(":http-referrer=$referer")
+
+        player.media = media
+        media.release()
+        player.play()
+        handler.post(progressRunnable)
+    }
+
+    private fun togglePlayPause() {
+        val mp = mediaPlayer ?: return
+        if (mp.isPlaying) mp.pause() else mp.play()
+    }
+
+    private fun seekBy(deltaMs: Long) {
+        val mp = mediaPlayer ?: return
+        val length = mp.length
+        val next = if (length > 0) min(max(mp.time + deltaMs, 0L), length) else max(mp.time + deltaMs, 0L)
+        mp.time = next
+        updateProgress()
+    }
+
+    private fun updateProgress() {
+        if (isSeeking) return
+        val mp = mediaPlayer ?: return
+        val length = mp.length
+        val time = mp.time
+        currentTimeText.text = formatMs(time)
+        durationText.text = if (length > 0) formatMs(length) else "--:--"
+        if (length > 0) seekBar.progress = ((time * 1000L) / length).toInt().coerceIn(0, 1000)
+    }
+
+    private fun toggleOrientation() {
+        requestedOrientation = if (requestedOrientation == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE) {
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        }
+    }
+
+    private fun toggleControls() {
+        controlsVisible = !controlsVisible
+        val visibility = if (controlsVisible) View.VISIBLE else View.GONE
+        topBar.visibility = visibility
+        bottomBar.visibility = visibility
+    }
+
+    private fun setPlayIcon(showPlay: Boolean) {
+        playPauseBtn.setImageResource(if (showPlay) android.R.drawable.ic_media_play else android.R.drawable.ic_media_pause)
+    }
+
+    private fun formatMs(ms: Long): String {
+        val totalSeconds = max(0L, ms / 1000L)
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        val seconds = totalSeconds % 60
+        return if (hours > 0) {
+            String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            String.format(Locale.US, "%02d:%02d", minutes, seconds)
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        mediaPlayer?.pause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        window.decorView.systemUiVisibility = (
+            View.SYSTEM_UI_FLAG_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+        )
+    }
+
+    override fun onDestroy() {
+        handler.removeCallbacksAndMessages(null)
+        try {
+            mediaPlayer?.stop()
+            mediaPlayer?.detachViews()
+            mediaPlayer?.release()
+            libVLC?.release()
+        } catch (_: Throwable) {}
+        super.onDestroy()
+    }
+}
+EOF
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -135,7 +397,7 @@ jobs:
 
       - name: Build debug APK
         working-directory: ${{ steps.unzip.outputs.project_dir }}
-        run: gradle assembleDebug --no-daemon --stacktrace
+        run: gradle assembleDebug --no-daemon --stacktrace --info
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
