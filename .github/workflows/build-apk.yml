@@ -75,64 +75,44 @@ jobs:
           APP_GRADLE_KTS="$PROJECT_DIR/app/build.gradle.kts"
 
           if [ -f "$APP_GRADLE" ]; then
-            python3 - <<'PY'
-from pathlib import Path
-import os
+            cat >> "$APP_GRADLE" <<'EOF'
 
-p = Path(os.environ["APP_GRADLE"])
-text = p.read_text()
+          android {
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
 
-if "BANKMOVIE_JVM_TARGET_FIX" not in text:
-    marker = "android {"
-    fix = """android {
-    // BANKMOVIE_JVM_TARGET_FIX
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = '17'
-    }
-"""
-    text = text.replace(marker, fix, 1)
-    p.write_text(text)
-
-print(p.read_text())
-PY
+              kotlinOptions {
+                  jvmTarget = '17'
+              }
+          }
+          EOF
           elif [ -f "$APP_GRADLE_KTS" ]; then
-            python3 - <<'PY'
-from pathlib import Path
-import os
+            cat >> "$APP_GRADLE_KTS" <<'EOF'
 
-p = Path(os.environ["APP_GRADLE_KTS"])
-text = p.read_text()
+          android {
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
 
-if "BANKMOVIE_JVM_TARGET_FIX" not in text:
-    marker = "android {"
-    fix = """android {
-    // BANKMOVIE_JVM_TARGET_FIX
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-"""
-    text = text.replace(marker, fix, 1)
-    p.write_text(text)
-
-print(p.read_text())
-PY
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          }
+          EOF
           else
             echo "Could not find app/build.gradle or app/build.gradle.kts"
             exit 1
           fi
-        env:
-          APP_GRADLE: ${{ steps.unzip.outputs.project_dir }}/app/build.gradle
-          APP_GRADLE_KTS: ${{ steps.unzip.outputs.project_dir }}/app/build.gradle.kts
+
+          echo "Updated app build file:"
+          if [ -f "$APP_GRADLE" ]; then
+            tail -n 40 "$APP_GRADLE"
+          else
+            tail -n 40 "$APP_GRADLE_KTS"
+          fi
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
