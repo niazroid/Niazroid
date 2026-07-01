@@ -1,4 +1,4 @@
-name: Build BankMoviee Player Pro V2 Fixed
+name: Build BankMoviee Player Pro V2 Universal
 
 on:
   workflow_dispatch:
@@ -84,21 +84,13 @@ jobs:
           app_gradle = project / "app" / "build.gradle"
           if app_gradle.exists():
               text = app_gradle.read_text(encoding="utf-8")
+              text = re.sub(r"\n\s*splits\s*\{\s*abi\s*\{.*?\n\s*\}\s*\}\s*", "\n", text, flags=re.S)
+              text = re.sub(r"\n\s*ndk\s*\{\s*abiFilters[^\n]*\n\s*\}\s*", "\n", text, flags=re.S)
+              text = re.sub(r"\n\s*abiFilters[^\n]*", "\n", text, flags=re.S)
               if "BANKMOVIE_PRO_V2_FIX" not in text:
                   text += """
           android {
               // BANKMOVIE_PRO_V2_FIX
-              defaultConfig {
-                  ndk { abiFilters 'arm64-v8a' }
-              }
-              splits {
-                  abi {
-                      enable true
-                      reset()
-                      include 'arm64-v8a'
-                      universalApk false
-                  }
-              }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
@@ -166,5 +158,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: BankMoviee-Player-Pro-V2-Fixed-arm64-apk
+          name: BankMoviee-Player-Pro-V2-Universal-apk
           path: ${{ steps.unzip.outputs.project_dir }}/app/build/outputs/apk/debug/*.apk
