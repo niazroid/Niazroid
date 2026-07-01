@@ -1,4 +1,4 @@
-name: Build BankMoviee Player Pro V2 Universal Kotlin Fix
+name: Build BankMoviee Player Pro V2 Diagnostic
 
 on:
   workflow_dispatch:
@@ -151,12 +151,26 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build debug APK
+      - name: Build debug APK and print real Kotlin errors
         working-directory: ${{ steps.unzip.outputs.project_dir }}
-        run: gradle assembleDebug --no-daemon --stacktrace --info
+        shell: bash
+        run: |
+          set +e
+          gradle assembleDebug --no-daemon --stacktrace --info --console=plain 2>&1 | tee build.log
+          STATUS=${PIPESTATUS[0]}
+
+          if [ "$STATUS" -ne 0 ]; then
+            echo ""
+            echo "================ REAL ERROR LINES ================"
+            grep -n -E "e: |error:|ERROR:|Unresolved reference|Expecting|Overload resolution|None of the following|Cannot access|Type mismatch|Too many arguments|No value passed|Only safe|Smart cast|Redeclaration|Conflicting|Cannot infer" build.log | tail -n 120 || true
+            echo "================ END REAL ERROR LINES ================"
+            echo ""
+          fi
+
+          exit "$STATUS"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: BankMoviee-Player-Pro-V2-Universal-Kotlin-Fix-apk
+          name: BankMoviee-Player-Pro-V2-Diagnostic-apk
           path: ${{ steps.unzip.outputs.project_dir }}/app/build/outputs/apk/debug/*.apk
