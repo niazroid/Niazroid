@@ -1,0 +1,144 @@
+name: Build APK From Any Uploaded ZIP
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    name: Unzip project and build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Find and unzip project ZIP
+        id: unzip
+        shell: bash
+        run: |
+          echo "Files in repository root:"
+          ls -la
+
+          ZIP_FILE="$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)"
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No ZIP file found in repository root."
+            echo "Upload the project ZIP in the main Code page."
+            exit 1
+          fi
+
+          echo "Using ZIP file: $ZIP_FILE"
+
+          rm -rf project
+          mkdir project
+          unzip -q "$ZIP_FILE" -d project
+
+          echo "Files after unzip:"
+          find project -maxdepth 4 -type f | sed 's#^#- #' | head -n 80
+
+          SETTINGS_FILE="$(find project -maxdepth 5 -type f -name "settings.gradle" | head -n 1)"
+
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "Could not find settings.gradle after unzip."
+            echo "This ZIP is probably not the Android project ZIP."
+            exit 1
+          fi
+
+          PROJECT_DIR="$(dirname "$SETTINGS_FILE")"
+          echo "Android project directory: $PROJECT_DIR"
+          echo "project_dir=$PROJECT_DIR" >> $GITHUB_OUTPUT
+
+      - name: Fix AndroidX Gradle properties
+        shell: bash
+        run: |
+          PROJECT_DIR="${{ steps.unzip.outputs.project_dir }}"
+          touch "$PROJECT_DIR/gradle.properties"
+
+          grep -q "^android.useAndroidX=" "$PROJECT_DIR/gradle.properties" \
+            && sed -i 's/^android.useAndroidX=.*/android.useAndroidX=true/' "$PROJECT_DIR/gradle.properties" \
+            || echo "android.useAndroidX=true" >> "$PROJECT_DIR/gradle.properties"
+
+          grep -q "^android.enableJetifier=" "$PROJECT_DIR/gradle.properties" \
+            && sed -i 's/^android.enableJetifier=.*/android.enableJetifier=true/' "$PROJECT_DIR/gradle.properties" \
+            || echo "android.enableJetifier=true" >> "$PROJECT_DIR/gradle.properties"
+
+          echo "Final gradle.properties:"
+          cat "$PROJECT_DIR/gradle.properties"
+
+      - name: Fix Java and Kotlin JVM target
+        shell: bash
+        run: |
+          PROJECT_DIR="${{ steps.unzip.outputs.project_dir }}"
+          APP_GRADLE="$PROJECT_DIR/app/build.gradle"
+          APP_GRADLE_KTS="$PROJECT_DIR/app/build.gradle.kts"
+
+          if [ -f "$APP_GRADLE" ]; then
+            cat >> "$APP_GRADLE" <<'EOF'
+
+          android {
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = '17'
+              }
+          }
+          EOF
+          elif [ -f "$APP_GRADLE_KTS" ]; then
+            cat >> "$APP_GRADLE_KTS" <<'EOF'
+
+          android {
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          }
+          EOF
+          else
+            echo "Could not find app/build.gradle or app/build.gradle.kts"
+            exit 1
+          fi
+
+          echo "Updated app build file:"
+          if [ -f "$APP_GRADLE" ]; then
+            tail -n 40 "$APP_GRADLE"
+          else
+            tail -n 40 "$APP_GRADLE_KTS"
+          fi
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_HOME" > "${{ steps.unzip.outputs.project_dir }}/local.properties"
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        working-directory: ${{ steps.unzip.outputs.project_dir }}
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: BankMoviee-debug-apk
+          path: ${{ steps.unzip.outputs.project_dir }}/app/build/outputs/apk/debug/*.apk
