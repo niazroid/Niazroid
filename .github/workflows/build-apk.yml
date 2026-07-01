@@ -1,4 +1,4 @@
-name: Build BankMoviee Player Pro V2
+name: Build BankMoviee Player Pro V2 Fixed
 
 on:
   workflow_dispatch:
@@ -166,5 +166,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: BankMoviee-Player-Pro-V2-arm64-apk
+          name: BankMoviee-Player-Pro-V2-Fixed-arm64-apk
           path: ${{ steps.unzip.outputs.project_dir }}/app/build/outputs/apk/debug/*.apk
