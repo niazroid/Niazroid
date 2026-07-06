@@ -1218,6 +1218,11 @@ jobs:
                   props[k.strip()] = v.strip()
           props["android.useAndroidX"] = "true"
           props["android.enableJetifier"] = "true"
+          props["org.gradle.jvmargs"] = "-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8 -XX:+HeapDumpOnOutOfMemoryError"
+          props["org.gradle.workers.max"] = "1"
+          props["org.gradle.parallel"] = "false"
+          props["org.gradle.daemon"] = "false"
+          props["android.enableR8.fullMode"] = "false"
           merged, seen = [], set()
           for line in existing.splitlines():
               if "=" in line and not line.strip().startswith("#"):
@@ -1256,7 +1261,7 @@ jobs:
               }
               defaultConfig {
                   def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
-                  versionCode 710000 + runNumber
+                  versionCode 720000 + runNumber
                   versionName "1.2"
               }
               buildTypes {
@@ -1285,14 +1290,14 @@ jobs:
               // BANKMOVIE_RELEASE_1_2_ABI_FIX_71
               defaultConfig {
                   def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
-                  versionCode 710000 + runNumber
+                  versionCode 720000 + runNumber
                   versionName "1.2"
               }
               splits {
                   abi {
                       enable true
                       reset()
-                      include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+                      include "armeabi-v7a", "arm64-v8a"
                       universalApk true
                   }
               }
@@ -1509,7 +1514,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          gradle assembleRelease --no-daemon --stacktrace --info --console=plain 2>&1 | tee build.log
+          gradle :app:assembleRelease --no-daemon --max-workers=1 --stacktrace --info --console=plain -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" 2>&1 | tee build.log
           STATUS=${PIPESTATUS[0]}
 
           if [ "$STATUS" -ne 0 ]; then
@@ -1527,11 +1532,14 @@ jobs:
         working-directory: ${{ steps.unzip.outputs.project_dir }}
         shell: bash
         run: |
-          echo "APK outputs:"
+          echo "Release APK outputs:"
           find app/build/outputs/apk/release -type f -name "*.apk" -maxdepth 1 -printf "%f  %k KB\n" || true
+          echo ""
+          echo "Publish these:"
+          find app/build/outputs/apk/release -type f \( -name "*arm64-v8a*release*.apk" -o -name "*armeabi-v7a*release*.apk" -o -name "*universal*release*.apk" \) -printf "%f\n" || true
 
       - name: Upload Release APKs
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.2-Release-ABI-Footer-Fix-71-apk
+          name: Bankmovie-V1.2-Release-OOM-Fix-72-apk
           path: ${{ steps.unzip.outputs.project_dir }}/app/build/outputs/apk/release/*.apk
