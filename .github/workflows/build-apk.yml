@@ -1,12 +1,12 @@
-name: Build Bankmovie V16 SdkEpisodeFix 70
+name: Build Bankmovie V1.4 Archive2 Toggle Back Fix 91
 
 on:
-  push:
   workflow_dispatch:
+  push:
 
 jobs:
   build:
-    name: Build Bankmovie V16 SdkEpisodeFix 70 APK
+    name: Build Bankmovie V1.4 Archive2 Toggle Back Fix 91 APK
     runs-on: ubuntu-latest
 
     steps:
@@ -45,7 +45,7 @@ jobs:
           echo "Android project directory: $PROJECT_DIR"
           echo "project_dir=$PROJECT_DIR" >> $GITHUB_OUTPUT
 
-      - name: Patch Bankmovie V16 SdkEpisodeFix 70
+      - name: Patch Bankmovie V1.4 Archive2 Toggle Back Fix 91
         shell: bash
         env:
           PROJECT_DIR: ${{ steps.unzip.outputs.project_dir }}
@@ -1261,7 +1261,7 @@ jobs:
               }
               defaultConfig {
                   def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
-                  versionCode 900000 + runNumber
+                  versionCode 910000 + runNumber
                   versionName "1.4"
               }
               buildTypes {
@@ -1284,13 +1284,13 @@ jobs:
               }
           }
           """
-              if "BANKMOVIE_RELEASE_1_4_ARCHIVE2_TOGGLE_BACK_FIX_90" not in text:
+              if "BANKMOVIE_RELEASE_1_4_ARCHIVE2_TOGGLE_BACK_FIX_91" not in text:
                   text += """
           android {
-              // BANKMOVIE_RELEASE_1_4_ARCHIVE2_TOGGLE_BACK_FIX_90
+              // BANKMOVIE_RELEASE_1_4_ARCHIVE2_TOGGLE_BACK_FIX_91
               defaultConfig {
                   def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
-                  versionCode 900000 + runNumber
+                  versionCode 910000 + runNumber
                   versionName "1.4"
               }
               splits {
@@ -1552,13 +1552,13 @@ jobs:
             find app/build/outputs/apk/release -type f -name '*.apk' -print || true
             exit 1
           fi
-          cp "$UNIVERSAL_APK" publish/Bankmovie-v1.4-full-universal-fix90.apk
-          [ -n "$ARM64_APK" ] && cp "$ARM64_APK" publish/Bankmovie-v1.4-arm64-v8a-fix90.apk || true
-          [ -n "$V7A_APK" ] && cp "$V7A_APK" publish/Bankmovie-v1.4-armeabi-v7a-fix90.apk || true
-          sha256sum publish/*.apk | tee publish/Bankmovie-v1.4-fix90.sha256
+          cp "$UNIVERSAL_APK" publish/Bankmovie-v1.4-full-universal-fix91.apk
+          [ -n "$ARM64_APK" ] && cp "$ARM64_APK" publish/Bankmovie-v1.4-arm64-v8a-fix91.apk || true
+          [ -n "$V7A_APK" ] && cp "$V7A_APK" publish/Bankmovie-v1.4-armeabi-v7a-fix91.apk || true
+          sha256sum publish/*.apk | tee publish/Bankmovie-v1.4-fix91.sha256
 
       - name: Upload Release APKs
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.4-Archive2-Toggle-Back-Fix-90-apk
+          name: Bankmovie-V1.4-Archive2-Toggle-Back-Fix-91-apk
           path: ${{ steps.unzip.outputs.project_dir }}/publish/*
