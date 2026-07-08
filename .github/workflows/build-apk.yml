@@ -15,7 +15,7 @@ jobs:
         run: |
           echo "=============================="
           echo "FORCE_BUILD_MARKER=FIX_100_UNIVERSAL_ARM_COMBO"
-          echo "Archive2 is disabled. This workflow publishes universal APKs only; no split APK is published.
+          echo "Archive2 is disabled. This workflow publishes universal APKs only; no split APK is published."
           echo "=============================="
 
       - name: Checkout repository
