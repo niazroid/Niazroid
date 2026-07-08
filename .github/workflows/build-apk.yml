@@ -1,11 +1,12 @@
 name: Build Bankmovie V1.3 Universal ARM Combo Fix 101
+
 run-name: Bankmovie V101 - ${{ github.event_name }} - ${{ github.ref_name }}
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
   push:
     branches:
-      - "**"
+      - main
 
 permissions:
   contents: read
