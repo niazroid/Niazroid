@@ -1,43 +1,57 @@
-name: Build Bankmovie V1.4 Archive2 Toggle Back Fix 91
+name: Build Bankmovie V1.4 Archive2 Workflow Zip Fix 92
 
 on:
-  workflow_dispatch:
   push:
+  workflow_dispatch:
 
 jobs:
   build:
-    name: Build Bankmovie V1.4 Archive2 Toggle Back Fix 91 APK
+    name: Build Bankmovie V16 SdkEpisodeFix 70 APK
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Find and unzip project ZIP
+      - name: Find and unzip Android project ZIP
         id: unzip
         shell: bash
         run: |
+          set -e
           echo "Files in repository root:"
           ls -la
 
-          ZIP_FILE="$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)"
+          echo ""
+          echo "Scanning ZIP files and picking the one that contains settings.gradle or settings.gradle.kts..."
+          ZIP_FILE=""
+          while IFS= read -r z; do
+            echo "Checking: $z"
+            if unzip -l "$z" | grep -E '(^|/)(settings\.gradle|settings\.gradle\.kts)$' >/dev/null; then
+              ZIP_FILE="$z"
+              break
+            fi
+          done < <(find . -maxdepth 1 -type f -name "*.zip" | sort)
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "No ZIP file found in repository root."
-            echo "Upload the project ZIP in the main Code page."
+            echo "No Android project ZIP found."
+            echo "Important: server ZIP files are ignored because they do not contain settings.gradle."
+            echo "ZIP files in root:"
+            find . -maxdepth 1 -type f -name "*.zip" -print || true
             exit 1
           fi
 
-          echo "Using ZIP file: $ZIP_FILE"
+          echo "Using Android project ZIP: $ZIP_FILE"
 
           rm -rf project
           mkdir project
           unzip -q "$ZIP_FILE" -d project
 
-          SETTINGS_FILE="$(find project -maxdepth 5 -type f -name "settings.gradle" | head -n 1)"
+          SETTINGS_FILE="$(find project -maxdepth 8 -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" \) | head -n 1)"
 
           if [ -z "$SETTINGS_FILE" ]; then
-            echo "Could not find settings.gradle after unzip."
+            echo "Could not find settings.gradle/settings.gradle.kts after unzip."
+            echo "Unzipped tree preview:"
+            find project -maxdepth 4 -type f | head -n 120
             exit 1
           fi
 
@@ -45,7 +59,7 @@ jobs:
           echo "Android project directory: $PROJECT_DIR"
           echo "project_dir=$PROJECT_DIR" >> $GITHUB_OUTPUT
 
-      - name: Patch Bankmovie V1.4 Archive2 Toggle Back Fix 91
+      - name: Patch Bankmovie V16 SdkEpisodeFix 70
         shell: bash
         env:
           PROJECT_DIR: ${{ steps.unzip.outputs.project_dir }}
@@ -1261,7 +1275,7 @@ jobs:
               }
               defaultConfig {
                   def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
-                  versionCode 910000 + runNumber
+                  versionCode 920000 + runNumber
                   versionName "1.4"
               }
               buildTypes {
@@ -1284,13 +1298,13 @@ jobs:
               }
           }
           """
-              if "BANKMOVIE_RELEASE_1_4_ARCHIVE2_TOGGLE_BACK_FIX_91" not in text:
+              if "BANKMOVIE_RELEASE_1_4_ARCHIVE2_WORKFLOW_ZIP_FIX_92" not in text:
                   text += """
           android {
-              // BANKMOVIE_RELEASE_1_4_ARCHIVE2_TOGGLE_BACK_FIX_91
+              // BANKMOVIE_RELEASE_1_4_ARCHIVE2_WORKFLOW_ZIP_FIX_92
               defaultConfig {
                   def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
-                  versionCode 910000 + runNumber
+                  versionCode 920000 + runNumber
                   versionName "1.4"
               }
               splits {
@@ -1552,13 +1566,13 @@ jobs:
             find app/build/outputs/apk/release -type f -name '*.apk' -print || true
             exit 1
           fi
-          cp "$UNIVERSAL_APK" publish/Bankmovie-v1.4-full-universal-fix91.apk
-          [ -n "$ARM64_APK" ] && cp "$ARM64_APK" publish/Bankmovie-v1.4-arm64-v8a-fix91.apk || true
-          [ -n "$V7A_APK" ] && cp "$V7A_APK" publish/Bankmovie-v1.4-armeabi-v7a-fix91.apk || true
-          sha256sum publish/*.apk | tee publish/Bankmovie-v1.4-fix91.sha256
+          cp "$UNIVERSAL_APK" publish/Bankmovie-v1.4-full-universal-fix92.apk
+          [ -n "$ARM64_APK" ] && cp "$ARM64_APK" publish/Bankmovie-v1.4-arm64-v8a-fix92.apk || true
+          [ -n "$V7A_APK" ] && cp "$V7A_APK" publish/Bankmovie-v1.4-armeabi-v7a-fix92.apk || true
+          sha256sum publish/*.apk | tee publish/Bankmovie-v1.4-fix92.sha256
 
       - name: Upload Release APKs
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.4-Archive2-Toggle-Back-Fix-91-apk
+          name: Bankmovie-V1.4-Archive2-Workflow-Zip-Fix-92-apk
           path: ${{ steps.unzip.outputs.project_dir }}/publish/*
