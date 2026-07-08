@@ -1,4 +1,4 @@
-name: Build Bankmovie V1.3 Google ARM Focus Fix 99
+name: Build Bankmovie V1.3 Y7 Y8 Universal Only Fix 99
 
 on:
   push:
@@ -10,12 +10,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: FORCE Fix 99 Google ARM focus marker
+      - name: FORCE Fix 99 Y7 Y8 universal only marker
         shell: bash
         run: |
           echo "=============================="
-          echo "FORCE_BUILD_MARKER=FIX_99_GOOGLE_ARM_FOCUS"
-          echo "Archive2 is disabled. This workflow focuses on the successful all-ABI ARM64 split path and nearby variants."
+          echo "FORCE_BUILD_MARKER=FIX_99_Y7_Y8_UNIVERSAL_ONLY_NO_X86"
+          echo "Archive2 is disabled. This workflow builds ONE universal APK with only armeabi-v7a + arm64-v8a. No x86 or x86_64."
           echo "=============================="
 
       - name: Checkout repository
@@ -1292,10 +1292,10 @@ jobs:
               }
           }
           """
-              if "BANKMOVIE_RELEASE_1_3_GOOGLE_ARM_FOCUS_FIX_99" not in text:
+              if "BANKMOVIE_RELEASE_1_3_Y7_Y8_UNIVERSAL_ONLY_FIX_99" not in text:
                   text += """
           android {
-              // BANKMOVIE_RELEASE_1_3_GOOGLE_ARM_FOCUS_FIX_99
+              // BANKMOVIE_RELEASE_1_3_Y7_Y8_UNIVERSAL_ONLY_FIX_99
               defaultConfig {
                   def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
                   versionCode 990000 + runNumber
@@ -1305,7 +1305,7 @@ jobs:
                   abi {
                       enable true
                       reset()
-                      include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+                      include "armeabi-v7a", "arm64-v8a"
                       universalApk true
                   }
               }
@@ -1517,7 +1517,7 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build focused Google ARM variants
+      - name: Build Y7 Y8 universal APK only
         working-directory: ${{ steps.unzip.outputs.project_dir }}
         shell: bash
         run: |
@@ -1525,110 +1525,67 @@ jobs:
           mkdir -p publish
 
           patch_abi_config() {
-            local includes="$1"
-            local universal="$2"
-            python3 - "$includes" "$universal" <<'PY'
+            python3 <<'PY'
           from pathlib import Path
-          import re, sys
+          import re
 
-          includes = sys.argv[1]
-          universal = sys.argv[2]
           candidates = [Path("app/build.gradle"), Path("app/build.gradle.kts")]
           gradle = next((p for p in candidates if p.exists()), None)
           if gradle is None:
               raise SystemExit("app/build.gradle or app/build.gradle.kts not found")
 
           s = gradle.read_text(encoding="utf-8")
-          s = re.sub(r'include\s+"[^"]+"(?:\s*,\s*"[^"]+")*', f'include {includes}', s)
-          s = re.sub(r'universalApk\s+(true|false)', f'universalApk {universal}', s)
+
+          # Force ONLY ARM ABIs in one universal APK:
+          # Y7 = armeabi-v7a, Y8 = arm64-v8a
+          s = re.sub(r'include\s+"[^"]+"(?:\s*,\s*"[^"]+")*', 'include "armeabi-v7a", "arm64-v8a"', s)
+          s = re.sub(r'universalApk\s+(true|false)', 'universalApk true', s)
+
+          # Extra safety: remove x86/x86_64 if they exist anywhere in ABI include lines.
+          s = s.replace(', "x86"', '').replace(', "x86_64"', '').replace('"x86", ', '').replace('"x86_64", ', '')
+
           gradle.write_text(s, encoding="utf-8")
-          print("Patched ABI config:", includes, "universalApk", universal)
+          print("Patched ABI config: include armeabi-v7a + arm64-v8a, universalApk true, no x86/x86_64")
           PY
           }
 
-          build_and_copy() {
-            local variant="$1"
-            local includes="$2"
-            local universal="$3"
-            shift 3
+          echo ""
+          echo "================ BUILD VARIANT: Y7+Y8 UNIVERSAL ONLY ================"
+          patch_abi_config
+          rm -rf app/build/outputs/apk/release || true
 
+          set +e
+          gradle :app:assembleRelease --no-daemon --max-workers=1 --stacktrace --info --console=plain -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" 2>&1 | tee "build-y7-y8-universal-only.log"
+          STATUS=${PIPESTATUS[0]}
+          set -e
+
+          if [ "$STATUS" -ne 0 ]; then
             echo ""
-            echo "================ BUILD VARIANT: $variant ================"
-            patch_abi_config "$includes" "$universal"
-            rm -rf app/build/outputs/apk/release || true
+            echo "================ REAL ERROR LINES FOR Y7+Y8 UNIVERSAL ONLY ================"
+            grep -n -E "e: |error:|ERROR:|Unresolved reference|Expecting|Overload resolution|None of the following|Cannot access|Type mismatch|Too many arguments|No value passed|Only safe|Smart cast|Redeclaration|Conflicting|Cannot infer" "build-y7-y8-universal-only.log" | tail -n 180 || true
+            echo "================ END REAL ERROR LINES ================"
+            exit "$STATUS"
+          fi
 
-            set +e
-            gradle :app:assembleRelease --no-daemon --max-workers=1 --stacktrace --info --console=plain -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" 2>&1 | tee "build-$variant.log"
-            STATUS=${PIPESTATUS[0]}
-            set -e
+          echo "APK outputs:"
+          find app/build/outputs/apk/release -maxdepth 1 -type f -name "*.apk" -printf "%f  %k KB\n" || true
 
-            if [ "$STATUS" -ne 0 ]; then
-              echo ""
-              echo "================ REAL ERROR LINES FOR $variant ================"
-              grep -n -E "e: |error:|ERROR:|Unresolved reference|Expecting|Overload resolution|None of the following|Cannot access|Type mismatch|Too many arguments|No value passed|Only safe|Smart cast|Redeclaration|Conflicting|Cannot infer" "build-$variant.log" | tail -n 180 || true
-              echo "================ END REAL ERROR LINES ================"
-              exit "$STATUS"
-            fi
+          APK="$(find app/build/outputs/apk/release -type f -name "*universal*release*.apk" | head -n 1 || true)"
+          if [ -z "$APK" ]; then
+            echo "Could not find universal APK. Available APKs:"
+            find app/build/outputs/apk/release -type f -name "*.apk" -print || true
+            exit 1
+          fi
 
-            echo "APK outputs for $variant:"
-            find app/build/outputs/apk/release -maxdepth 1 -type f -name "*.apk" -printf "%f  %k KB\n" || true
-
-            while [ "$#" -gt 0 ]; do
-              local pattern="$1"
-              local out_name="$2"
-              shift 2
-              APK="$(find app/build/outputs/apk/release -type f -name "$pattern" | head -n 1 || true)"
-              if [ -z "$APK" ]; then
-                echo "Could not find APK pattern $pattern for $variant"
-                find app/build/outputs/apk/release -type f -name "*.apk" -print || true
-                exit 1
-              fi
-              cp "$APK" "publish/$out_name"
-            done
-          }
-
-          # A) Proven baseline:
-          # This is the same class as the APK that installed without Google warning:
-          # all ABIs configured, but the output APK is ONLY arm64-v8a split.
-          build_and_copy \
-            "A-proven-allabi-arm64-split" \
-            '"armeabi-v7a", "arm64-v8a", "x86", "x86_64"' \
-            "true" \
-            "*arm64-v8a*release*.apk" "Bankmovie-v1.3-google-focus-A-proven-allabi-arm64-v8a-split-fix99.apk"
-
-          # B) Same all-ABI build, but ARMv7 split only.
-          # This is for older 32-bit phones; it does NOT include arm64.
-          build_and_copy \
-            "B-allabi-v7a-split" \
-            '"armeabi-v7a", "arm64-v8a", "x86", "x86_64"' \
-            "true" \
-            "*armeabi-v7a*release*.apk" "Bankmovie-v1.3-google-focus-B-allabi-armeabi-v7a-split-fix99.apk"
-
-          # C) Add v7a to the successful path in one APK:
-          # one universal APK containing ONLY ARM64 + ARMv7, no x86/x86_64.
-          # This is the lower-size universal candidate.
-          build_and_copy \
-            "C-arm64-v7a-universal-no-x86" \
-            '"armeabi-v7a", "arm64-v8a"' \
-            "true" \
-            "*universal*release*.apk" "Bankmovie-v1.3-google-focus-C-arm64-v7a-universal-no-x86-fix99.apk"
-
-          # D) Full universal control:
-          # one APK containing ARM64 + ARMv7 + x86 + x86_64.
-          # Bigger file, but strongest compatibility/control check.
-          build_and_copy \
-            "D-allabi-universal-control" \
-            '"armeabi-v7a", "arm64-v8a", "x86", "x86_64"' \
-            "true" \
-            "*universal*release*.apk" "Bankmovie-v1.3-google-focus-D-allabi-universal-control-fix99.apk"
+          cp "$APK" "publish/Bankmovie-v1.3-Y7-Y8-universal-armeabi-v7a-arm64-v8a-no-x86-fix99.apk"
 
           echo ""
           echo "Final publish files:"
           ls -lh publish
-          sha256sum publish/*.apk | tee publish/Bankmovie-v1.3-google-focus-sha256-fix99.sha256
+          sha256sum publish/*.apk | tee publish/Bankmovie-v1.3-Y7-Y8-universal-no-x86-sha256-fix99.sha256
 
-      - name: Upload Release APKs
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.3-Google-ARM-Focus-Fix-99-apk
+          name: Bankmovie-V1.3-Y7-Y8-Universal-No-X86-Fix-99-apk
           path: ${{ steps.unzip.outputs.project_dir }}/publish/*
