@@ -1,8 +1,13 @@
-name: Build Bankmovie V1.3 Universal ARM Combo Fix 100
+name: Bankmovie V102 Direct Build
 
 on:
   push:
+    branches:
+      - main
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -10,12 +15,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: FORCE Fix 100 universal ARM combo marker
+      - name: FORCE Fix 102 universal ARM combo marker
         shell: bash
         run: |
           echo "=============================="
-          echo "FORCE_BUILD_MARKER=FIX_100_UNIVERSAL_ARM_COMBO"
-          echo "Archive2 is disabled. This workflow publishes universal APKs only; no split APK is published.
+          echo "FORCE_BUILD_MARKER=FIX_102_UNIVERSAL_ARM_COMBO"
+          echo "Archive2 is disabled. This workflow publishes universal APKs only; no split APK is published."
           echo "=============================="
 
       - name: Checkout repository
@@ -1269,7 +1274,7 @@ jobs:
               }
               defaultConfig {
                   def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
-                  versionCode 1000000 + runNumber
+                  versionCode 1020000 + runNumber
                   versionName "1.3"
               }
               buildTypes {
@@ -1292,13 +1297,13 @@ jobs:
               }
           }
           """
-              if "BANKMOVIE_RELEASE_1_3_UNIVERSAL_ARM_COMBO_FIX_100" not in text:
+              if "BANKMOVIE_RELEASE_1_3_UNIVERSAL_ARM_COMBO_FIX_102" not in text:
                   text += """
           android {
-              // BANKMOVIE_RELEASE_1_3_UNIVERSAL_ARM_COMBO_FIX_100
+              // BANKMOVIE_RELEASE_1_3_UNIVERSAL_ARM_COMBO_FIX_102
               defaultConfig {
                   def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
-                  versionCode 1000000 + runNumber
+                  versionCode 1020000 + runNumber
                   versionName "1.3"
               }
               splits {
@@ -1546,12 +1551,12 @@ jobs:
           s = re.sub(r'universalApk\s+(true|false)', 'universalApk true', s)
 
           # Remove prior legacy-native block from the previous variant build.
-          s = re.sub(r'\n\s*// BM_LEGACY_NATIVE_PACKAGING_FIX100_START.*?// BM_LEGACY_NATIVE_PACKAGING_FIX100_END\s*\n', '\n', s, flags=re.S)
+          s = re.sub(r'\n\s*// BM_LEGACY_NATIVE_PACKAGING_FIX102_START.*?// BM_LEGACY_NATIVE_PACKAGING_FIX102_END\s*\n', '\n', s, flags=re.S)
 
           if legacy_native:
               if gradle.name.endswith(".kts"):
                   extra = """
-          // BM_LEGACY_NATIVE_PACKAGING_FIX100_START
+          // BM_LEGACY_NATIVE_PACKAGING_FIX102_START
           android {
               packaging {
                   jniLibs {
@@ -1559,11 +1564,11 @@ jobs:
                   }
               }
           }
-          // BM_LEGACY_NATIVE_PACKAGING_FIX100_END
+          // BM_LEGACY_NATIVE_PACKAGING_FIX102_END
           """
               else:
                   extra = """
-          // BM_LEGACY_NATIVE_PACKAGING_FIX100_START
+          // BM_LEGACY_NATIVE_PACKAGING_FIX102_START
           android {
               packagingOptions {
                   jniLibs {
@@ -1571,7 +1576,7 @@ jobs:
                   }
               }
           }
-          // BM_LEGACY_NATIVE_PACKAGING_FIX100_END
+          // BM_LEGACY_NATIVE_PACKAGING_FIX102_END
           """
               s += extra
 
@@ -1632,7 +1637,7 @@ jobs:
             "U1-arm64-v7a-universal-normal" \
             '"armeabi-v7a", "arm64-v8a"' \
             "false" \
-            "Bankmovie-v1.3-universal-U1-arm64-v7a-normal-fix100.apk"
+            "Bankmovie-v1.3-universal-U1-arm64-v7a-normal-fix102.apk"
 
           # 2) Same ARM64 + ARMv7 universal, but legacy native packaging/extractNativeLibs enabled.
           # This is the extra packaging mode for Google/Play Protect testing.
@@ -1640,36 +1645,36 @@ jobs:
             "U2-arm64-v7a-universal-legacy-native" \
             '"armeabi-v7a", "arm64-v8a"' \
             "true" \
-            "Bankmovie-v1.3-universal-U2-arm64-v7a-legacy-native-fix100.apk"
+            "Bankmovie-v1.3-universal-U2-arm64-v7a-legacy-native-fix102.apk"
 
           # 3) ARM64 + ARMv7 + x86 universal.
           build_universal \
             "U3-arm64-v7a-x86-universal" \
             '"armeabi-v7a", "arm64-v8a", "x86"' \
             "false" \
-            "Bankmovie-v1.3-universal-U3-arm64-v7a-x86-fix100.apk"
+            "Bankmovie-v1.3-universal-U3-arm64-v7a-x86-fix102.apk"
 
           # 4) ARM64 + ARMv7 + x86_64 universal.
           build_universal \
             "U4-arm64-v7a-x86_64-universal" \
             '"armeabi-v7a", "arm64-v8a", "x86_64"' \
             "false" \
-            "Bankmovie-v1.3-universal-U4-arm64-v7a-x86_64-fix100.apk"
+            "Bankmovie-v1.3-universal-U4-arm64-v7a-x86_64-fix102.apk"
 
           # 5) Full all-ABI universal control.
           build_universal \
             "U5-allabi-universal-control" \
             '"armeabi-v7a", "arm64-v8a", "x86", "x86_64"' \
             "false" \
-            "Bankmovie-v1.3-universal-U5-allabi-control-fix100.apk"
+            "Bankmovie-v1.3-universal-U5-allabi-control-fix102.apk"
 
           echo ""
           echo "Final publish files:"
           ls -lh publish
-          sha256sum publish/*.apk | tee publish/Bankmovie-v1.3-universal-arm-combo-sha256-fix100.sha256
+          sha256sum publish/*.apk | tee publish/Bankmovie-v1.3-universal-arm-combo-sha256-fix102.sha256
 
       - name: Upload Release APKs
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.3-Universal-ARM-Combo-Fix-100-apk
+          name: Bankmovie-V1.3-Universal-ARM-Combo-Fix-102-apk
           path: ${{ steps.unzip.outputs.project_dir }}/publish/*
