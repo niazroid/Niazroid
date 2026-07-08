@@ -1,13 +1,8 @@
-name: Bankmovie V102 Direct Build
+name: Build Bankmovie V1.3 Google ARM Focus Fix 99
 
 on:
   push:
-    branches:
-      - main
   workflow_dispatch:
-
-permissions:
-  contents: read
 
 jobs:
   build:
@@ -15,12 +10,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: FORCE Fix 102 universal ARM combo marker
+      - name: FORCE Fix 99 Google ARM focus marker
         shell: bash
         run: |
           echo "=============================="
-          echo "FORCE_BUILD_MARKER=FIX_102_UNIVERSAL_ARM_COMBO"
-          echo "Archive2 is disabled. This workflow publishes universal APKs only; no split APK is published."
+          echo "FORCE_BUILD_MARKER=FIX_99_GOOGLE_ARM_FOCUS"
+          echo "Archive2 is disabled. This workflow focuses on the successful all-ABI ARM64 split path and nearby variants."
           echo "=============================="
 
       - name: Checkout repository
@@ -1274,7 +1269,7 @@ jobs:
               }
               defaultConfig {
                   def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
-                  versionCode 1020000 + runNumber
+                  versionCode 990000 + runNumber
                   versionName "1.3"
               }
               buildTypes {
@@ -1297,13 +1292,13 @@ jobs:
               }
           }
           """
-              if "BANKMOVIE_RELEASE_1_3_UNIVERSAL_ARM_COMBO_FIX_102" not in text:
+              if "BANKMOVIE_RELEASE_1_3_GOOGLE_ARM_FOCUS_FIX_99" not in text:
                   text += """
           android {
-              // BANKMOVIE_RELEASE_1_3_UNIVERSAL_ARM_COMBO_FIX_102
+              // BANKMOVIE_RELEASE_1_3_GOOGLE_ARM_FOCUS_FIX_99
               defaultConfig {
                   def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
-                  versionCode 1020000 + runNumber
+                  versionCode 990000 + runNumber
                   versionName "1.3"
               }
               splits {
@@ -1522,87 +1517,44 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build universal-only ARM combo variants
+      - name: Build focused Google ARM variants
         working-directory: ${{ steps.unzip.outputs.project_dir }}
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p publish
 
-          patch_variant_config() {
+          patch_abi_config() {
             local includes="$1"
-            local legacy_native="$2"
-            python3 - "$includes" "$legacy_native" <<'PY'
+            local universal="$2"
+            python3 - "$includes" "$universal" <<'PY'
           from pathlib import Path
           import re, sys
 
           includes = sys.argv[1]
-          legacy_native = sys.argv[2].lower() == "true"
-
+          universal = sys.argv[2]
           candidates = [Path("app/build.gradle"), Path("app/build.gradle.kts")]
           gradle = next((p for p in candidates if p.exists()), None)
           if gradle is None:
               raise SystemExit("app/build.gradle or app/build.gradle.kts not found")
 
           s = gradle.read_text(encoding="utf-8")
-
-          # Always build a universal APK, but include only the ABI set for this variant.
           s = re.sub(r'include\s+"[^"]+"(?:\s*,\s*"[^"]+")*', f'include {includes}', s)
-          s = re.sub(r'universalApk\s+(true|false)', 'universalApk true', s)
-
-          # Remove prior legacy-native block from the previous variant build.
-          s = re.sub(r'\n\s*// BM_LEGACY_NATIVE_PACKAGING_FIX102_START.*?// BM_LEGACY_NATIVE_PACKAGING_FIX102_END\s*\n', '\n', s, flags=re.S)
-
-          if legacy_native:
-              if gradle.name.endswith(".kts"):
-                  extra = """
-          // BM_LEGACY_NATIVE_PACKAGING_FIX102_START
-          android {
-              packaging {
-                  jniLibs {
-                      useLegacyPackaging = true
-                  }
-              }
-          }
-          // BM_LEGACY_NATIVE_PACKAGING_FIX102_END
-          """
-              else:
-                  extra = """
-          // BM_LEGACY_NATIVE_PACKAGING_FIX102_START
-          android {
-              packagingOptions {
-                  jniLibs {
-                      useLegacyPackaging true
-                  }
-              }
-          }
-          // BM_LEGACY_NATIVE_PACKAGING_FIX102_END
-          """
-              s += extra
-
+          s = re.sub(r'universalApk\s+(true|false)', f'universalApk {universal}', s)
           gradle.write_text(s, encoding="utf-8")
-          print("Patched ABI config:", includes, "universalApk true", "legacyNative", legacy_native)
-
-          # Optional Android manifest native extraction flag for the legacy-native variant.
-          manifest = Path("app/src/main/AndroidManifest.xml")
-          if manifest.exists():
-              m = manifest.read_text(encoding="utf-8")
-              m = re.sub(r'\s+android:extractNativeLibs="(?:true|false)"', '', m)
-              if legacy_native:
-                  m = m.replace("<application", '<application android:extractNativeLibs="true"', 1)
-              manifest.write_text(m, encoding="utf-8")
+          print("Patched ABI config:", includes, "universalApk", universal)
           PY
           }
 
-          build_universal() {
+          build_and_copy() {
             local variant="$1"
             local includes="$2"
-            local legacy_native="$3"
-            local out_name="$4"
+            local universal="$3"
+            shift 3
 
             echo ""
-            echo "================ BUILD UNIVERSAL VARIANT: $variant ================"
-            patch_variant_config "$includes" "$legacy_native"
+            echo "================ BUILD VARIANT: $variant ================"
+            patch_abi_config "$includes" "$universal"
             rm -rf app/build/outputs/apk/release || true
 
             set +e
@@ -1621,60 +1573,62 @@ jobs:
             echo "APK outputs for $variant:"
             find app/build/outputs/apk/release -maxdepth 1 -type f -name "*.apk" -printf "%f  %k KB\n" || true
 
-            APK="$(find app/build/outputs/apk/release -type f -name '*universal*release*.apk' | head -n 1 || true)"
-            if [ -z "$APK" ]; then
-              echo "Universal APK not found for $variant"
-              find app/build/outputs/apk/release -type f -name "*.apk" -print || true
-              exit 1
-            fi
-
-            cp "$APK" "publish/$out_name"
+            while [ "$#" -gt 0 ]; do
+              local pattern="$1"
+              local out_name="$2"
+              shift 2
+              APK="$(find app/build/outputs/apk/release -type f -name "$pattern" | head -n 1 || true)"
+              if [ -z "$APK" ]; then
+                echo "Could not find APK pattern $pattern for $variant"
+                find app/build/outputs/apk/release -type f -name "*.apk" -print || true
+                exit 1
+              fi
+              cp "$APK" "publish/$out_name"
+            done
           }
 
-          # 1) Main requested output:
-          # ONE universal APK containing both ARM64 and ARMv7, no x86.
-          build_universal \
-            "U1-arm64-v7a-universal-normal" \
-            '"armeabi-v7a", "arm64-v8a"' \
-            "false" \
-            "Bankmovie-v1.3-universal-U1-arm64-v7a-normal-fix102.apk"
+          # A) Proven baseline:
+          # This is the same class as the APK that installed without Google warning:
+          # all ABIs configured, but the output APK is ONLY arm64-v8a split.
+          build_and_copy \
+            "A-proven-allabi-arm64-split" \
+            '"armeabi-v7a", "arm64-v8a", "x86", "x86_64"' \
+            "true" \
+            "*arm64-v8a*release*.apk" "Bankmovie-v1.3-google-focus-A-proven-allabi-arm64-v8a-split-fix99.apk"
 
-          # 2) Same ARM64 + ARMv7 universal, but legacy native packaging/extractNativeLibs enabled.
-          # This is the extra packaging mode for Google/Play Protect testing.
-          build_universal \
-            "U2-arm64-v7a-universal-legacy-native" \
+          # B) Same all-ABI build, but ARMv7 split only.
+          # This is for older 32-bit phones; it does NOT include arm64.
+          build_and_copy \
+            "B-allabi-v7a-split" \
+            '"armeabi-v7a", "arm64-v8a", "x86", "x86_64"' \
+            "true" \
+            "*armeabi-v7a*release*.apk" "Bankmovie-v1.3-google-focus-B-allabi-armeabi-v7a-split-fix99.apk"
+
+          # C) Add v7a to the successful path in one APK:
+          # one universal APK containing ONLY ARM64 + ARMv7, no x86/x86_64.
+          # This is the lower-size universal candidate.
+          build_and_copy \
+            "C-arm64-v7a-universal-no-x86" \
             '"armeabi-v7a", "arm64-v8a"' \
             "true" \
-            "Bankmovie-v1.3-universal-U2-arm64-v7a-legacy-native-fix102.apk"
+            "*universal*release*.apk" "Bankmovie-v1.3-google-focus-C-arm64-v7a-universal-no-x86-fix99.apk"
 
-          # 3) ARM64 + ARMv7 + x86 universal.
-          build_universal \
-            "U3-arm64-v7a-x86-universal" \
-            '"armeabi-v7a", "arm64-v8a", "x86"' \
-            "false" \
-            "Bankmovie-v1.3-universal-U3-arm64-v7a-x86-fix102.apk"
-
-          # 4) ARM64 + ARMv7 + x86_64 universal.
-          build_universal \
-            "U4-arm64-v7a-x86_64-universal" \
-            '"armeabi-v7a", "arm64-v8a", "x86_64"' \
-            "false" \
-            "Bankmovie-v1.3-universal-U4-arm64-v7a-x86_64-fix102.apk"
-
-          # 5) Full all-ABI universal control.
-          build_universal \
-            "U5-allabi-universal-control" \
+          # D) Full universal control:
+          # one APK containing ARM64 + ARMv7 + x86 + x86_64.
+          # Bigger file, but strongest compatibility/control check.
+          build_and_copy \
+            "D-allabi-universal-control" \
             '"armeabi-v7a", "arm64-v8a", "x86", "x86_64"' \
-            "false" \
-            "Bankmovie-v1.3-universal-U5-allabi-control-fix102.apk"
+            "true" \
+            "*universal*release*.apk" "Bankmovie-v1.3-google-focus-D-allabi-universal-control-fix99.apk"
 
           echo ""
           echo "Final publish files:"
           ls -lh publish
-          sha256sum publish/*.apk | tee publish/Bankmovie-v1.3-universal-arm-combo-sha256-fix102.sha256
+          sha256sum publish/*.apk | tee publish/Bankmovie-v1.3-google-focus-sha256-fix99.sha256
 
       - name: Upload Release APKs
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.3-Universal-ARM-Combo-Fix-102-apk
+          name: Bankmovie-V1.3-Google-ARM-Focus-Fix-99-apk
           path: ${{ steps.unzip.outputs.project_dir }}/publish/*
