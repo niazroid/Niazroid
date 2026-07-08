@@ -1,4 +1,4 @@
-name: Build Bankmovie V1.3 Google ABI Matrix Fix 97
+name: Build Bankmovie V1.3 Google ARM Matrix Fix 98
 
 on:
   push:
@@ -10,12 +10,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: FORCE Fix 97 Google ABI matrix marker
+      - name: FORCE Fix 98 Google ARM matrix marker
         shell: bash
         run: |
           echo "=============================="
-          echo "FORCE_BUILD_MARKER=FIX_97_GOOGLE_ABI_MATRIX"
-          echo "Archive2 is disabled. This workflow builds Google/Play Protect ABI test APKs."
+          echo "FORCE_BUILD_MARKER=FIX_98_GOOGLE_ARM_MATRIX"
+          echo "Archive2 is disabled. This workflow builds ARM/all-ABI combinations for Google/Play Protect testing."
           echo "=============================="
 
       - name: Checkout repository
@@ -1269,7 +1269,7 @@ jobs:
               }
               defaultConfig {
                   def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
-                  versionCode 970000 + runNumber
+                  versionCode 980000 + runNumber
                   versionName "1.3"
               }
               buildTypes {
@@ -1292,13 +1292,13 @@ jobs:
               }
           }
           """
-              if "BANKMOVIE_RELEASE_1_3_GOOGLE_ABI_MATRIX_FIX_97" not in text:
+              if "BANKMOVIE_RELEASE_1_3_GOOGLE_ARM_MATRIX_FIX_98" not in text:
                   text += """
           android {
-              // BANKMOVIE_RELEASE_1_3_GOOGLE_ABI_MATRIX_FIX_97
+              // BANKMOVIE_RELEASE_1_3_GOOGLE_ARM_MATRIX_FIX_98
               defaultConfig {
                   def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
-                  versionCode 970000 + runNumber
+                  versionCode 980000 + runNumber
                   versionName "1.3"
               }
               splits {
@@ -1517,7 +1517,7 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build Google ABI test APK matrix
+      - name: Build Google ARM / ABI test matrix
         working-directory: ${{ steps.unzip.outputs.project_dir }}
         shell: bash
         run: |
@@ -1530,12 +1530,14 @@ jobs:
             python3 - "$includes" "$universal" <<'PY'
           from pathlib import Path
           import re, sys
+
           includes = sys.argv[1]
           universal = sys.argv[2]
           candidates = [Path("app/build.gradle"), Path("app/build.gradle.kts")]
           gradle = next((p for p in candidates if p.exists()), None)
           if gradle is None:
               raise SystemExit("app/build.gradle or app/build.gradle.kts not found")
+
           s = gradle.read_text(encoding="utf-8")
           s = re.sub(r'include\s+"[^"]+"(?:\s*,\s*"[^"]+")*', f'include {includes}', s)
           s = re.sub(r'universalApk\s+(true|false)', f'universalApk {universal}', s)
@@ -1544,12 +1546,11 @@ jobs:
           PY
           }
 
-          build_variant() {
+          build_and_copy() {
             local variant="$1"
             local includes="$2"
             local universal="$3"
-            local find_pattern="$4"
-            local out_name="$5"
+            shift 3
 
             echo ""
             echo "================ BUILD VARIANT: $variant ================"
@@ -1572,34 +1573,54 @@ jobs:
             echo "APK outputs for $variant:"
             find app/build/outputs/apk/release -type f -name "*.apk" -maxdepth 1 -printf "%f  %k KB\n" || true
 
-            APK="$(find app/build/outputs/apk/release -type f -name "$find_pattern" | head -n 1 || true)"
-            if [ -z "$APK" ]; then
-              echo "Could not find APK pattern $find_pattern for $variant"
-              find app/build/outputs/apk/release -type f -name "*.apk" -print || true
-              exit 1
-            fi
-            cp "$APK" "publish/$out_name"
+            while [ "$#" -gt 0 ]; do
+              local pattern="$1"
+              local out_name="$2"
+              shift 2
+              APK="$(find app/build/outputs/apk/release -type f -name "$pattern" | head -n 1 || true)"
+              if [ -z "$APK" ]; then
+                echo "Could not find APK pattern $pattern for $variant"
+                find app/build/outputs/apk/release -type f -name "*.apk" -print || true
+                exit 1
+              fi
+              cp "$APK" "publish/$out_name"
+            done
           }
 
-          # 1) Full universal: all ABIs. This is the control version that usually does NOT show the Google warning.
-          build_variant "full-universal-allabi" '"armeabi-v7a", "arm64-v8a", "x86", "x86_64"' "true" "*universal*release*.apk" "Bankmovie-v1.3-google-test-full-universal-allabi-fix97.apk"
+          # Combo 1: ARM64 + ARMv7 split-only. No universal, no x86.
+          build_and_copy \
+            "combo1-arm-splits-only" \
+            '"armeabi-v7a", "arm64-v8a"' \
+            "false" \
+            "*arm64-v8a*release*.apk" "Bankmovie-v1.3-google-test-combo1-arm64-v8a-split-only-fix98.apk" \
+            "*armeabi-v7a*release*.apk" "Bankmovie-v1.3-google-test-combo1-armeabi-v7a-split-only-fix98.apk"
 
-          # 2) Single split outputs from full ABI build are copied separately for direct testing.
-          ARM64_APK="$(find app/build/outputs/apk/release -type f -name '*arm64-v8a*release*.apk' | head -n 1 || true)"
-          V7A_APK="$(find app/build/outputs/apk/release -type f -name '*armeabi-v7a*release*.apk' | head -n 1 || true)"
-          [ -n "$ARM64_APK" ] && cp "$ARM64_APK" publish/Bankmovie-v1.3-google-test-arm64-v8a-split-fix97.apk
-          [ -n "$V7A_APK" ] && cp "$V7A_APK" publish/Bankmovie-v1.3-google-test-armeabi-v7a-split-fix97.apk
+          # Combo 2: ARM64 + ARMv7 combined universal. This is the low-size universal candidate.
+          # The sha256 file at the end covers this output too.
+          build_and_copy \
+            "combo2-arm64-v7a-universal" \
+            '"armeabi-v7a", "arm64-v8a"' \
+            "true" \
+            "*universal*release*.apk" "Bankmovie-v1.3-google-test-combo2-arm64-v7a-universal-fix98.apk"
 
-          # 3) ARM-combo universal: only ARM64 + ARMv7 inside one APK. This tests whether removing x86/x86_64 causes Google/Play Protect warning.
-          build_variant "arm64-v7a-universal" '"armeabi-v7a", "arm64-v8a"' "true" "*universal*release*.apk" "Bankmovie-v1.3-google-test-arm64-v7a-universal-fix97.apk"
+          # Combo 3: ARM64 + ARMv7 + x86 + x86_64, with universal + all split outputs.
+          build_and_copy \
+            "combo3-allabi-universal-and-splits" \
+            '"armeabi-v7a", "arm64-v8a", "x86", "x86_64"' \
+            "true" \
+            "*universal*release*.apk" "Bankmovie-v1.3-google-test-combo3-allabi-universal-fix98.apk" \
+            "*arm64-v8a*release*.apk" "Bankmovie-v1.3-google-test-combo3-allabi-arm64-v8a-split-fix98.apk" \
+            "*armeabi-v7a*release*.apk" "Bankmovie-v1.3-google-test-combo3-allabi-armeabi-v7a-split-fix98.apk" \
+            "*x86-release*.apk" "Bankmovie-v1.3-google-test-combo3-allabi-x86-split-fix98.apk" \
+            "*x86_64*release*.apk" "Bankmovie-v1.3-google-test-combo3-allabi-x86_64-split-fix98.apk"
 
           echo ""
           echo "Final publish files:"
           ls -lh publish
-          sha256sum publish/*.apk | tee publish/Bankmovie-v1.3-google-test-fix97.sha256
+          sha256sum publish/*.apk | tee publish/Bankmovie-v1.3-google-test-combo-sha256-fix98.sha256
 
       - name: Upload Release APKs
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.3-Google-ABI-Matrix-Fix-97-apk
+          name: Bankmovie-V1.3-Google-ARM-Matrix-Fix-98-apk
           path: ${{ steps.unzip.outputs.project_dir }}/publish/*
