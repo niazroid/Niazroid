@@ -1,15 +1,8 @@
-name: Build Bankmovie V1.3 Universal ARM Combo Fix 101
-
-run-name: Bankmovie V101 - ${{ github.event_name }} - ${{ github.ref_name }}
+name: Build Bankmovie V1.3 Native UI Fix 99
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
-
-permissions:
-  contents: read
+  workflow_dispatch:
 
 jobs:
   build:
@@ -17,40 +10,46 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: FORCE Fix 101 universal ARM combo marker
+      - name: FORCE Fix 99 Native UI marker
         shell: bash
         run: |
           echo "=============================="
-          echo "FORCE_BUILD_MARKER=FIX_101_UNIVERSAL_ARM_COMBO"
-          echo "Archive2 is disabled. This workflow publishes universal APKs only; no split APK is published."
+          echo "FORCE_BUILD_MARKER=FIX_99_NATIVE_UI"
+          echo "Archive2 is disabled. This workflow builds ARM/all-ABI combinations for Google/Play Protect testing."
           echo "=============================="
 
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Find and unzip project ZIP
+      - name: Find and unzip Android project ZIP
         id: unzip
         shell: bash
         run: |
+          set -euo pipefail
           echo "Files in repository root:"
           ls -la
 
-          ZIP_FILE="$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)"
+          ZIP_FILE=""
+          while IFS= read -r candidate; do
+            echo "Checking ZIP: $candidate"
+            if unzip -Z1 "$candidate" | grep -Eq '(^|/)settings\.gradle$'; then
+              ZIP_FILE="$candidate"
+              break
+            fi
+          done < <(find . -maxdepth 1 -type f -name '*.zip' -print | sort)
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "No ZIP file found in repository root."
-            echo "Upload the project ZIP in the main Code page."
+            echo "No Android project ZIP containing settings.gradle was found."
+            echo "Upload BankMovieeNativeVLCApp_ROOT_REPO.zip to the repository root."
             exit 1
           fi
 
-          echo "Using ZIP file: $ZIP_FILE"
-
+          echo "Using Android project ZIP: $ZIP_FILE"
           rm -rf project
           mkdir project
           unzip -q "$ZIP_FILE" -d project
 
-          SETTINGS_FILE="$(find project -maxdepth 5 -type f -name "settings.gradle" | head -n 1)"
-
+          SETTINGS_FILE="$(find project -maxdepth 8 -type f -name 'settings.gradle' | head -n 1)"
           if [ -z "$SETTINGS_FILE" ]; then
             echo "Could not find settings.gradle after unzip."
             exit 1
@@ -58,9 +57,9 @@ jobs:
 
           PROJECT_DIR="$(dirname "$SETTINGS_FILE")"
           echo "Android project directory: $PROJECT_DIR"
-          echo "project_dir=$PROJECT_DIR" >> $GITHUB_OUTPUT
+          echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
 
-      - name: Patch Bankmovie V16 SdkEpisodeFix 70
+      - name: Patch Bankmovie V16 SdkEpisodeFix 70 base
         shell: bash
         env:
           PROJECT_DIR: ${{ steps.unzip.outputs.project_dir }}
@@ -1276,7 +1275,7 @@ jobs:
               }
               defaultConfig {
                   def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
-                  versionCode 1010000 + runNumber
+                  versionCode 980000 + runNumber
                   versionName "1.3"
               }
               buildTypes {
@@ -1299,13 +1298,13 @@ jobs:
               }
           }
           """
-              if "BANKMOVIE_RELEASE_1_3_UNIVERSAL_ARM_COMBO_FIX_101" not in text:
+              if "BANKMOVIE_RELEASE_1_3_GOOGLE_ARM_MATRIX_FIX_98" not in text:
                   text += """
           android {
-              // BANKMOVIE_RELEASE_1_3_UNIVERSAL_ARM_COMBO_FIX_101
+              // BANKMOVIE_RELEASE_1_3_GOOGLE_ARM_MATRIX_FIX_98
               defaultConfig {
                   def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
-                  versionCode 1010000 + runNumber
+                  versionCode 980000 + runNumber
                   versionName "1.3"
               }
               splits {
@@ -1484,6 +1483,30 @@ jobs:
           print("PlayerActivity:", player_file)
           PY
 
+      - name: Apply Fix 99 native UI bugs
+        shell: bash
+        env:
+          PROJECT_DIR: ${{ steps.unzip.outputs.project_dir }}
+        run: |
+          set -euo pipefail
+          echo "Applying Fix 99 after the embedded source generator..."
+          echo 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCmltcG9ydCBvcwppbXBvcnQgcmUKCnByb2plY3QgPSBQYXRoKG9zLmVudmlyb25bIlBST0pFQ1RfRElSIl0pCmNhbmRpZGF0ZXMgPSBsaXN0KHByb2plY3Qucmdsb2IoIk1haW5BY3Rpdml0eS5rdCIpKQppZiBub3QgY2FuZGlkYXRlczoKICAgIHJhaXNlIFN5c3RlbUV4aXQoIkZpeDk5OiBNYWluQWN0aXZpdHkua3Qgbm90IGZvdW5kIikKbWFpbiA9IGNhbmRpZGF0ZXNbMF0KcyA9IG1haW4ucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpCm9yaWdpbmFsID0gcwoKIyAxKSBBbmRyb2lkIGJhY2s6IHJldHVybiB0byB0aGUgYXBwIGhvbWUgc2NyZWVuIGZpcnN0IGluc3RlYWQgb2YgZXhpdGluZy4KaWYgIm92ZXJyaWRlIGZ1biBvbkJhY2tQcmVzc2VkKCkiIG5vdCBpbiBzOgogICAgbWFya2VyID0gIiAgICBvdmVycmlkZSBmdW4gZGlzcGF0Y2hLZXlFdmVudChldmVudDogYW5kcm9pZC52aWV3LktleUV2ZW50KTogQm9vbGVhbiB7IgogICAgYmFja19mdW5jID0gJycnICAgIG92ZXJyaWRlIGZ1biBvbkJhY2tQcmVzc2VkKCkgewogICAgICAgIGlmIChjdXJyZW50U2NyZWVuID09ICJob21lIikgewogICAgICAgICAgICBtb3ZlVGFza1RvQmFjayh0cnVlKQogICAgICAgICAgICByZXR1cm4KICAgICAgICB9CiAgICAgICAgc2hvd0hvbWUoKQogICAgfQoKJycnCiAgICBpZiBtYXJrZXIgbm90IGluIHM6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiRml4OTk6IGRpc3BhdGNoS2V5RXZlbnQgbWFya2VyIG5vdCBmb3VuZCIpCiAgICBzID0gcy5yZXBsYWNlKG1hcmtlciwgYmFja19mdW5jICsgbWFya2VyLCAxKQoKIyAyKSBSZW1vdmUgdGhlIG5vbi1mdW5jdGlvbmFsIHNvcnQvZmlsdGVyIGNoaXBzIChVcGRhdGUgLyBQb3B1bGFyIC8gSU1EYikuCmxpc3RfdG9wX3BhdHRlcm4gPSByZS5jb21waWxlKAogICAgciJcblxzKnByaXZhdGUgZnVuIGxpc3RUb3BcKHRpdGxlOiBTdHJpbmdcKTogVmlldyBcey4qP1xuXHMqXH1cblxuXHMqcHJpdmF0ZSBmdW4gc2hvd0NhdGVnb3JpZXNcKFwpIiwKICAgIHJlLlMsCikKbGlzdF90b3BfcmVwbGFjZW1lbnQgPSAnJycKICAgIHByaXZhdGUgZnVuIGxpc3RUb3AodGl0bGU6IFN0cmluZyk6IFZpZXcgewogICAgICAgIHJldHVybiBMaW5lYXJMYXlvdXQodGhpcykuYXBwbHkgewogICAgICAgICAgICBvcmllbnRhdGlvbiA9IExpbmVhckxheW91dC5WRVJUSUNBTAogICAgICAgICAgICBzZXRQYWRkaW5nKDAsIDAsIDAsIGRwKDE0KSkKICAgICAgICAgICAgYWRkVmlldyhUZXh0Vmlldyh0aGlzQE1haW5BY3Rpdml0eSkuYXBwbHkgewogICAgICAgICAgICAgICAgdGV4dCA9IHVpKHRpdGxlKQogICAgICAgICAgICAgICAgc2V0VGV4dENvbG9yKHdoaXRlKQogICAgICAgICAgICAgICAgdGV4dFNpemUgPSAyNGYKICAgICAgICAgICAgICAgIHR5cGVmYWNlID0gVHlwZWZhY2UuREVGQVVMVF9CT0xECiAgICAgICAgICAgICAgICBncmF2aXR5ID0gR3Jhdml0eS5SSUdIVAogICAgICAgICAgICAgICAgc2V0UGFkZGluZyhkcCgyKSwgZHAoNCksIGRwKDIpLCBkcCg0KSkKICAgICAgICAgICAgfSkKICAgICAgICAgICAgYWRkVmlldyhUZXh0Vmlldyh0aGlzQE1haW5BY3Rpdml0eSkuYXBwbHkgewogICAgICAgICAgICAgICAgdGV4dCA9IHVpKCLYuNin2YfYsSDYs9uM2YbZhdin24zbjCDZiCDZhdix2KrYqCDYqNix2KfbjCDZhdix2YjYsSDYs9ix24zYuSIpCiAgICAgICAgICAgICAgICBzZXRUZXh0Q29sb3IobXV0ZWQpCiAgICAgICAgICAgICAgICB0ZXh0U2l6ZSA9IDEyZgogICAgICAgICAgICAgICAgZ3Jhdml0eSA9IEdyYXZpdHkuUklHSFQKICAgICAgICAgICAgICAgIHNldFBhZGRpbmcoZHAoMiksIDAsIGRwKDIpLCBkcCgxMCkpCiAgICAgICAgICAgIH0pCiAgICAgICAgfQogICAgfQoKICAgIHByaXZhdGUgZnVuIHNob3dDYXRlZ29yaWVzKCknJycKcywgcmVwbGFjZWQgPSBsaXN0X3RvcF9wYXR0ZXJuLnN1Ym4obGlzdF90b3BfcmVwbGFjZW1lbnQsIHMsIGNvdW50PTEpCmlmIHJlcGxhY2VkICE9IDE6CiAgICByYWlzZSBTeXN0ZW1FeGl0KGYiRml4OTk6IGxpc3RUb3AgcGF0Y2ggZmFpbGVkICh7cmVwbGFjZWR9KSIpCgojIDMpIE5ldmVyIHJlbmRlciBpbnZhbGlkIHllYXIgdmFsdWVzIHN1Y2ggYXMgbnVsbC9mYWxzZS91bmRlZmluZWQuCm9sZF95ZWFyID0gJ2l0ZW0ub3B0U3RyaW5nKCJ5ZWFyIikudGFrZUlmIHsgaXQuaXNOb3RCbGFuaygpIH0/LmxldCB7IHllYXIgLT4nCm5ld195ZWFyID0gJ2l0ZW0ub3B0U3RyaW5nKCJ5ZWFyIikudGFrZUlmIHsgaXQuaXNOb3RCbGFuaygpICYmICFpdC5lcXVhbHMoIm51bGwiLCB0cnVlKSAmJiAhaXQuZXF1YWxzKCJmYWxzZSIsIHRydWUpICYmICFpdC5lcXVhbHMoInVuZGVmaW5lZCIsIHRydWUpIH0/LmxldCB7IHllYXIgLT4nCmlmIG9sZF95ZWFyIGluIHM6CiAgICBzID0gcy5yZXBsYWNlKG9sZF95ZWFyLCBuZXdfeWVhciwgMSkKZWxpZiBuZXdfeWVhciBub3QgaW4gczoKICAgIHJhaXNlIFN5c3RlbUV4aXQoIkZpeDk5OiB5ZWFyIGNoaXAgbWFya2VyIG5vdCBmb3VuZCIpCgojIDQpIEdpdmUgbW9iaWxlIGNhcmRzIGVub3VnaCBoZWlnaHQgYW5kIHRleHQgcm9vbSBzbyB0aXRsZXMgYXJlIG5vdCBjbGlwcGVkLgpzID0gcy5yZXBsYWNlKCdlbHNlIGRwKDIyMiknLCAnZWxzZSBkcCgyNDgpJykKcyA9IHMucmVwbGFjZSgndmFsIHBvc3RlckhlaWdodCA9IChoZWlnaHQgKiBpZiAodHYpIDAuNzBmIGVsc2UgMC44MGYpLnRvSW50KCknLAogICAgICAgICAgICAgICd2YWwgcG9zdGVySGVpZ2h0ID0gKGhlaWdodCAqIGlmICh0dikgMC43MGYgZWxzZSAwLjcyZikudG9JbnQoKScpCnMgPSBzLnJlcGxhY2UoJ21heExpbmVzID0gaWYgKHR2KSAzIGVsc2UgMicsICdtYXhMaW5lcyA9IDMnKQoKIyBBZGQgYSBzdGFibGUgbWluaW11bSB0aXRsZSBoZWlnaHQgaWYgdGhlIGV4YWN0IHRpdGxlIGJsb2NrIGV4aXN0cy4KdGl0bGVfcGFkZGluZyA9ICdzZXRQYWRkaW5nKGRwKDMpLCBkcChpZiAodHYpIDYgZWxzZSA4KSwgZHAoMyksIDApJwppZiB0aXRsZV9wYWRkaW5nIGluIHMgYW5kICdtaW5pbXVtSGVpZ2h0ID0gZHAoNTgpJyBub3QgaW4gczoKICAgIHMgPSBzLnJlcGxhY2UodGl0bGVfcGFkZGluZywgdGl0bGVfcGFkZGluZyArICdcbiAgICAgICAgICAgIG1pbmltdW1IZWlnaHQgPSBkcCg1OCknLCAxKQoKIyBIYXJkIHZlcmlmaWNhdGlvbjogZmFpbCB0aGUgQWN0aW9uIGluc3RlYWQgb2Ygc2lsZW50bHkgYnVpbGRpbmcgYW4gdW5maXhlZCBBUEsuCmNoZWNrcyA9IHsKICAgICJiYWNrIGhhbmRsZXIiOiAnb3ZlcnJpZGUgZnVuIG9uQmFja1ByZXNzZWQoKScgaW4gcywKICAgICJmaWx0ZXJzIHJlbW92ZWQiOiAnbGlzdE9mKCLYqNix2YjYstix2LPYp9mG24wiLCAi2YXYrdio2YjYqCIsICJJTURiIiknIG5vdCBpbiBzLAogICAgIm51bGwgeWVhciBibG9ja2VkIjogJyFpdC5lcXVhbHMoIm51bGwiLCB0cnVlKScgaW4gcywKICAgICJtb2JpbGUgY2FyZCBoZWlnaHQiOiAnZWxzZSBkcCgyNDgpJyBpbiBzLAogICAgInRocmVlLWxpbmUgdGl0bGUiOiAnbWF4TGluZXMgPSAzJyBpbiBzLAp9CmZhaWxlZCA9IFtuYW1lIGZvciBuYW1lLCBvayBpbiBjaGVja3MuaXRlbXMoKSBpZiBub3Qgb2tdCmlmIGZhaWxlZDoKICAgIHJhaXNlIFN5c3RlbUV4aXQoIkZpeDk5IHZlcmlmaWNhdGlvbiBmYWlsZWQ6ICIgKyAiLCAiLmpvaW4oZmFpbGVkKSkKaWYgcyA9PSBvcmlnaW5hbDoKICAgIHJhaXNlIFN5c3RlbUV4aXQoIkZpeDk5IG1hZGUgbm8gY2hhbmdlcyIpCgptYWluLndyaXRlX3RleHQocywgZW5jb2Rpbmc9InV0Zi04IikKcHJpbnQoIkZpeDk5IGFwcGxpZWQgdG86IiwgbWFpbikKZm9yIG5hbWUsIG9rIGluIGNoZWNrcy5pdGVtcygpOgogICAgcHJpbnQoZiIgIHtuYW1lfTogeydPSycgaWYgb2sgZWxzZSAnRkFJTCd9IikK' | base64 --decode > /tmp/bm_fix99.py
+          python3 /tmp/bm_fix99.py
+
+      - name: Verify Fix 99 source
+        shell: bash
+        env:
+          PROJECT_DIR: ${{ steps.unzip.outputs.project_dir }}
+        run: |
+          set -euo pipefail
+          MAIN_FILE="$(find "$PROJECT_DIR" -type f -name MainActivity.kt | head -n 1)"
+          test -n "$MAIN_FILE"
+          grep -q 'override fun onBackPressed()' "$MAIN_FILE"
+          ! grep -q 'listOf("بروزرسانی", "محبوب", "IMDb")' "$MAIN_FILE"
+          grep -q 'else dp(248)' "$MAIN_FILE"
+          grep -q 'minimumHeight = dp(58)' "$MAIN_FILE"
+          echo "Fix 99 source verification passed: $MAIN_FILE"
+
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
@@ -1524,87 +1547,44 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build universal-only ARM combo variants
+      - name: Build Google ARM / ABI test matrix
         working-directory: ${{ steps.unzip.outputs.project_dir }}
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p publish
 
-          patch_variant_config() {
+          patch_abi_config() {
             local includes="$1"
-            local legacy_native="$2"
-            python3 - "$includes" "$legacy_native" <<'PY'
+            local universal="$2"
+            python3 - "$includes" "$universal" <<'PY'
           from pathlib import Path
           import re, sys
 
           includes = sys.argv[1]
-          legacy_native = sys.argv[2].lower() == "true"
-
+          universal = sys.argv[2]
           candidates = [Path("app/build.gradle"), Path("app/build.gradle.kts")]
           gradle = next((p for p in candidates if p.exists()), None)
           if gradle is None:
               raise SystemExit("app/build.gradle or app/build.gradle.kts not found")
 
           s = gradle.read_text(encoding="utf-8")
-
-          # Always build a universal APK, but include only the ABI set for this variant.
           s = re.sub(r'include\s+"[^"]+"(?:\s*,\s*"[^"]+")*', f'include {includes}', s)
-          s = re.sub(r'universalApk\s+(true|false)', 'universalApk true', s)
-
-          # Remove prior legacy-native block from the previous variant build.
-          s = re.sub(r'\n\s*// BM_LEGACY_NATIVE_PACKAGING_FIX101_START.*?// BM_LEGACY_NATIVE_PACKAGING_FIX101_END\s*\n', '\n', s, flags=re.S)
-
-          if legacy_native:
-              if gradle.name.endswith(".kts"):
-                  extra = """
-          // BM_LEGACY_NATIVE_PACKAGING_FIX101_START
-          android {
-              packaging {
-                  jniLibs {
-                      useLegacyPackaging = true
-                  }
-              }
-          }
-          // BM_LEGACY_NATIVE_PACKAGING_FIX101_END
-          """
-              else:
-                  extra = """
-          // BM_LEGACY_NATIVE_PACKAGING_FIX101_START
-          android {
-              packagingOptions {
-                  jniLibs {
-                      useLegacyPackaging true
-                  }
-              }
-          }
-          // BM_LEGACY_NATIVE_PACKAGING_FIX101_END
-          """
-              s += extra
-
+          s = re.sub(r'universalApk\s+(true|false)', f'universalApk {universal}', s)
           gradle.write_text(s, encoding="utf-8")
-          print("Patched ABI config:", includes, "universalApk true", "legacyNative", legacy_native)
-
-          # Optional Android manifest native extraction flag for the legacy-native variant.
-          manifest = Path("app/src/main/AndroidManifest.xml")
-          if manifest.exists():
-              m = manifest.read_text(encoding="utf-8")
-              m = re.sub(r'\s+android:extractNativeLibs="(?:true|false)"', '', m)
-              if legacy_native:
-                  m = m.replace("<application", '<application android:extractNativeLibs="true"', 1)
-              manifest.write_text(m, encoding="utf-8")
+          print("Patched ABI config:", includes, "universalApk", universal)
           PY
           }
 
-          build_universal() {
+          build_and_copy() {
             local variant="$1"
             local includes="$2"
-            local legacy_native="$3"
-            local out_name="$4"
+            local universal="$3"
+            shift 3
 
             echo ""
-            echo "================ BUILD UNIVERSAL VARIANT: $variant ================"
-            patch_variant_config "$includes" "$legacy_native"
+            echo "================ BUILD VARIANT: $variant ================"
+            patch_abi_config "$includes" "$universal"
             rm -rf app/build/outputs/apk/release || true
 
             set +e
@@ -1621,62 +1601,56 @@ jobs:
             fi
 
             echo "APK outputs for $variant:"
-            find app/build/outputs/apk/release -maxdepth 1 -type f -name "*.apk" -printf "%f  %k KB\n" || true
+            find app/build/outputs/apk/release -type f -name "*.apk" -maxdepth 1 -printf "%f  %k KB\n" || true
 
-            APK="$(find app/build/outputs/apk/release -type f -name '*universal*release*.apk' | head -n 1 || true)"
-            if [ -z "$APK" ]; then
-              echo "Universal APK not found for $variant"
-              find app/build/outputs/apk/release -type f -name "*.apk" -print || true
-              exit 1
-            fi
-
-            cp "$APK" "publish/$out_name"
+            while [ "$#" -gt 0 ]; do
+              local pattern="$1"
+              local out_name="$2"
+              shift 2
+              APK="$(find app/build/outputs/apk/release -type f -name "$pattern" | head -n 1 || true)"
+              if [ -z "$APK" ]; then
+                echo "Could not find APK pattern $pattern for $variant"
+                find app/build/outputs/apk/release -type f -name "*.apk" -print || true
+                exit 1
+              fi
+              cp "$APK" "publish/$out_name"
+            done
           }
 
-          # 1) Main requested output:
-          # ONE universal APK containing both ARM64 and ARMv7, no x86.
-          build_universal \
-            "U1-arm64-v7a-universal-normal" \
+          # Combo 1: ARM64 + ARMv7 split-only. No universal, no x86.
+          build_and_copy \
+            "combo1-arm-splits-only" \
             '"armeabi-v7a", "arm64-v8a"' \
             "false" \
-            "Bankmovie-v1.3-universal-U1-arm64-v7a-normal-fix101.apk"
+            "*arm64-v8a*release*.apk" "Bankmovie-v1.3-google-test-combo1-arm64-v8a-split-only-fix98.apk" \
+            "*armeabi-v7a*release*.apk" "Bankmovie-v1.3-google-test-combo1-armeabi-v7a-split-only-fix98.apk"
 
-          # 2) Same ARM64 + ARMv7 universal, but legacy native packaging/extractNativeLibs enabled.
-          # This is the extra packaging mode for Google/Play Protect testing.
-          build_universal \
-            "U2-arm64-v7a-universal-legacy-native" \
+          # Combo 2: ARM64 + ARMv7 combined universal. This is the low-size universal candidate.
+          # The sha256 file at the end covers this output too.
+          build_and_copy \
+            "combo2-arm64-v7a-universal" \
             '"armeabi-v7a", "arm64-v8a"' \
             "true" \
-            "Bankmovie-v1.3-universal-U2-arm64-v7a-legacy-native-fix101.apk"
+            "*universal*release*.apk" "Bankmovie-v1.3-google-test-combo2-arm64-v7a-universal-fix98.apk"
 
-          # 3) ARM64 + ARMv7 + x86 universal.
-          build_universal \
-            "U3-arm64-v7a-x86-universal" \
-            '"armeabi-v7a", "arm64-v8a", "x86"' \
-            "false" \
-            "Bankmovie-v1.3-universal-U3-arm64-v7a-x86-fix101.apk"
-
-          # 4) ARM64 + ARMv7 + x86_64 universal.
-          build_universal \
-            "U4-arm64-v7a-x86_64-universal" \
-            '"armeabi-v7a", "arm64-v8a", "x86_64"' \
-            "false" \
-            "Bankmovie-v1.3-universal-U4-arm64-v7a-x86_64-fix101.apk"
-
-          # 5) Full all-ABI universal control.
-          build_universal \
-            "U5-allabi-universal-control" \
+          # Combo 3: ARM64 + ARMv7 + x86 + x86_64, with universal + all split outputs.
+          build_and_copy \
+            "combo3-allabi-universal-and-splits" \
             '"armeabi-v7a", "arm64-v8a", "x86", "x86_64"' \
-            "false" \
-            "Bankmovie-v1.3-universal-U5-allabi-control-fix101.apk"
+            "true" \
+            "*universal*release*.apk" "Bankmovie-v1.3-google-test-combo3-allabi-universal-fix98.apk" \
+            "*arm64-v8a*release*.apk" "Bankmovie-v1.3-google-test-combo3-allabi-arm64-v8a-split-fix98.apk" \
+            "*armeabi-v7a*release*.apk" "Bankmovie-v1.3-google-test-combo3-allabi-armeabi-v7a-split-fix98.apk" \
+            "*x86-release*.apk" "Bankmovie-v1.3-google-test-combo3-allabi-x86-split-fix98.apk" \
+            "*x86_64*release*.apk" "Bankmovie-v1.3-google-test-combo3-allabi-x86_64-split-fix98.apk"
 
           echo ""
           echo "Final publish files:"
           ls -lh publish
-          sha256sum publish/*.apk | tee publish/Bankmovie-v1.3-universal-arm-combo-sha256-fix101.sha256
+          sha256sum publish/*.apk | tee publish/Bankmovie-v1.3-google-test-combo-sha256-fix98.sha256
 
       - name: Upload Release APKs
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.3-Universal-ARM-Combo-Fix-101-apk
+          name: Bankmovie-V1.3-Google-ARM-Matrix-Fix-98-apk
           path: ${{ steps.unzip.outputs.project_dir }}/publish/*
