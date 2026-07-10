@@ -1,4 +1,4 @@
-name: Build Bankmovie V1.4 Three APKs
+name: Build Bankmovie V1.4 V3 Player Modal Three APKs
 
 on:
   workflow_dispatch:
@@ -10,91 +10,72 @@ permissions:
 
 jobs:
   build:
-    name: Build Bankmovie V1.4 ARM64 V7A Universal
+    name: Build Bankmovie V1.4 V3 Player Modal ARM64 V7A Universal
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Unzip exact V1.4 source
+      - name: Unzip exact V1.4 V3 source
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="Bankmovie-v1.4-source-fixed.zip"
-          test -f "$ZIP" || { echo "Missing $ZIP in repository root"; exit 1; }
+          ZIP="Bankmovie-v1.4-source-v3-player-modal.zip"
+          if [ ! -f "$ZIP" ]; then
+            echo "==================== REAL ERROR ===================="
+            echo "Missing $ZIP in repository root."
+            echo "===================================================="
+            exit 1
+          fi
           rm -rf project
           mkdir project
           unzip -q "$ZIP" -d project
           test -f project/settings.gradle
-          test -f project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           test -f project/app/build.gradle
+          test -f project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
 
-      - name: Patch update gate and version code
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 <<'PY'
-          from pathlib import Path
-          import base64
-          import re
-
-          main = Path("project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt")
-          gradle = Path("project/app/build.gradle")
-
-          text = main.read_text(encoding="utf-8")
-          pattern = re.compile(
-              r'    private fun showConfigUpdateIfNeeded\(showToastIfLatest: Boolean\): Boolean \{\n'
-              r'.*?'
-              r'\n    \}\n\n(?=    private fun boot\(\))',
-              re.S,
-          )
-          replacement = base64.b64decode(
-              "ICAgIHByaXZhdGUgZnVuIHZlcnNpb25OdW1iZXJQYXJ0cyh2YWx1ZTogU3RyaW5nKTogTGlzdDxJbnQ+IHsKICAgICAgICB2YWwgbm9ybWFsaXplZCA9IHZhbHVlCiAgICAgICAgICAgIC5yZXBsYWNlKCfbsCcsICcwJykucmVwbGFjZSgn27EnLCAnMScpLnJlcGxhY2UoJ9uyJywgJzInKS5yZXBsYWNlKCfbsycsICczJykucmVwbGFjZSgn27QnLCAnNCcpCiAgICAgICAgICAgIC5yZXBsYWNlKCfbtScsICc1JykucmVwbGFjZSgn27YnLCAnNicpLnJlcGxhY2UoJ9u3JywgJzcnKS5yZXBsYWNlKCfbuCcsICc4JykucmVwbGFjZSgn27knLCAnOScpCiAgICAgICAgICAgIC5yZXBsYWNlKCfZoCcsICcwJykucmVwbGFjZSgn2aEnLCAnMScpLnJlcGxhY2UoJ9miJywgJzInKS5yZXBsYWNlKCfZoycsICczJykucmVwbGFjZSgn2aQnLCAnNCcpCiAgICAgICAgICAgIC5yZXBsYWNlKCfZpScsICc1JykucmVwbGFjZSgn2aYnLCAnNicpLnJlcGxhY2UoJ9mnJywgJzcnKS5yZXBsYWNlKCfZqCcsICc4JykucmVwbGFjZSgn2aknLCAnOScpCiAgICAgICAgcmV0dXJuIFJlZ2V4KCJcXGQrIikuZmluZEFsbChub3JtYWxpemVkKS5tYXBOb3ROdWxsIHsgaXQudmFsdWUudG9JbnRPck51bGwoKSB9LnRvTGlzdCgpCiAgICB9CgogICAgcHJpdmF0ZSBmdW4gY29tcGFyZVJlbGVhc2VWZXJzaW9ucyhsZWZ0OiBTdHJpbmcsIHJpZ2h0OiBTdHJpbmcpOiBJbnQgewogICAgICAgIHZhbCBhID0gdmVyc2lvbk51bWJlclBhcnRzKGxlZnQpCiAgICAgICAgdmFsIGIgPSB2ZXJzaW9uTnVtYmVyUGFydHMocmlnaHQpCiAgICAgICAgdmFsIHNpemUgPSBtYXhPZihhLnNpemUsIGIuc2l6ZSkKICAgICAgICBmb3IgKGkgaW4gMCB1bnRpbCBzaXplKSB7CiAgICAgICAgICAgIHZhbCBhdiA9IGEuZ2V0T3JFbHNlKGkpIHsgMCB9CiAgICAgICAgICAgIHZhbCBidiA9IGIuZ2V0T3JFbHNlKGkpIHsgMCB9CiAgICAgICAgICAgIGlmIChhdiAhPSBidikgcmV0dXJuIGF2LmNvbXBhcmVUbyhidikKICAgICAgICB9CiAgICAgICAgcmV0dXJuIDAKICAgIH0KCiAgICBwcml2YXRlIGZ1biBzaG93Q29uZmlnVXBkYXRlSWZOZWVkZWQoc2hvd1RvYXN0SWZMYXRlc3Q6IEJvb2xlYW4pOiBCb29sZWFuIHsKICAgICAgICBpZiAoIXJlbW90ZVVwZGF0ZUVuYWJsZWQpIHJldHVybiBmYWxzZQoKICAgICAgICB2YWwgY3VycmVudENvZGUgPSBhcHBWZXJzaW9uQ29kZSgpCiAgICAgICAgdmFsIGN1cnJlbnROYW1lID0gYXBwVmVyc2lvbk5hbWUoKS50cmltKCkKICAgICAgICB2YWwgdGFyZ2V0TmFtZSA9IHJlbW90ZVZlcnNpb25OYW1lLnRyaW0oKQogICAgICAgIHZhbCB0YXJnZXRIYXNWZXJzaW9uID0gdmVyc2lvbk51bWJlclBhcnRzKHRhcmdldE5hbWUpLmlzTm90RW1wdHkoKQoKICAgICAgICAvLyBBIGZvcmNlZCB1cGRhdGUgb25seSBtYWtlcyBhIHJlYWwgbmV3ZXIgcmVsZWFzZSBub24tY2FuY2VsYWJsZS4KICAgICAgICAvLyBUaGUgc2FtZSByZWxlYXNlIChmb3IgZXhhbXBsZSBpbnN0YWxsZWQgMS40IGFuZCByZW1vdGUgMS40KSBuZXZlciBzaG93cyB0aGUgdXBkYXRlIGRpYWxvZy4KICAgICAgICB2YWwgaGFzVXBkYXRlID0gcmVtb3RlQXBrVXJsLmlzTm90QmxhbmsoKSAmJiB3aGVuIHsKICAgICAgICAgICAgdGFyZ2V0SGFzVmVyc2lvbiAtPiBjb21wYXJlUmVsZWFzZVZlcnNpb25zKHRhcmdldE5hbWUsIGN1cnJlbnROYW1lKSA+IDAKICAgICAgICAgICAgcmVtb3RlVmVyc2lvbkNvZGUgPiAwIC0+IHJlbW90ZVZlcnNpb25Db2RlID4gY3VycmVudENvZGUKICAgICAgICAgICAgZWxzZSAtPiBmYWxzZQogICAgICAgIH0KICAgICAgICBpZiAoIWhhc1VwZGF0ZSkgcmV0dXJuIGZhbHNlCgogICAgICAgIHZhbCBsYXRlc3ROYW1lID0gdGFyZ2V0TmFtZS5pZkJsYW5rIHsgaWYgKHJlbW90ZVZlcnNpb25Db2RlID4gMCkgcmVtb3RlVmVyc2lvbkNvZGUudG9TdHJpbmcoKSBlbHNlICLYrNiv24zYryIgfQogICAgICAgIHNob3dVcGRhdGVEaWFsb2coCiAgICAgICAgICAgIHJlbW90ZVVwZGF0ZVRpdGxlLAogICAgICAgICAgICByZW1vdGVVcGRhdGVNZXNzYWdlLAogICAgICAgICAgICByZW1vdGVBcGtVcmwsCiAgICAgICAgICAgIHJlbW90ZUZvcmNlVXBkYXRlLAogICAgICAgICAgICBsYXRlc3ROYW1lLAogICAgICAgICAgICBjdXJyZW50TmFtZSwKICAgICAgICAgICAgcmVtb3RlVXBkYXRlQ2hhbmdlcwogICAgICAgICkKICAgICAgICByZXR1cm4gdHJ1ZQogICAgfQo="
-          ).decode("utf-8")
-
-          text, count = pattern.subn(replacement, text, count=1)
-          if count != 1:
-              raise SystemExit("REAL ERROR: expected old update-check block was not found exactly once")
-          main.write_text(text, encoding="utf-8")
-
-          g = gradle.read_text(encoding="utf-8")
-          old_code = "versionCode 1060000 + runNumber"
-          new_code = "versionCode 1070000 + runNumber"
-          if old_code not in g:
-              raise SystemExit("REAL ERROR: expected V1.4 versionCode line was not found")
-          gradle.write_text(g.replace(old_code, new_code, 1), encoding="utf-8")
-          PY
-
-      - name: Verify V1.4 source and update behavior
+      - name: Verify real V3 source changes
         shell: bash
         run: |
           set -euo pipefail
           MAIN="project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
           GRADLE="project/app/build.gradle"
 
-          grep -Fq 'text = "نسخه ۱.۴"' "$MAIN"
-          grep -Fq 'FrameLayout.LayoutParams(dp(112), dp(44)' "$MAIN"
-          grep -Fq 'code == 401 && !retried' "$MAIN"
-          grep -Fq 'private fun friendlyError' "$MAIN"
-          grep -Fq 'private fun compareReleaseVersions' "$MAIN"
-          grep -Fq 'same release (for example installed 1.4 and remote 1.4) never shows' "$MAIN"
-          grep -Fq 'versionCode 1070000 + runNumber' "$GRADLE"
+          grep -Fq 'versionCode 1090000 + runNumber' "$GRADLE"
           grep -Fq 'versionName "1.4"' "$GRADLE"
           grep -Fq 'include "armeabi-v7a", "arm64-v8a"' "$GRADLE"
           grep -Fq 'universalApk true' "$GRADLE"
+          grep -Fq 'private fun selectedRemoteApkUrl()' "$MAIN"
+          grep -Fq 'private fun currentVersionBlockReason()' "$MAIN"
+          grep -Fq 'blocked_version_names' "$MAIN"
+          grep -Fq 'minimum_version_name' "$MAIN"
+          grep -Fq 'apk_urls' "$MAIN"
+          grep -Fq 'compareReleaseVersions(targetName, currentName) > 0' "$MAIN"
+
+          LOADER_BLOCK="$(sed -n '/private fun movieDetailLoading/,/private fun skeletonPosterCard/p' "$MAIN")"
+          if printf '%s' "$LOADER_BLOCK" | grep -Fq 'نسخه ۱.۴'; then
+            echo "==================== REAL ERROR ===================="
+            echo "Movie detail spinner still contains the version label."
+            echo "===================================================="
+            exit 1
+          fi
 
           if grep -Fq 'remoteForceUpdate || remoteVersionCode > currentCode' "$MAIN"; then
-            echo "REAL ERROR: old always-force update condition still exists"
+            echo "==================== REAL ERROR ===================="
+            echo "Old repeated-update condition still exists."
+            echo "===================================================="
             exit 1
           fi
 
-          if grep -Fq 'تماشای فیلم و سریال با استایل حرفه‌ای Bankmovie' "$MAIN"; then
-            echo "REAL ERROR: old slider fallback text still exists"
-            exit 1
-          fi
+          grep -Fq 'private fun showPlaybackMethodDialog(' "$MAIN"
+          grep -Fq 'R.drawable.ic_vlc_logo' "$MAIN"
+          grep -Fq 'setPackage("org.videolan.vlc")' "$MAIN"
+          grep -Fq 'Intent.createChooser(intent' "$MAIN"
+          test -f project/app/src/main/res/drawable/ic_vlc_logo.xml
+          test -f project/app/src/main/res/drawable/ic_external_player.xml
 
-          echo "V1.4 source, ABI splits and update gate verified before build"
+          echo "V1.4 V3 player modal source changes verified before build."
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -148,7 +129,6 @@ jobs:
             LABEL="${spec%%:*}"
             APK="${spec#*:}"
             if [ -z "$APK" ]; then
-              echo ""
               echo "==================== REAL ERROR ===================="
               echo "$LABEL APK was not produced."
               find "$OUT" -maxdepth 1 -type f -name '*.apk' -print 2>/dev/null || true
@@ -170,19 +150,17 @@ jobs:
             "$AAPT" dump badging "$apk" > "$badging"
 
             if ! grep -Fq "versionName='1.4'" "$badging"; then
-              echo ""
               echo "==================== REAL ERROR ===================="
               echo "$label APK versionName is not 1.4."
-              grep -m1 "^package:" "$badging" || true
+              grep -m1 '^package:' "$badging" || true
               echo "===================================================="
               exit 1
             fi
 
             if ! grep -Fq "package: name='ir.bankmoviee.app'" "$badging"; then
-              echo ""
               echo "==================== REAL ERROR ===================="
               echo "$label APK package name is wrong."
-              grep -m1 "^package:" "$badging" || true
+              grep -m1 '^package:' "$badging" || true
               echo "===================================================="
               exit 1
             fi
@@ -193,7 +171,6 @@ jobs:
             set -e
 
             if [ "$sign_status" -ne 0 ]; then
-              echo ""
               echo "==================== REAL ERROR ===================="
               echo "$label APK signature verification failed."
               cat "$signing"
@@ -210,7 +187,6 @@ jobs:
             )"
 
             if [ -z "$actual_sha256" ] || [ "$actual_sha256" != "$EXPECTED_SHA256" ]; then
-              echo ""
               echo "==================== REAL ERROR ===================="
               echo "$label APK signer does not match the previous Bankmovie release."
               echo "Expected: $EXPECTED_SHA256"
@@ -220,7 +196,7 @@ jobs:
             fi
 
             echo "$label verified:"
-            grep -m1 "^package:" "$badging"
+            grep -m1 '^package:' "$badging"
             grep -E '^Signer #1 certificate (DN|SHA-256 digest):' "$signing" || true
           }
 
@@ -229,22 +205,18 @@ jobs:
           verify_apk "$UNIVERSAL" "universal"
 
           mkdir -p publish/arm64 publish/v7a publish/universal
-
-          cp "$ARM64" "publish/arm64/Bankmovie-v1.4-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$V7A" "publish/v7a/Bankmovie-v1.4-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$UNIVERSAL" "publish/universal/Bankmovie-v1.4-universal-build-${GITHUB_RUN_NUMBER}.apk"
-
+          cp "$ARM64" "publish/arm64/Bankmovie-v1.4-v3-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$V7A" "publish/v7a/Bankmovie-v1.4-v3-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$UNIVERSAL" "publish/universal/Bankmovie-v1.4-v3-universal-build-${GITHUB_RUN_NUMBER}.apk"
           sha256sum publish/arm64/*.apk > publish/arm64/SHA256.txt
           sha256sum publish/v7a/*.apk > publish/v7a/SHA256.txt
           sha256sum publish/universal/*.apk > publish/universal/SHA256.txt
-
-          echo "Final outputs:"
           find publish -maxdepth 2 -type f -printf '%p  %k KB\n' | sort
 
       - name: Upload ARM64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.4-ARM64-${{ github.run_number }}
+          name: Bankmovie-V1.4-V3-ARM64-${{ github.run_number }}
           path: project/publish/arm64/*
           if-no-files-found: error
           retention-days: 14
@@ -252,7 +224,7 @@ jobs:
       - name: Upload V7A APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.4-V7A-${{ github.run_number }}
+          name: Bankmovie-V1.4-V3-V7A-${{ github.run_number }}
           path: project/publish/v7a/*
           if-no-files-found: error
           retention-days: 14
@@ -260,7 +232,7 @@ jobs:
       - name: Upload Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.4-Universal-${{ github.run_number }}
+          name: Bankmovie-V1.4-V3-Universal-${{ github.run_number }}
           path: project/publish/universal/*
           if-no-files-found: error
           retention-days: 14
