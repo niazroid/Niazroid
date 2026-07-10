@@ -1,0 +1,106 @@
+Library
+/
+build-v1.4-clean.yml
+
+
+name: Build Bankmovie V1.4 Universal
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Bankmovie V1.4 Universal APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Unzip exact V1.4 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="Bankmovie-v1.4-source-fixed.zip"
+          test -f "$ZIP" || { echo "Missing $ZIP in repository root"; exit 1; }
+          rm -rf project
+          mkdir project
+          unzip -q "$ZIP" -d project
+          test -f project/settings.gradle
+          test -f project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+
+      - name: Verify real source fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN="project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
+          GRADLE="project/app/build.gradle"
+          grep -Fq 'text = "نسخه ۱.۴"' "$MAIN"
+          grep -Fq 'FrameLayout.LayoutParams(dp(112), dp(44)' "$MAIN"
+          grep -Fq 'code == 401 && !retried' "$MAIN"
+          grep -Fq 'private fun friendlyError' "$MAIN"
+          grep -Fq 'versionName "1.4"' "$GRADLE"
+          if grep -Fq 'تماشای فیلم و سریال با استایل حرفه‌ای Bankmovie' "$MAIN"; then
+            echo "Old slider fallback text still exists"
+            exit 1
+          fi
+          echo "V1.4 source fixes verified before build"
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_HOME" > project/local.properties
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build one universal APK
+        working-directory: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf app/build
+          gradle :app:assembleRelease --no-daemon --max-workers=1 --stacktrace --console=plain
+
+          APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*universal*release*.apk' | head -n 1)"
+          test -n "$APK" || { find app/build/outputs/apk/release -type f -name '*.apk' -print; exit 1; }
+
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          "$AAPT" dump badging "$APK" | tee apk-badging.txt
+          grep -Fq "versionName='1.4'" apk-badging.txt
+          grep -Fq "package: name='ir.bankmoviee.app'" apk-badging.txt
+
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          "$APKSIGNER" verify --print-certs "$APK" | tee apk-certificate.txt
+          grep -Fqi '86:2B:C3:58:D8:D2:39:A2:13:4A:63:FA:B9:79:FF:60:19:86:23:72:E7:95:0E:A4:9B:AC:74:78:09:36:20:5D' apk-certificate.txt
+
+          mkdir -p publish
+          cp "$APK" "publish/Bankmovie-v1.4-universal-build-${GITHUB_RUN_NUMBER}.apk"
+          sha256sum publish/*.apk > publish/SHA256.txt
+          ls -lh publish
+
+      - name: Upload V1.4 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-V1.4-Universal-${{ github.run_number }}
+          path: project/publish/*
+          if-no-files-found: error
+          retention-days: 14
