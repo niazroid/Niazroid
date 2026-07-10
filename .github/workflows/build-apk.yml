@@ -71,21 +71,102 @@ jobs:
         working-directory: project
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
           rm -rf app/build
-          gradle :app:assembleRelease --no-daemon --max-workers=1 --stacktrace --console=plain
+
+          set +e
+          gradle :app:assembleRelease --no-daemon --max-workers=1 --stacktrace --console=plain 2>&1 | tee build.log
+          BUILD_STATUS=${PIPESTATUS[0]}
+          set -e
+
+          if [ "$BUILD_STATUS" -ne 0 ]; then
+            echo ""
+            echo "==================== REAL ERROR ===================="
+            grep -Ei 'FAILURE:|What went wrong:|Execution failed|error:|Exception|Caused by:' build.log | tail -n 160 || true
+            echo "-------------------- LAST LOG LINES ----------------"
+            tail -n 160 build.log || true
+            echo "===================================================="
+            exit "$BUILD_STATUS"
+          fi
 
           APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*universal*release*.apk' | head -n 1)"
-          test -n "$APK" || { find app/build/outputs/apk/release -type f -name '*.apk' -print; exit 1; }
+
+          if [ -z "$APK" ]; then
+            echo ""
+            echo "==================== REAL ERROR ===================="
+            echo "Universal release APK was not produced."
+            find app/build/outputs/apk/release -type f -name '*.apk' -print 2>/dev/null || true
+            echo "===================================================="
+            exit 1
+          fi
 
           AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
-          "$AAPT" dump badging "$APK" | tee apk-badging.txt
-          grep -Fq "versionName='1.4'" apk-badging.txt
-          grep -Fq "package: name='ir.bankmoviee.app'" apk-badging.txt
+          "$AAPT" dump badging "$APK" > apk-badging.txt
+
+          if ! grep -Fq "versionName='1.4'" apk-badging.txt; then
+            echo ""
+            echo "==================== REAL ERROR ===================="
+            echo "APK versionName is not 1.4."
+            grep -m1 "^package:" apk-badging.txt || true
+            echo "===================================================="
+            exit 1
+          fi
+
+          if ! grep -Fq "package: name='ir.bankmoviee.app'" apk-badging.txt; then
+            echo ""
+            echo "==================== REAL ERROR ===================="
+            echo "APK package name is not ir.bankmoviee.app."
+            grep -m1 "^package:" apk-badging.txt || true
+            echo "===================================================="
+            exit 1
+          fi
+
+          echo "APK package/version check OK:"
+          grep -m1 "^package:" apk-badging.txt
 
           APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
-          "$APKSIGNER" verify --print-certs "$APK" | tee apk-certificate.txt
-          grep -Fqi '86:2B:C3:58:D8:D2:39:A2:13:4A:63:FA:B9:79:FF:60:19:86:23:72:E7:95:0E:A4:9B:AC:74:78:09:36:20:5D' apk-certificate.txt
+
+          set +e
+          "$APKSIGNER" verify --verbose --print-certs "$APK" > apk-signature-full.txt 2>&1
+          SIGN_STATUS=$?
+          set -e
+
+          if [ "$SIGN_STATUS" -ne 0 ]; then
+            echo ""
+            echo "==================== REAL ERROR ===================="
+            echo "apksigner verification failed."
+            cat apk-signature-full.txt
+            echo "===================================================="
+            exit "$SIGN_STATUS"
+          fi
+
+          EXPECTED_SHA256="862bc358d8d239a2134a63fab979ff6019862372e7950ea49bac74780936205d"
+          ACTUAL_SHA256="$(
+            sed -n 's/^Signer #1 certificate SHA-256 digest: //p' apk-signature-full.txt               | head -n 1               | tr '[:upper:]' '[:lower:]'               | tr -d ':[:space:]'
+          )"
+
+          if [ -z "$ACTUAL_SHA256" ]; then
+            echo ""
+            echo "==================== REAL ERROR ===================="
+            echo "Could not read signer SHA-256 from apksigner output."
+            cat apk-signature-full.txt
+            echo "===================================================="
+            exit 1
+          fi
+
+          if [ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]; then
+            echo ""
+            echo "==================== REAL ERROR ===================="
+            echo "APK signer does not match the previous Bankmovie release."
+            echo "Expected: $EXPECTED_SHA256"
+            echo "Actual:   $ACTUAL_SHA256"
+            echo "===================================================="
+            exit 1
+          fi
+
+          echo "APK signer check OK:"
+          grep -E '^Signer #1 certificate (DN|SHA-256 digest):' apk-signature-full.txt || true
+          echo "META-INF warnings are non-fatal and are intentionally ignored."
 
           mkdir -p publish
           cp "$APK" "publish/Bankmovie-v1.4-universal-build-${GITHUB_RUN_NUMBER}.apk"
