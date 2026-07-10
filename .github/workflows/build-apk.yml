@@ -112,11 +112,13 @@ jobs:
 
           if [ "$BUILD_STATUS" -ne 0 ]; then
             echo ""
-            echo "==================== REAL ERROR ===================="
+            echo "================ KOTLIN COMPILER ERRORS ================"
+            grep -E '(^e: |^w: |\.kt:[0-9]+:[0-9]+|\.kt \([0-9]+,[0-9]+\)|Unresolved reference|Type mismatch|Overload resolution ambiguity|Cannot infer|No value passed|Too many arguments|Expecting )|Expecting an element)' build.log | tail -n 240 || true
+            echo "==================== REAL ERROR ========================="
             grep -Ei 'FAILURE:|What went wrong:|Execution failed|error:|Exception|Caused by:' build.log | tail -n 180 || true
-            echo "-------------------- LAST LOG LINES ----------------"
-            tail -n 180 build.log || true
-            echo "===================================================="
+            echo "-------------------- LAST LOG LINES ---------------------"
+            tail -n 120 build.log || true
+            echo "========================================================="
             exit "$BUILD_STATUS"
           fi
 
@@ -212,6 +214,15 @@ jobs:
           sha256sum publish/v7a/*.apk > publish/v7a/SHA256.txt
           sha256sum publish/universal/*.apk > publish/universal/SHA256.txt
           find publish -maxdepth 2 -type f -printf '%p  %k KB\n' | sort
+
+      - name: Upload diagnostic build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-V1.4-V3-Build-Log-${{ github.run_number }}
+          path: project/build.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Upload ARM64 APK
         uses: actions/upload-artifact@v4
