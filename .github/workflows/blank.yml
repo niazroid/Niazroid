@@ -1,4 +1,4 @@
-name: Build Bankmovie V1.3 Y7 Y8 Universal Only Fix 99
+name: Build Bankmovie V1.3 Native UI Fix 99
 
 on:
   push:
@@ -10,12 +10,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: FORCE Fix 99 Y7 Y8 universal only marker
+      - name: FORCE Fix 99 Native UI marker
         shell: bash
         run: |
           echo "=============================="
-          echo "FORCE_BUILD_MARKER=FIX_99_Y7_Y8_UNIVERSAL_ONLY_NO_X86"
-          echo "Archive2 is disabled. This workflow builds ONE universal APK with only armeabi-v7a + arm64-v8a. No x86 or x86_64."
+          echo "FORCE_BUILD_MARKER=FIX_99_NATIVE_UI_BACK_FILTER_TITLE"
+          echo "Archive2 is disabled. This workflow builds ARM/all-ABI combinations for Google/Play Protect testing."
           echo "=============================="
 
       - name: Checkout repository
@@ -53,7 +53,7 @@ jobs:
           echo "Android project directory: $PROJECT_DIR"
           echo "project_dir=$PROJECT_DIR" >> $GITHUB_OUTPUT
 
-      - name: Patch Bankmovie V16 SdkEpisodeFix 70
+      - name: Patch Bankmovie V16 SdkEpisodeFix 70 base
         shell: bash
         env:
           PROJECT_DIR: ${{ steps.unzip.outputs.project_dir }}
@@ -1269,7 +1269,7 @@ jobs:
               }
               defaultConfig {
                   def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
-                  versionCode 990000 + runNumber
+                  versionCode 980000 + runNumber
                   versionName "1.3"
               }
               buildTypes {
@@ -1292,20 +1292,20 @@ jobs:
               }
           }
           """
-              if "BANKMOVIE_RELEASE_1_3_Y7_Y8_UNIVERSAL_ONLY_FIX_99" not in text:
+              if "BANKMOVIE_RELEASE_1_3_GOOGLE_ARM_MATRIX_FIX_98" not in text:
                   text += """
           android {
-              // BANKMOVIE_RELEASE_1_3_Y7_Y8_UNIVERSAL_ONLY_FIX_99
+              // BANKMOVIE_RELEASE_1_3_GOOGLE_ARM_MATRIX_FIX_98
               defaultConfig {
                   def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
-                  versionCode 990000 + runNumber
+                  versionCode 980000 + runNumber
                   versionName "1.3"
               }
               splits {
                   abi {
                       enable true
                       reset()
-                      include "armeabi-v7a", "arm64-v8a"
+                      include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
                       universalApk true
                   }
               }
@@ -1477,6 +1477,110 @@ jobs:
           print("PlayerActivity:", player_file)
           PY
 
+      - name: FORCE Fix 99 native UI bugs after embedded patch
+        shell: bash
+        env:
+          PROJECT_DIR: ${{ steps.unzip.outputs.project_dir }}
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import os, re
+
+          project = Path(os.environ["PROJECT_DIR"])
+          candidates = list(project.rglob("MainActivity.kt"))
+          if not candidates:
+              raise SystemExit("MainActivity.kt not found")
+          main = candidates[0]
+          s = main.read_text(encoding="utf-8")
+
+          # 1) Back button: prevent sudden app exit. Go back to in-app home first.
+          if "override fun onBackPressed()" not in s:
+              marker = "    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {"
+              back_func = """    override fun onBackPressed() {
+        if (currentScreen == "home") {
+            moveTaskToBack(true)
+            return
+        }
+        showHome()
+    }
+
+"""
+              if marker in s:
+                  s = s.replace(marker, back_func + marker, 1)
+              else:
+                  class_marker = "class MainActivity : Activity() {"
+                  s = s.replace(class_marker, class_marker + "\n\n" + back_func, 1)
+
+          # 2) Remove broken list filter buttons: بروزرسانی / محبوب / IMDb.
+          old_listtop = re.compile(
+              r"\n\s*private fun listTop\(title: String\): View \{.*?\n\s*private fun showCategories\(\)",
+              re.S
+          )
+          new_listtop = """
+    private fun listTop(title: String): View {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 0, 0, dp(14))
+        }
+        box.addView(TextView(this).apply {
+            text = ui(title)
+            setTextColor(white)
+            textSize = 24f
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(dp(2), dp(4), dp(2), dp(4))
+        })
+        box.addView(TextView(this).apply {
+            text = ui("ظاهر سینمایی و مرتب برای مرور سریع")
+            setTextColor(muted)
+            textSize = 12f
+            setPadding(dp(2), 0, dp(2), dp(10))
+        })
+        return box
+    }
+
+    private fun showCategories()"""
+          s, n_listtop = old_listtop.subn(new_listtop, s, count=1)
+          if n_listtop == 0:
+              print("WARNING: listTop block was not replaced; trying direct row removal")
+              s = re.sub(
+                  r'\n\s*val row = LinearLayout\(this\)\.apply \{ orientation = LinearLayout\.HORIZONTAL; layoutDirection = View\.LAYOUT_DIRECTION_RTL \}\n\s*listOf\("بروزرسانی", "محبوب", "IMDb"\)\.forEachIndexed \{.*?\n\s*box\.addView\(row\)',
+                  '',
+                  s,
+                  flags=re.S
+              )
+
+          # 3) Hide null year badges.
+          s = s.replace(
+              'item.optString("year").takeIf { it.isNotBlank() }?.let { year ->',
+              'item.optString("year").takeIf { it.isNotBlank() && !it.equals("null", true) && !it.equals("undefined", true) && !it.equals("false", true) }?.let { year ->'
+          )
+
+          # 4) Give movie titles enough room, so words are not cut.
+          s = s.replace(
+              'val cardH = if (tv) tvGridCardHeight(cardW) else dp(222)',
+              'val cardH = if (tv) tvGridCardHeight(cardW) else dp(244)'
+          )
+          s = s.replace(
+              'val posterHeight = (height * if (tv) 0.70f else 0.80f).toInt()',
+              'val posterHeight = (height * if (tv) 0.70f else 0.72f).toInt()'
+          )
+          s = s.replace(
+              'maxLines = if (tv) 3 else 2\n            ellipsize = TextUtils.TruncateAt.END',
+              'maxLines = 3\n            ellipsize = TextUtils.TruncateAt.END'
+          )
+          s = s.replace(
+              'includeFontPadding = true\n            setLineSpacing(dp(1).toFloat(), 1.0f)',
+              'includeFontPadding = true\n            setLineSpacing(dp(2).toFloat(), 1.0f)'
+          )
+
+          main.write_text(s, encoding="utf-8")
+          print("Fix 99 native UI patch applied:", main)
+          print("- Back button now returns to app home before exiting")
+          print("- Broken filter chips removed")
+          print("- null year badges hidden")
+          print("- Poster titles expanded to 3 lines")
+          PY
+
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
@@ -1517,7 +1621,7 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build Y7 Y8 universal APK only
+      - name: Build Google ARM / ABI test matrix
         working-directory: ${{ steps.unzip.outputs.project_dir }}
         shell: bash
         run: |
@@ -1525,67 +1629,102 @@ jobs:
           mkdir -p publish
 
           patch_abi_config() {
-            python3 <<'PY'
+            local includes="$1"
+            local universal="$2"
+            python3 - "$includes" "$universal" <<'PY'
           from pathlib import Path
-          import re
+          import re, sys
 
+          includes = sys.argv[1]
+          universal = sys.argv[2]
           candidates = [Path("app/build.gradle"), Path("app/build.gradle.kts")]
           gradle = next((p for p in candidates if p.exists()), None)
           if gradle is None:
               raise SystemExit("app/build.gradle or app/build.gradle.kts not found")
 
           s = gradle.read_text(encoding="utf-8")
-
-          # Force ONLY ARM ABIs in one universal APK:
-          # Y7 = armeabi-v7a, Y8 = arm64-v8a
-          s = re.sub(r'include\s+"[^"]+"(?:\s*,\s*"[^"]+")*', 'include "armeabi-v7a", "arm64-v8a"', s)
-          s = re.sub(r'universalApk\s+(true|false)', 'universalApk true', s)
-
-          # Extra safety: remove x86/x86_64 if they exist anywhere in ABI include lines.
-          s = s.replace(', "x86"', '').replace(', "x86_64"', '').replace('"x86", ', '').replace('"x86_64", ', '')
-
+          s = re.sub(r'include\s+"[^"]+"(?:\s*,\s*"[^"]+")*', f'include {includes}', s)
+          s = re.sub(r'universalApk\s+(true|false)', f'universalApk {universal}', s)
           gradle.write_text(s, encoding="utf-8")
-          print("Patched ABI config: include armeabi-v7a + arm64-v8a, universalApk true, no x86/x86_64")
+          print("Patched ABI config:", includes, "universalApk", universal)
           PY
           }
 
-          echo ""
-          echo "================ BUILD VARIANT: Y7+Y8 UNIVERSAL ONLY ================"
-          patch_abi_config
-          rm -rf app/build/outputs/apk/release || true
+          build_and_copy() {
+            local variant="$1"
+            local includes="$2"
+            local universal="$3"
+            shift 3
 
-          set +e
-          gradle :app:assembleRelease --no-daemon --max-workers=1 --stacktrace --info --console=plain -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" 2>&1 | tee "build-y7-y8-universal-only.log"
-          STATUS=${PIPESTATUS[0]}
-          set -e
-
-          if [ "$STATUS" -ne 0 ]; then
             echo ""
-            echo "================ REAL ERROR LINES FOR Y7+Y8 UNIVERSAL ONLY ================"
-            grep -n -E "e: |error:|ERROR:|Unresolved reference|Expecting|Overload resolution|None of the following|Cannot access|Type mismatch|Too many arguments|No value passed|Only safe|Smart cast|Redeclaration|Conflicting|Cannot infer" "build-y7-y8-universal-only.log" | tail -n 180 || true
-            echo "================ END REAL ERROR LINES ================"
-            exit "$STATUS"
-          fi
+            echo "================ BUILD VARIANT: $variant ================"
+            patch_abi_config "$includes" "$universal"
+            rm -rf app/build/outputs/apk/release || true
 
-          echo "APK outputs:"
-          find app/build/outputs/apk/release -maxdepth 1 -type f -name "*.apk" -printf "%f  %k KB\n" || true
+            set +e
+            gradle :app:assembleRelease --no-daemon --max-workers=1 --stacktrace --info --console=plain -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" 2>&1 | tee "build-$variant.log"
+            STATUS=${PIPESTATUS[0]}
+            set -e
 
-          APK="$(find app/build/outputs/apk/release -type f -name "*universal*release*.apk" | head -n 1 || true)"
-          if [ -z "$APK" ]; then
-            echo "Could not find universal APK. Available APKs:"
-            find app/build/outputs/apk/release -type f -name "*.apk" -print || true
-            exit 1
-          fi
+            if [ "$STATUS" -ne 0 ]; then
+              echo ""
+              echo "================ REAL ERROR LINES FOR $variant ================"
+              grep -n -E "e: |error:|ERROR:|Unresolved reference|Expecting|Overload resolution|None of the following|Cannot access|Type mismatch|Too many arguments|No value passed|Only safe|Smart cast|Redeclaration|Conflicting|Cannot infer" "build-$variant.log" | tail -n 180 || true
+              echo "================ END REAL ERROR LINES ================"
+              exit "$STATUS"
+            fi
 
-          cp "$APK" "publish/Bankmovie-v1.3-Y7-Y8-universal-armeabi-v7a-arm64-v8a-no-x86-fix99.apk"
+            echo "APK outputs for $variant:"
+            find app/build/outputs/apk/release -type f -name "*.apk" -maxdepth 1 -printf "%f  %k KB\n" || true
+
+            while [ "$#" -gt 0 ]; do
+              local pattern="$1"
+              local out_name="$2"
+              shift 2
+              APK="$(find app/build/outputs/apk/release -type f -name "$pattern" | head -n 1 || true)"
+              if [ -z "$APK" ]; then
+                echo "Could not find APK pattern $pattern for $variant"
+                find app/build/outputs/apk/release -type f -name "*.apk" -print || true
+                exit 1
+              fi
+              cp "$APK" "publish/$out_name"
+            done
+          }
+
+          # Combo 1: ARM64 + ARMv7 split-only. No universal, no x86.
+          build_and_copy \
+            "combo1-arm-splits-only" \
+            '"armeabi-v7a", "arm64-v8a"' \
+            "false" \
+            "*arm64-v8a*release*.apk" "Bankmovie-v1.3-google-test-combo1-arm64-v8a-split-only-fix99.apk" \
+            "*armeabi-v7a*release*.apk" "Bankmovie-v1.3-google-test-combo1-armeabi-v7a-split-only-fix99.apk"
+
+          # Combo 2: ARM64 + ARMv7 combined universal. This is the low-size universal candidate.
+          # The sha256 file at the end covers this output too.
+          build_and_copy \
+            "combo2-arm64-v7a-universal" \
+            '"armeabi-v7a", "arm64-v8a"' \
+            "true" \
+            "*universal*release*.apk" "Bankmovie-v1.3-google-test-combo2-arm64-v7a-universal-fix99.apk"
+
+          # Combo 3: ARM64 + ARMv7 + x86 + x86_64, with universal + all split outputs.
+          build_and_copy \
+            "combo3-allabi-universal-and-splits" \
+            '"armeabi-v7a", "arm64-v8a", "x86", "x86_64"' \
+            "true" \
+            "*universal*release*.apk" "Bankmovie-v1.3-google-test-combo3-allabi-universal-fix99.apk" \
+            "*arm64-v8a*release*.apk" "Bankmovie-v1.3-google-test-combo3-allabi-arm64-v8a-split-fix99.apk" \
+            "*armeabi-v7a*release*.apk" "Bankmovie-v1.3-google-test-combo3-allabi-armeabi-v7a-split-fix99.apk" \
+            "*x86-release*.apk" "Bankmovie-v1.3-google-test-combo3-allabi-x86-split-fix99.apk" \
+            "*x86_64*release*.apk" "Bankmovie-v1.3-google-test-combo3-allabi-x86_64-split-fix99.apk"
 
           echo ""
           echo "Final publish files:"
           ls -lh publish
-          sha256sum publish/*.apk | tee publish/Bankmovie-v1.3-Y7-Y8-universal-no-x86-sha256-fix99.sha256
+          sha256sum publish/*.apk | tee publish/Bankmovie-v1.3-google-test-combo-sha256-fix99.sha256
 
-      - name: Upload Release APK
+      - name: Upload Release APKs
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.3-Y7-Y8-Universal-No-X86-Fix-99-apk
+          name: Bankmovie-V1.3-Native-UI-Fix-99-apk
           path: ${{ steps.unzip.outputs.project_dir }}/publish/*
