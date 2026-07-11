@@ -1,4 +1,4 @@
-name: Build Bankmovie V1.4 V3 Player Modal Three APKs
+name: Build Bankmovie V1.4 V5 Final Three APKs
 
 on:
   workflow_dispatch:
@@ -10,18 +10,18 @@ permissions:
 
 jobs:
   build:
-    name: Build Bankmovie V1.4 V3 Player Modal ARM64 V7A Universal
+    name: Build Bankmovie V1.4 V5 Final ARM64 V7A Universal
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Unzip exact V1.4 V3 source
+      - name: Unzip exact V1.4 V5 source
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="Bankmovie-v1.4-source-v3-player-modal.zip"
+          ZIP="Bankmovie-v1.4-source-v5-final.zip"
           if [ ! -f "$ZIP" ]; then
             echo "==================== REAL ERROR ===================="
             echo "Missing $ZIP in repository root."
@@ -35,40 +35,14 @@ jobs:
           test -f project/app/build.gradle
           test -f project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
 
-      - name: Fix Kotlin regex escape
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 <<'PY'
-          from pathlib import Path
-
-          path = Path("project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt")
-          source = path.read_text(encoding="utf-8")
-
-          old = r'Regex("\d+")'
-          new = r'Regex("""\d+""")'
-
-          count = source.count(old)
-          if count != 1:
-              print("==================== REAL ERROR ====================")
-              print(f"Expected exactly one broken Regex occurrence, found: {count}")
-              print("====================================================")
-              raise SystemExit(1)
-
-          path.write_text(source.replace(old, new, 1), encoding="utf-8")
-          print("Kotlin regex escape fixed successfully.")
-          PY
-
-          grep -Fq 'Regex("""\d+""")' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-
-      - name: Verify real V3 source changes
+      - name: Verify real V5 source changes
         shell: bash
         run: |
           set -euo pipefail
           MAIN="project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
           GRADLE="project/app/build.gradle"
 
-          grep -Fq 'versionCode 1090000 + runNumber' "$GRADLE"
+          grep -Fq 'versionCode 1110000 + runNumber' "$GRADLE"
           grep -Fq 'versionName "1.4"' "$GRADLE"
           grep -Fq 'include "armeabi-v7a", "arm64-v8a"' "$GRADLE"
           grep -Fq 'universalApk true' "$GRADLE"
@@ -78,6 +52,21 @@ jobs:
           grep -Fq 'minimum_version_name' "$MAIN"
           grep -Fq 'apk_urls' "$MAIN"
           grep -Fq 'compareReleaseVersions(targetName, currentName) > 0' "$MAIN"
+          grep -Fq 'Regex("""\d+""")' "$MAIN"
+          grep -Fq 'private val navigationHistory = mutableListOf<() -> Unit>()' "$MAIN"
+          grep -Fq 'private fun handleSmartBack()' "$MAIN"
+          grep -Fq 'private fun updateSearchRestorer()' "$MAIN"
+          grep -Fq 'private fun showSearch(initialQuery: String = "", initialFilter: String = "all", showAllResults: Boolean = false)' "$MAIN"
+          grep -Fq 'rememberCurrentScreen { showCollectionItems(savedSlug, savedTitle) }' "$MAIN"
+          grep -Fq 'hero.addView(svgIconButton(R.drawable.ic_player_back) { handleSmartBack() }' "$MAIN"
+          grep -Fq 'head.addView(svgIconButton(R.drawable.ic_player_back) { handleSmartBack() }' "$MAIN"
+
+          if grep -Fq 'Regex("\d+")' "$MAIN"; then
+            echo "==================== REAL ERROR ===================="
+            echo "Broken Kotlin regex escape still exists."
+            echo "===================================================="
+            exit 1
+          fi
 
           LOADER_BLOCK="$(sed -n '/private fun movieDetailLoading/,/private fun skeletonPosterCard/p' "$MAIN")"
           if printf '%s' "$LOADER_BLOCK" | grep -Fq 'نسخه ۱.۴'; then
@@ -100,8 +89,23 @@ jobs:
           grep -Fq 'Intent.createChooser(intent' "$MAIN"
           test -f project/app/src/main/res/drawable/ic_vlc_logo.xml
           test -f project/app/src/main/res/drawable/ic_external_player.xml
+          test -f project/app/src/main/res/drawable/ic_seen_eye.xml
+          grep -Fq 'private data class ServerEndpoint' "$MAIN"
+          grep -Fq 'private fun rewriteConfiguredUrl(' "$MAIN"
+          grep -Fq 'json.optJSONArray("servers")' "$MAIN"
+          grep -Fq 'json.optJSONArray("url_rewrites")' "$MAIN"
+          grep -Fq 'private fun markPlayed(' "$MAIN"
+          grep -Fq 'R.drawable.ic_seen_eye' "$MAIN"
+          grep -Fq 'R.drawable.adm_logo_transparent' "$MAIN"
+          grep -Fq 'putExtra(PlayerActivity.EXTRA_PROGRESS_KEY' "$MAIN"
+          grep -Fq 'transparentIcon = true' "$MAIN"
+          grep -Fq 'setDimAmount(0.58f)' "$MAIN"
+          PLAYER="project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt"
+          grep -Fq 'const val EXTRA_PROGRESS_KEY = "progress_key"' "$PLAYER"
+          grep -Fq 'val progressKey: String' "$PLAYER"
+          grep -Fq '.putLong(stableKey, savedTime)' "$PLAYER"
 
-          echo "V1.4 V3 player modal source changes verified before build."
+          echo "V1.4 V5 failover, watched-state, resume and lightweight player modal verified before build."
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -233,9 +237,9 @@ jobs:
           verify_apk "$UNIVERSAL" "universal"
 
           mkdir -p publish/arm64 publish/v7a publish/universal
-          cp "$ARM64" "publish/arm64/Bankmovie-v1.4-v3-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$V7A" "publish/v7a/Bankmovie-v1.4-v3-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$UNIVERSAL" "publish/universal/Bankmovie-v1.4-v3-universal-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$ARM64" "publish/arm64/Bankmovie-v1.4-v5-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$V7A" "publish/v7a/Bankmovie-v1.4-v5-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$UNIVERSAL" "publish/universal/Bankmovie-v1.4-v5-universal-build-${GITHUB_RUN_NUMBER}.apk"
           sha256sum publish/arm64/*.apk > publish/arm64/SHA256.txt
           sha256sum publish/v7a/*.apk > publish/v7a/SHA256.txt
           sha256sum publish/universal/*.apk > publish/universal/SHA256.txt
@@ -245,7 +249,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.4-V3-Build-Log-${{ github.run_number }}
+          name: Bankmovie-V1.4-V5-Build-Log-${{ github.run_number }}
           path: project/build.log
           if-no-files-found: ignore
           retention-days: 7
@@ -253,7 +257,7 @@ jobs:
       - name: Upload ARM64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.4-V3-ARM64-${{ github.run_number }}
+          name: Bankmovie-V1.4-V5-ARM64-${{ github.run_number }}
           path: project/publish/arm64/*
           if-no-files-found: error
           retention-days: 14
@@ -261,7 +265,7 @@ jobs:
       - name: Upload V7A APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.4-V3-V7A-${{ github.run_number }}
+          name: Bankmovie-V1.4-V5-V7A-${{ github.run_number }}
           path: project/publish/v7a/*
           if-no-files-found: error
           retention-days: 14
@@ -269,7 +273,7 @@ jobs:
       - name: Upload Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.4-V3-Universal-${{ github.run_number }}
+          name: Bankmovie-V1.4-V5-Universal-${{ github.run_number }}
           path: project/publish/universal/*
           if-no-files-found: error
           retention-days: 14
