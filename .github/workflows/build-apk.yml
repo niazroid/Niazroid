@@ -1,4 +1,4 @@
-name: Build Bankmovie V1.4 V6 YAML Patch Three APKs
+name: Build Bankmovie V1.4 V8 Four Outputs
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Build Bankmovie V1.4 V6 YAML Patch ARM64 V7A Universal
+    name: Build Bankmovie V1.4 V8 ARM64 V7A Lite Universal Full Universal
     runs-on: ubuntu-latest
 
     steps:
@@ -42,14 +42,34 @@ jobs:
           echo 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCmltcG9ydCByZQoKcm9vdCA9IFBhdGgoInByb2plY3QiKQptYWluID0gcm9vdCAvICJhcHAvc3JjL21haW4vamF2YS9pci9iYW5rbW92aWVlL2FwcC9NYWluQWN0aXZpdHkua3QiCmdyYWRsZSA9IHJvb3QgLyAiYXBwL2J1aWxkLmdyYWRsZSIKc291cmNlID0gbWFpbi5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikKCgpkZWYgcmVwbGFjZV9vbmNlKG9sZDogc3RyLCBuZXc6IHN0ciwgbGFiZWw6IHN0cikgLT4gTm9uZToKICAgIGdsb2JhbCBzb3VyY2UKICAgIGNvdW50ID0gc291cmNlLmNvdW50KG9sZCkKICAgIGlmIGNvdW50ICE9IDE6CiAgICAgICAgcHJpbnQoIj09PT09PT09PT09PT09PT09PT09IFJFQUwgRVJST1IgPT09PT09PT09PT09PT09PT09PT0iKQogICAgICAgIHByaW50KGYie2xhYmVsfTogZXhwZWN0ZWQgMSBvY2N1cnJlbmNlLCBmb3VuZCB7Y291bnR9IikKICAgICAgICBwcmludCgiPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PSIpCiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgxKQogICAgc291cmNlID0gc291cmNlLnJlcGxhY2Uob2xkLCBuZXcsIDEpCgoKcmVwbGFjZV9vbmNlKAogICAgJycnICAgICAgICBjb250ZW50LmFkZFZpZXcoc2Nyb2xsKVxuICAgICAgICBhdHRhY2hTbWFydEhlYWRlcihzY3JvbGwpXG5cbiAgICAgICAgcGFnZS5hZGRWaWV3KGxpc3RUb3AodCgi2qnYp9mE2qnYtNmG4oCM2YfYpyIsICJDb2xsZWN0aW9ucyIpKSknJycsCiAgICAnJycgICAgICAgIGNvbnRlbnQuYWRkVmlldyhzY3JvbGwpXG4gICAgICAgIGF0dGFjaFNtYXJ0SGVhZGVyKHNjcm9sbClcbiAgICAgICAgdmFsIGNvbGxlY3Rpb25Mb2FkaW5nID0gbW92aWVEZXRhaWxMb2FkaW5nKEpTT05PYmplY3QoKSlcbiAgICAgICAgY29udGVudC5hZGRWaWV3KGNvbGxlY3Rpb25Mb2FkaW5nLCBGcmFtZUxheW91dC5MYXlvdXRQYXJhbXMoLTEsIC0xKSlcblxuICAgICAgICBwYWdlLmFkZFZpZXcobGlzdFRvcCh0KCLaqdin2YTaqdi02YbigIzZh9inIiwgIkNvbGxlY3Rpb25zIikpKScnJywKICAgICJjb2xsZWN0aW9ucyBsb2FkaW5nIHZpZXciLAopCnJlcGxhY2Vfb25jZSgKICAgICcnJyAgICAgICAgZnVuIGxvYWRDb2xsZWN0aW9ucyhwOiBJbnQpIHtcbiAgICAgICAgICAgIG1vcmUudGV4dCA9IHQoItiv2LEg2K3Yp9mEINio2KfYsdqv2LDYp9ix24wuLi4iLCAiTG9hZGluZy4uLiIpJycnLAogICAgJycnICAgICAgICBmdW4gbG9hZENvbGxlY3Rpb25zKHA6IEludCkge1xuICAgICAgICAgICAgaWYgKHAgPT0gMSAmJiBncmlkLmNoaWxkQ291bnQgPT0gMCkgY29sbGVjdGlvbkxvYWRpbmcudmlzaWJpbGl0eSA9IFZpZXcuVklTSUJMRVxuICAgICAgICAgICAgbW9yZS50ZXh0ID0gdCgi2K/YsSDYrdin2YQg2KjYp9ix2q/YsNin2LHbjC4uLiIsICJMb2FkaW5nLi4uIiknJycsCiAgICAiY29sbGVjdGlvbnMgbG9hZGluZyBzdGFydCIsCikKcmVwbGFjZV9vbmNlKAogICAgJycnICAgICAgICAgICAgZmV0Y2goIiRhcGlCYXNlP2FjdGlvbj1jb2xsZWN0aW9ucyZwYWdlPSRwJmxpbWl0PTI0IikgeyBvaywganNvbiwgZXJyIC0+XG4gICAgICAgICAgICAgICAgcnVuT25VaVRocmVhZCB7XG4gICAgICAgICAgICAgICAgICAgIG1vcmUuaXNFbmFibGVkID0gdHJ1ZScnJywKICAgICcnJyAgICAgICAgICAgIGZldGNoKCIkYXBpQmFzZT9hY3Rpb249Y29sbGVjdGlvbnMmcGFnZT0kcCZsaW1pdD0yNCIpIHsgb2ssIGpzb24sIGVyciAtPlxuICAgICAgICAgICAgICAgIHJ1bk9uVWlUaHJlYWQge1xuICAgICAgICAgICAgICAgICAgICBpZiAocCA9PSAxKSBjb2xsZWN0aW9uTG9hZGluZy52aXNpYmlsaXR5ID0gVmlldy5HT05FXG4gICAgICAgICAgICAgICAgICAgIG1vcmUuaXNFbmFibGVkID0gdHJ1ZScnJywKICAgICJjb2xsZWN0aW9ucyBsb2FkaW5nIGZpbmlzaCIsCikKcmVwbGFjZV9vbmNlKAogICAgJycnICAgICAgICBjb250ZW50LmFkZFZpZXcoc2Nyb2xsKVxuICAgICAgICBhdHRhY2hTbWFydEhlYWRlcihzY3JvbGwpXG4gICAgICAgIHBhZ2UuYWRkVmlldyhsaXN0VG9wKHRpdGxlKSlcbiAgICAgICAgdmFsIGdyaWQgPSBHcmlkTGF5b3V0KHRoaXMpLmFwcGx5IHsgY29sdW1uQ291bnQgPSBpZiAodHYpIDggZWxzZSAzOyBsYXlvdXREaXJlY3Rpb24gPSBpZiAodHYpIFZpZXcuTEFZT1VUX0RJUkVDVElPTl9MVFIgZWxzZSBWaWV3LkxBWU9VVF9ESVJFQ1RJT05fUlRMIH0nJycsCiAgICAnJycgICAgICAgIGNvbnRlbnQuYWRkVmlldyhzY3JvbGwpXG4gICAgICAgIGF0dGFjaFNtYXJ0SGVhZGVyKHNjcm9sbClcbiAgICAgICAgdmFsIGNvbGxlY3Rpb25JdGVtc0xvYWRpbmcgPSBtb3ZpZURldGFpbExvYWRpbmcoSlNPTk9iamVjdCgpKVxuICAgICAgICBjb250ZW50LmFkZFZpZXcoY29sbGVjdGlvbkl0ZW1zTG9hZGluZywgRnJhbWVMYXlvdXQuTGF5b3V0UGFyYW1zKC0xLCAtMSkpXG4gICAgICAgIHBhZ2UuYWRkVmlldyhsaXN0VG9wKHRpdGxlKSlcbiAgICAgICAgdmFsIGdyaWQgPSBHcmlkTGF5b3V0KHRoaXMpLmFwcGx5IHsgY29sdW1uQ291bnQgPSBpZiAodHYpIDggZWxzZSAzOyBsYXlvdXREaXJlY3Rpb24gPSBpZiAodHYpIFZpZXcuTEFZT1VUX0RJUkVDVElPTl9MVFIgZWxzZSBWaWV3LkxBWU9VVF9ESVJFQ1RJT05fUlRMIH0nJycsCiAgICAiY29sbGVjdGlvbiBpdGVtcyBsb2FkaW5nIHZpZXciLAopCnJlcGxhY2Vfb25jZSgKICAgICcnJyAgICAgICAgZnVuIGxvYWRJdGVtcyhwOiBJbnQpIHtcbiAgICAgICAgICAgIG1vcmUudGV4dCA9IHVpKCLYr9ixINit2KfZhCDYqNin2LHar9iw2KfYsduMLi4uIiknJycsCiAgICAnJycgICAgICAgIGZ1biBsb2FkSXRlbXMocDogSW50KSB7XG4gICAgICAgICAgICBpZiAocCA9PSAxICYmIGdyaWQuY2hpbGRDb3VudCA9PSAwKSBjb2xsZWN0aW9uSXRlbXNMb2FkaW5nLnZpc2liaWxpdHkgPSBWaWV3LlZJU0lCTEVcbiAgICAgICAgICAgIG1vcmUudGV4dCA9IHVpKCLYr9ixINit2KfZhCDYqNin2LHar9iw2KfYsduMLi4uIiknJycsCiAgICAiY29sbGVjdGlvbiBpdGVtcyBsb2FkaW5nIHN0YXJ0IiwKKQpyZXBsYWNlX29uY2UoCiAgICAnJycgICAgICAgICAgICBmZXRjaCgiJGFwaUJhc2U/YWN0aW9uPWNvbGxlY3Rpb24mc2x1Zz0ke2VuYyhzbHVnKX0mcGFnZT0kcCZsaW1pdD0kbGltaXQiKSB7IG9rLCBqc29uLCBlcnIgLT5cbiAgICAgICAgICAgICAgICBydW5PblVpVGhyZWFkIHtcbiAgICAgICAgICAgICAgICAgICAgbW9yZS5pc0VuYWJsZWQgPSB0cnVlJycnLAogICAgJycnICAgICAgICAgICAgZmV0Y2goIiRhcGlCYXNlP2FjdGlvbj1jb2xsZWN0aW9uJnNsdWc9JHtlbmMoc2x1Zyl9JnBhZ2U9JHAmbGltaXQ9JGxpbWl0IikgeyBvaywganNvbiwgZXJyIC0+XG4gICAgICAgICAgICAgICAgcnVuT25VaVRocmVhZCB7XG4gICAgICAgICAgICAgICAgICAgIGlmIChwID09IDEpIGNvbGxlY3Rpb25JdGVtc0xvYWRpbmcudmlzaWJpbGl0eSA9IFZpZXcuR09ORVxuICAgICAgICAgICAgICAgICAgICBtb3JlLmlzRW5hYmxlZCA9IHRydWUnJycsCiAgICAiY29sbGVjdGlvbiBpdGVtcyBsb2FkaW5nIGZpbmlzaCIsCikKcmVwbGFjZV9vbmNlKAogICAgJycnICAgICAgICBoZWFkLmFkZFZpZXcoSW1hZ2VWaWV3KHRoaXMpLmFwcGx5IHtcbiAgICAgICAgICAgIHNldEltYWdlUmVzb3VyY2UoUi5kcmF3YWJsZS5hZG1fbG9nb190cmFuc3BhcmVudClcbiAgICAgICAgICAgIHNjYWxlVHlwZSA9IEltYWdlVmlldy5TY2FsZVR5cGUuRklUX0NFTlRFUlxuICAgICAgICAgICAgY29udGVudERlc2NyaXB0aW9uID0gIkJhbmttb3ZpZSJcbiAgICAgICAgfSwgTGluZWFyTGF5b3V0LkxheW91dFBhcmFtcyhkcCg0MiksIGRwKDQyKSkuYXBwbHkgeyBtYXJnaW5TdGFydCA9IGRwKDkpIH0pXG5cbicnJywKICAgICIiLAogICAgInJlbW92ZSBBRE0gbG9nbyBmcm9tIG1vZGFsIGhlYWRlciIsCikKcmVwbGFjZV9vbmNlKAogICAgJycnICAgICAgICAgICAgICAgIFIuZHJhd2FibGUuYWRtX2xvZ29fdHJhbnNwYXJlbnQsXG4gICAgICAgICAgICAgICAgdCgi2b7Yrti0INio2KcgQmFua21vdmllIiwgIlBsYXkgd2l0aCBCYW5rbW92aWUiKSwnJycsCiAgICAnJycgICAgICAgICAgICAgICAgUi5kcmF3YWJsZS5iYW5rbW92aWVfbG9nb190cmFuc3BhcmVudCxcbiAgICAgICAgICAgICAgICB0KCLZvtiu2LQg2KjYpyDYqNin2YbaqSDZhdmI2YjbjCIsICJQbGF5IHdpdGggQmFua21vdmllIiksJycnLAogICAgIkJhbmttb3ZpZSBidXR0b24gbG9nbyBhbmQgUGVyc2lhbiB0aXRsZSIsCikKCm1haW4ud3JpdGVfdGV4dChzb3VyY2UsIGVuY29kaW5nPSJ1dGYtOCIpCgpncmFkbGVfdGV4dCA9IGdyYWRsZS5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikKZ3JhZGxlX3RleHQsIGNoYW5nZWQgPSByZS5zdWJuKAogICAgciJ2ZXJzaW9uQ29kZVxzK1xkK1xzKlwrXHMqcnVuTnVtYmVyIiwKICAgICJ2ZXJzaW9uQ29kZSAxMTMwMDAwICsgcnVuTnVtYmVyIiwKICAgIGdyYWRsZV90ZXh0LAogICAgY291bnQ9MSwKKQppZiBjaGFuZ2VkICE9IDE6CiAgICBwcmludCgiPT09PT09PT09PT09PT09PT09PT0gUkVBTCBFUlJPUiA9PT09PT09PT09PT09PT09PT09PSIpCiAgICBwcmludCgiQ291bGQgbm90IHVwZGF0ZSB2ZXJzaW9uQ29kZSIpCiAgICBwcmludCgiPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PSIpCiAgICByYWlzZSBTeXN0ZW1FeGl0KDEpCmdyYWRsZS53cml0ZV90ZXh0KGdyYWRsZV90ZXh0LCBlbmNvZGluZz0idXRmLTgiKQpwcmludCgiVjYgbG9nbywgUGVyc2lhbiB0aXRsZSBhbmQgY29sbGVjdGlvbiBsb2FkaW5nIHBhdGNoIGFwcGxpZWQgZnJvbSBZQU1MLiIpCg==' | base64 -d > /tmp/patch_bankmovie_v6.py
           python3 /tmp/patch_bankmovie_v6.py
 
-      - name: Verify V6 YAML-only patch
+      - name: Force two ABI release and size optimization
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCmltcG9ydCByZQoKcGF0aCA9IFBhdGgoInByb2plY3QvYXBwL2J1aWxkLmdyYWRsZSIpCnNvdXJjZSA9IHBhdGgucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpCgpzb3VyY2UsIGNvdW50ID0gcmUuc3VibigKICAgIHIndmVyc2lvbkNvZGVccytcZCtccypcK1xzKnJ1bk51bWJlcicsCiAgICAndmVyc2lvbkNvZGUgMTE0MDAwMCArIHJ1bk51bWJlcicsCiAgICBzb3VyY2UsCiAgICBjb3VudD0xLAopCmlmIGNvdW50ICE9IDE6CiAgICByYWlzZSBTeXN0ZW1FeGl0KCJDb3VsZCBub3QgdXBkYXRlIHZlcnNpb25Db2RlIikKCnNvdXJjZSwgY291bnQgPSByZS5zdWJuKHInbWluaWZ5RW5hYmxlZFxzK2ZhbHNlJywgJ21pbmlmeUVuYWJsZWQgdHJ1ZScsIHNvdXJjZSwgY291bnQ9MSkKaWYgY291bnQgIT0gMSBhbmQgJ21pbmlmeUVuYWJsZWQgdHJ1ZScgbm90IGluIHNvdXJjZToKICAgIHJhaXNlIFN5c3RlbUV4aXQoIkNvdWxkIG5vdCBlbmFibGUgUjggbWluaWZpY2F0aW9uIikKCnNvdXJjZSwgY291bnQgPSByZS5zdWJuKHInc2hyaW5rUmVzb3VyY2VzXHMrZmFsc2UnLCAnc2hyaW5rUmVzb3VyY2VzIHRydWUnLCBzb3VyY2UsIGNvdW50PTEpCmlmIGNvdW50ICE9IDEgYW5kICdzaHJpbmtSZXNvdXJjZXMgdHJ1ZScgbm90IGluIHNvdXJjZToKICAgIHJhaXNlIFN5c3RlbUV4aXQoIkNvdWxkIG5vdCBlbmFibGUgcmVzb3VyY2Ugc2hyaW5raW5nIikKCnNvdXJjZSwgY291bnQgPSByZS5zdWJuKAogICAgcidpbmNsdWRlXHMrW15cbl0rJywKICAgICdpbmNsdWRlICJhcm1lYWJpLXY3YSIsICJhcm02NC12OGEiJywKICAgIHNvdXJjZSwKICAgIGNvdW50PTEsCikKaWYgY291bnQgIT0gMToKICAgIHJhaXNlIFN5c3RlbUV4aXQoIkNvdWxkIG5vdCByZXN0cmljdCBBQkkgaW5jbHVkZSBsaXN0IikKCnNvdXJjZSwgY291bnQgPSByZS5zdWJuKHIndW5pdmVyc2FsQXBrXHMrKD86ZmFsc2V8dHJ1ZSknLCAndW5pdmVyc2FsQXBrIHRydWUnLCBzb3VyY2UsIGNvdW50PTEpCmlmIGNvdW50ICE9IDE6CiAgICByYWlzZSBTeXN0ZW1FeGl0KCJDb3VsZCBub3QgZW5hYmxlIHVuaXZlcnNhbCBBUEsiKQoKcGF0aC53cml0ZV90ZXh0KHNvdXJjZSwgZW5jb2Rpbmc9InV0Zi04IikKcHJpbnQoIlJlbGVhc2UgbGltaXRlZCB0byBhcm02NC12OGEgKyBhcm1lYWJpLXY3YTsgdW5pdmVyc2FsIGNvbnRhaW5zIG9ubHkgdGhvc2UgdHdvIEFCSXMuIikK' | base64 -d > /tmp/patch_bankmovie_v7_abi.py
+          python3 /tmp/patch_bankmovie_v7_abi.py
+
+          GRADLE="project/app/build.gradle"
+          grep -Fq 'versionCode 1140000 + runNumber' "$GRADLE"
+          grep -Fq 'minifyEnabled true' "$GRADLE"
+          grep -Fq 'shrinkResources true' "$GRADLE"
+          grep -Fq 'include "armeabi-v7a", "arm64-v8a"' "$GRADLE"
+          grep -Fq 'universalApk true' "$GRADLE"
+          if grep -Eq 'include .*x86|abiFilters .*x86' "$GRADLE"; then
+            echo "==================== REAL ERROR ===================="
+            echo "x86 ABI is still enabled in app/build.gradle."
+            echo "===================================================="
+            exit 1
+          fi
+
+      - name: Verify V7 Lite YAML-only patch
         shell: bash
         run: |
           set -euo pipefail
           MAIN="project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
           GRADLE="project/app/build.gradle"
 
-          grep -Fq 'versionCode 1130000 + runNumber' "$GRADLE"
+          grep -Fq 'versionCode 1140000 + runNumber' "$GRADLE"
           grep -Fq 'versionName "1.4"' "$GRADLE"
           grep -Fq 'include "armeabi-v7a", "arm64-v8a"' "$GRADLE"
           grep -Fq 'universalApk true' "$GRADLE"
@@ -122,7 +142,7 @@ jobs:
           grep -Fq 'val progressKey: String' "$PLAYER"
           grep -Fq '.putLong(stableKey, savedTime)' "$PLAYER"
 
-          echo "V1.4 V6 YAML-only logo, Persian title, collection loading and all V5 features verified before build."
+          echo "V1.4 V7 Lite two-ABI build and all prior features verified before build."
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -145,46 +165,46 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build and verify three APKs
+      - name: Build and verify four APKs
         working-directory: project
         shell: bash
         run: |
           set -uo pipefail
           rm -rf app/build publish
+          mkdir -p publish/arm64 publish/v7a publish/universal-lite publish/universal-full
 
-          set +e
-          gradle :app:assembleRelease --no-daemon --max-workers=1 --stacktrace --console=plain 2>&1 | tee build.log
-          BUILD_STATUS=${PIPESTATUS[0]}
-          set -e
-
-          if [ "$BUILD_STATUS" -ne 0 ]; then
+          print_real_error() {
+            local log_file="$1"
+            local exit_code="$2"
             echo ""
             echo "================ KOTLIN COMPILER ERRORS ================"
-            grep -E '(^e: |^w: |\.kt:[0-9]+:[0-9]+|\.kt \([0-9]+,[0-9]+\)|Unresolved reference|Type mismatch|Overload resolution ambiguity|Cannot infer|No value passed|Too many arguments|Expecting )|Expecting an element)' build.log | tail -n 240 || true
+            grep -E '(^e: |^w: |\.kt:[0-9]+:[0-9]+|\.kt \([0-9]+,[0-9]+\)|Unresolved reference|Type mismatch|Overload resolution ambiguity|Cannot infer|No value passed|Too many arguments|Expecting \)|Expecting an element)' "$log_file" | tail -n 240 || true
             echo "==================== REAL ERROR ========================="
-            grep -Ei 'FAILURE:|What went wrong:|Execution failed|error:|Exception|Caused by:' build.log | tail -n 180 || true
+            grep -Ei 'FAILURE:|What went wrong:|Execution failed|error:|Exception|Caused by:' "$log_file" | tail -n 180 || true
             echo "-------------------- LAST LOG LINES ---------------------"
-            tail -n 120 build.log || true
+            tail -n 120 "$log_file" || true
             echo "========================================================="
-            exit "$BUILD_STATUS"
-          fi
+            exit "$exit_code"
+          }
 
-          OUT="app/build/outputs/apk/release"
-          ARM64="$(find "$OUT" -maxdepth 1 -type f -name '*arm64-v8a*release*.apk' | head -n 1)"
-          V7A="$(find "$OUT" -maxdepth 1 -type f -name '*armeabi-v7a*release*.apk' | head -n 1)"
-          UNIVERSAL="$(find "$OUT" -maxdepth 1 -type f -name '*universal*release*.apk' | head -n 1)"
+          build_release() {
+            local log_file="$1"
+            local append_mode="$2"
 
-          for spec in "ARM64:$ARM64" "V7A:$V7A" "UNIVERSAL:$UNIVERSAL"; do
-            LABEL="${spec%%:*}"
-            APK="${spec#*:}"
-            if [ -z "$APK" ]; then
-              echo "==================== REAL ERROR ===================="
-              echo "$LABEL APK was not produced."
-              find "$OUT" -maxdepth 1 -type f -name '*.apk' -print 2>/dev/null || true
-              echo "===================================================="
-              exit 1
+            rm -rf app/build
+            set +e
+            if [ "$append_mode" = "append" ]; then
+              gradle :app:assembleRelease --no-daemon --max-workers=1 --stacktrace --console=plain 2>&1 | tee -a "$log_file"
+            else
+              gradle :app:assembleRelease --no-daemon --max-workers=1 --stacktrace --console=plain 2>&1 | tee "$log_file"
             fi
-          done
+            local status=${PIPESTATUS[0]}
+            set -e
+
+            if [ "$status" -ne 0 ]; then
+              print_real_error "$log_file" "$status"
+            fi
+          }
 
           AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
           APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
@@ -193,6 +213,7 @@ jobs:
           verify_apk() {
             local apk="$1"
             local label="$2"
+            local expected_mode="$3"
             local badging="apk-badging-${label}.txt"
             local signing="apk-signature-${label}.txt"
 
@@ -213,6 +234,46 @@ jobs:
               echo "===================================================="
               exit 1
             fi
+
+            local native_line
+            native_line="$(grep -m1 '^native-code:' "$badging" || true)"
+
+            case "$expected_mode" in
+              arm64)
+                printf '%s' "$native_line" | grep -Fq "'arm64-v8a'" || { echo "ARM64 APK has no arm64-v8a native code"; exit 1; }
+                if printf '%s' "$native_line" | grep -Eq "armeabi-v7a|x86"; then
+                  echo "ARM64 APK contains an unwanted ABI: $native_line"
+                  exit 1
+                fi
+                ;;
+              v7a)
+                printf '%s' "$native_line" | grep -Fq "'armeabi-v7a'" || { echo "V7A APK has no armeabi-v7a native code"; exit 1; }
+                if printf '%s' "$native_line" | grep -Eq "arm64-v8a|x86"; then
+                  echo "V7A APK contains an unwanted ABI: $native_line"
+                  exit 1
+                fi
+                ;;
+              lite-universal)
+                printf '%s' "$native_line" | grep -Fq "'arm64-v8a'" || { echo "Lite Universal APK has no arm64-v8a native code"; exit 1; }
+                printf '%s' "$native_line" | grep -Fq "'armeabi-v7a'" || { echo "Lite Universal APK has no armeabi-v7a native code"; exit 1; }
+                if printf '%s' "$native_line" | grep -Eq "'x86'|'x86_64'"; then
+                  echo "Lite Universal APK contains x86: $native_line"
+                  exit 1
+                fi
+                ;;
+              full-universal)
+                for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+                  printf '%s' "$native_line" | grep -Fq "'$abi'" || {
+                    echo "Full Universal APK is missing $abi: $native_line"
+                    exit 1
+                  }
+                done
+                ;;
+              *)
+                echo "Unknown verification mode: $expected_mode"
+                exit 1
+                ;;
+            esac
 
             set +e
             "$APKSIGNER" verify --verbose --print-certs "$apk" > "$signing" 2>&1
@@ -246,27 +307,97 @@ jobs:
 
             echo "$label verified:"
             grep -m1 '^package:' "$badging"
+            grep -m1 '^native-code:' "$badging" || true
             grep -E '^Signer #1 certificate (DN|SHA-256 digest):' "$signing" || true
           }
 
-          verify_apk "$ARM64" "arm64"
-          verify_apk "$V7A" "v7a"
-          verify_apk "$UNIVERSAL" "universal"
+          echo "========== BUILD 1: ARM64 + V7A + LITE UNIVERSAL =========="
+          build_release "build.log" "new"
 
-          mkdir -p publish/arm64 publish/v7a publish/universal
-          cp "$ARM64" "publish/arm64/Bankmovie-v1.4-v6-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$V7A" "publish/v7a/Bankmovie-v1.4-v6-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$UNIVERSAL" "publish/universal/Bankmovie-v1.4-v6-universal-build-${GITHUB_RUN_NUMBER}.apk"
-          sha256sum publish/arm64/*.apk > publish/arm64/SHA256.txt
-          sha256sum publish/v7a/*.apk > publish/v7a/SHA256.txt
-          sha256sum publish/universal/*.apk > publish/universal/SHA256.txt
-          find publish -maxdepth 2 -type f -printf '%p  %k KB\n' | sort
+          OUT="app/build/outputs/apk/release"
+          ARM64="$(find "$OUT" -maxdepth 1 -type f -name '*arm64-v8a*release*.apk' | head -n 1)"
+          V7A="$(find "$OUT" -maxdepth 1 -type f -name '*armeabi-v7a*release*.apk' | head -n 1)"
+          LITE_UNIVERSAL="$(find "$OUT" -maxdepth 1 -type f -name '*universal*release*.apk' | head -n 1)"
+
+          for spec in "ARM64:$ARM64" "V7A:$V7A" "LITE_UNIVERSAL:$LITE_UNIVERSAL"; do
+            LABEL="${spec%%:*}"
+            APK="${spec#*:}"
+            if [ -z "$APK" ]; then
+              echo "==================== REAL ERROR ===================="
+              echo "$LABEL APK was not produced."
+              find "$OUT" -maxdepth 1 -type f -name '*.apk' -print 2>/dev/null || true
+              echo "===================================================="
+              exit 1
+            fi
+          done
+
+          verify_apk "$ARM64" "arm64" "arm64"
+          verify_apk "$V7A" "v7a" "v7a"
+          verify_apk "$LITE_UNIVERSAL" "universal-lite" "lite-universal"
+
+          cp "$ARM64" "publish/arm64/Bankmovie-v1.4-v8-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$V7A" "publish/v7a/Bankmovie-v1.4-v8-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v1.4-v8-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
+
+          echo "========== BUILD 2: FULL UNIVERSAL (4 ABI) =========="
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("app/build.gradle")
+          source = path.read_text(encoding="utf-8")
+
+          source, changed = re.subn(
+              r'include\s+"armeabi-v7a",\s*"arm64-v8a"',
+              'include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"',
+              source,
+              count=1,
+          )
+
+          if changed != 1:
+              print("==================== REAL ERROR ====================")
+              print("Could not switch build.gradle from 2 ABI to 4 ABI.")
+              print("====================================================")
+              raise SystemExit(1)
+
+          path.write_text(source, encoding="utf-8")
+          print("Full Universal ABI list enabled.")
+          PY
+
+          grep -Fq 'include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"' app/build.gradle
+          build_release "build.log" "append"
+
+          OUT="app/build/outputs/apk/release"
+          FULL_UNIVERSAL="$(find "$OUT" -maxdepth 1 -type f -name '*universal*release*.apk' | head -n 1)"
+
+          if [ -z "$FULL_UNIVERSAL" ]; then
+            echo "==================== REAL ERROR ===================="
+            echo "Full Universal APK was not produced."
+            find "$OUT" -maxdepth 1 -type f -name '*.apk' -print 2>/dev/null || true
+            echo "===================================================="
+            exit 1
+          fi
+
+          verify_apk "$FULL_UNIVERSAL" "universal-full" "full-universal"
+          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v1.4-v8-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
+
+          for dir in arm64 v7a universal-lite universal-full; do
+            sha256sum "publish/$dir"/*.apk > "publish/$dir/SHA256.txt"
+          done
+
+          echo "================ APK SIZES ================"
+          for apk in publish/*/*.apk; do
+            bytes=$(stat -c%s "$apk")
+            mib=$(awk -v b="$bytes" 'BEGIN { printf "%.1f", b/1048576 }')
+            echo "$(basename "$apk"): ${mib} MiB"
+          done
+          echo "==========================================="
 
       - name: Upload diagnostic build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.4-V6-Build-Log-${{ github.run_number }}
+          name: Bankmovie-V1.4-V8-Build-Log-${{ github.run_number }}
           path: project/build.log
           if-no-files-found: ignore
           retention-days: 7
@@ -274,7 +405,7 @@ jobs:
       - name: Upload ARM64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.4-V6-ARM64-${{ github.run_number }}
+          name: Bankmovie-V1.4-V8-ARM64-${{ github.run_number }}
           path: project/publish/arm64/*
           if-no-files-found: error
           retention-days: 14
@@ -282,15 +413,23 @@ jobs:
       - name: Upload V7A APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.4-V6-V7A-${{ github.run_number }}
+          name: Bankmovie-V1.4-V8-V7A-${{ github.run_number }}
           path: project/publish/v7a/*
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload Universal APK
+      - name: Upload Lite Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.4-V6-Universal-${{ github.run_number }}
-          path: project/publish/universal/*
+          name: Bankmovie-V1.4-V8-Universal-Lite-2ABI-${{ github.run_number }}
+          path: project/publish/universal-lite/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Full Universal APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-V1.4-V8-Universal-Full-4ABI-${{ github.run_number }}
+          path: project/publish/universal-full/*
           if-no-files-found: error
           retention-days: 14
