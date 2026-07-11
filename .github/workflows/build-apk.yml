@@ -1,4 +1,4 @@
-name: Build Bankmovie V1.4 V5 Final Three APKs
+name: Build Bankmovie V1.4 V6 YAML Patch Three APKs
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Build Bankmovie V1.4 V5 Final ARM64 V7A Universal
+    name: Build Bankmovie V1.4 V6 YAML Patch ARM64 V7A Universal
     runs-on: ubuntu-latest
 
     steps:
@@ -35,14 +35,21 @@ jobs:
           test -f project/app/build.gradle
           test -f project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
 
-      - name: Verify real V5 source changes
+      - name: Apply V6 UI patch from YAML only
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCmltcG9ydCByZQoKcm9vdCA9IFBhdGgoInByb2plY3QiKQptYWluID0gcm9vdCAvICJhcHAvc3JjL21haW4vamF2YS9pci9iYW5rbW92aWVlL2FwcC9NYWluQWN0aXZpdHkua3QiCmdyYWRsZSA9IHJvb3QgLyAiYXBwL2J1aWxkLmdyYWRsZSIKc291cmNlID0gbWFpbi5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikKCgpkZWYgcmVwbGFjZV9vbmNlKG9sZDogc3RyLCBuZXc6IHN0ciwgbGFiZWw6IHN0cikgLT4gTm9uZToKICAgIGdsb2JhbCBzb3VyY2UKICAgIGNvdW50ID0gc291cmNlLmNvdW50KG9sZCkKICAgIGlmIGNvdW50ICE9IDE6CiAgICAgICAgcHJpbnQoIj09PT09PT09PT09PT09PT09PT09IFJFQUwgRVJST1IgPT09PT09PT09PT09PT09PT09PT0iKQogICAgICAgIHByaW50KGYie2xhYmVsfTogZXhwZWN0ZWQgMSBvY2N1cnJlbmNlLCBmb3VuZCB7Y291bnR9IikKICAgICAgICBwcmludCgiPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PSIpCiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgxKQogICAgc291cmNlID0gc291cmNlLnJlcGxhY2Uob2xkLCBuZXcsIDEpCgoKcmVwbGFjZV9vbmNlKAogICAgJycnICAgICAgICBjb250ZW50LmFkZFZpZXcoc2Nyb2xsKVxuICAgICAgICBhdHRhY2hTbWFydEhlYWRlcihzY3JvbGwpXG5cbiAgICAgICAgcGFnZS5hZGRWaWV3KGxpc3RUb3AodCgi2qnYp9mE2qnYtNmG4oCM2YfYpyIsICJDb2xsZWN0aW9ucyIpKSknJycsCiAgICAnJycgICAgICAgIGNvbnRlbnQuYWRkVmlldyhzY3JvbGwpXG4gICAgICAgIGF0dGFjaFNtYXJ0SGVhZGVyKHNjcm9sbClcbiAgICAgICAgdmFsIGNvbGxlY3Rpb25Mb2FkaW5nID0gbW92aWVEZXRhaWxMb2FkaW5nKEpTT05PYmplY3QoKSlcbiAgICAgICAgY29udGVudC5hZGRWaWV3KGNvbGxlY3Rpb25Mb2FkaW5nLCBGcmFtZUxheW91dC5MYXlvdXRQYXJhbXMoLTEsIC0xKSlcblxuICAgICAgICBwYWdlLmFkZFZpZXcobGlzdFRvcCh0KCLaqdin2YTaqdi02YbigIzZh9inIiwgIkNvbGxlY3Rpb25zIikpKScnJywKICAgICJjb2xsZWN0aW9ucyBsb2FkaW5nIHZpZXciLAopCnJlcGxhY2Vfb25jZSgKICAgICcnJyAgICAgICAgZnVuIGxvYWRDb2xsZWN0aW9ucyhwOiBJbnQpIHtcbiAgICAgICAgICAgIG1vcmUudGV4dCA9IHQoItiv2LEg2K3Yp9mEINio2KfYsdqv2LDYp9ix24wuLi4iLCAiTG9hZGluZy4uLiIpJycnLAogICAgJycnICAgICAgICBmdW4gbG9hZENvbGxlY3Rpb25zKHA6IEludCkge1xuICAgICAgICAgICAgaWYgKHAgPT0gMSAmJiBncmlkLmNoaWxkQ291bnQgPT0gMCkgY29sbGVjdGlvbkxvYWRpbmcudmlzaWJpbGl0eSA9IFZpZXcuVklTSUJMRVxuICAgICAgICAgICAgbW9yZS50ZXh0ID0gdCgi2K/YsSDYrdin2YQg2KjYp9ix2q/YsNin2LHbjC4uLiIsICJMb2FkaW5nLi4uIiknJycsCiAgICAiY29sbGVjdGlvbnMgbG9hZGluZyBzdGFydCIsCikKcmVwbGFjZV9vbmNlKAogICAgJycnICAgICAgICAgICAgZmV0Y2goIiRhcGlCYXNlP2FjdGlvbj1jb2xsZWN0aW9ucyZwYWdlPSRwJmxpbWl0PTI0IikgeyBvaywganNvbiwgZXJyIC0+XG4gICAgICAgICAgICAgICAgcnVuT25VaVRocmVhZCB7XG4gICAgICAgICAgICAgICAgICAgIG1vcmUuaXNFbmFibGVkID0gdHJ1ZScnJywKICAgICcnJyAgICAgICAgICAgIGZldGNoKCIkYXBpQmFzZT9hY3Rpb249Y29sbGVjdGlvbnMmcGFnZT0kcCZsaW1pdD0yNCIpIHsgb2ssIGpzb24sIGVyciAtPlxuICAgICAgICAgICAgICAgIHJ1bk9uVWlUaHJlYWQge1xuICAgICAgICAgICAgICAgICAgICBpZiAocCA9PSAxKSBjb2xsZWN0aW9uTG9hZGluZy52aXNpYmlsaXR5ID0gVmlldy5HT05FXG4gICAgICAgICAgICAgICAgICAgIG1vcmUuaXNFbmFibGVkID0gdHJ1ZScnJywKICAgICJjb2xsZWN0aW9ucyBsb2FkaW5nIGZpbmlzaCIsCikKcmVwbGFjZV9vbmNlKAogICAgJycnICAgICAgICBjb250ZW50LmFkZFZpZXcoc2Nyb2xsKVxuICAgICAgICBhdHRhY2hTbWFydEhlYWRlcihzY3JvbGwpXG4gICAgICAgIHBhZ2UuYWRkVmlldyhsaXN0VG9wKHRpdGxlKSlcbiAgICAgICAgdmFsIGdyaWQgPSBHcmlkTGF5b3V0KHRoaXMpLmFwcGx5IHsgY29sdW1uQ291bnQgPSBpZiAodHYpIDggZWxzZSAzOyBsYXlvdXREaXJlY3Rpb24gPSBpZiAodHYpIFZpZXcuTEFZT1VUX0RJUkVDVElPTl9MVFIgZWxzZSBWaWV3LkxBWU9VVF9ESVJFQ1RJT05fUlRMIH0nJycsCiAgICAnJycgICAgICAgIGNvbnRlbnQuYWRkVmlldyhzY3JvbGwpXG4gICAgICAgIGF0dGFjaFNtYXJ0SGVhZGVyKHNjcm9sbClcbiAgICAgICAgdmFsIGNvbGxlY3Rpb25JdGVtc0xvYWRpbmcgPSBtb3ZpZURldGFpbExvYWRpbmcoSlNPTk9iamVjdCgpKVxuICAgICAgICBjb250ZW50LmFkZFZpZXcoY29sbGVjdGlvbkl0ZW1zTG9hZGluZywgRnJhbWVMYXlvdXQuTGF5b3V0UGFyYW1zKC0xLCAtMSkpXG4gICAgICAgIHBhZ2UuYWRkVmlldyhsaXN0VG9wKHRpdGxlKSlcbiAgICAgICAgdmFsIGdyaWQgPSBHcmlkTGF5b3V0KHRoaXMpLmFwcGx5IHsgY29sdW1uQ291bnQgPSBpZiAodHYpIDggZWxzZSAzOyBsYXlvdXREaXJlY3Rpb24gPSBpZiAodHYpIFZpZXcuTEFZT1VUX0RJUkVDVElPTl9MVFIgZWxzZSBWaWV3LkxBWU9VVF9ESVJFQ1RJT05fUlRMIH0nJycsCiAgICAiY29sbGVjdGlvbiBpdGVtcyBsb2FkaW5nIHZpZXciLAopCnJlcGxhY2Vfb25jZSgKICAgICcnJyAgICAgICAgZnVuIGxvYWRJdGVtcyhwOiBJbnQpIHtcbiAgICAgICAgICAgIG1vcmUudGV4dCA9IHVpKCLYr9ixINit2KfZhCDYqNin2LHar9iw2KfYsduMLi4uIiknJycsCiAgICAnJycgICAgICAgIGZ1biBsb2FkSXRlbXMocDogSW50KSB7XG4gICAgICAgICAgICBpZiAocCA9PSAxICYmIGdyaWQuY2hpbGRDb3VudCA9PSAwKSBjb2xsZWN0aW9uSXRlbXNMb2FkaW5nLnZpc2liaWxpdHkgPSBWaWV3LlZJU0lCTEVcbiAgICAgICAgICAgIG1vcmUudGV4dCA9IHVpKCLYr9ixINit2KfZhCDYqNin2LHar9iw2KfYsduMLi4uIiknJycsCiAgICAiY29sbGVjdGlvbiBpdGVtcyBsb2FkaW5nIHN0YXJ0IiwKKQpyZXBsYWNlX29uY2UoCiAgICAnJycgICAgICAgICAgICBmZXRjaCgiJGFwaUJhc2U/YWN0aW9uPWNvbGxlY3Rpb24mc2x1Zz0ke2VuYyhzbHVnKX0mcGFnZT0kcCZsaW1pdD0kbGltaXQiKSB7IG9rLCBqc29uLCBlcnIgLT5cbiAgICAgICAgICAgICAgICBydW5PblVpVGhyZWFkIHtcbiAgICAgICAgICAgICAgICAgICAgbW9yZS5pc0VuYWJsZWQgPSB0cnVlJycnLAogICAgJycnICAgICAgICAgICAgZmV0Y2goIiRhcGlCYXNlP2FjdGlvbj1jb2xsZWN0aW9uJnNsdWc9JHtlbmMoc2x1Zyl9JnBhZ2U9JHAmbGltaXQ9JGxpbWl0IikgeyBvaywganNvbiwgZXJyIC0+XG4gICAgICAgICAgICAgICAgcnVuT25VaVRocmVhZCB7XG4gICAgICAgICAgICAgICAgICAgIGlmIChwID09IDEpIGNvbGxlY3Rpb25JdGVtc0xvYWRpbmcudmlzaWJpbGl0eSA9IFZpZXcuR09ORVxuICAgICAgICAgICAgICAgICAgICBtb3JlLmlzRW5hYmxlZCA9IHRydWUnJycsCiAgICAiY29sbGVjdGlvbiBpdGVtcyBsb2FkaW5nIGZpbmlzaCIsCikKcmVwbGFjZV9vbmNlKAogICAgJycnICAgICAgICBoZWFkLmFkZFZpZXcoSW1hZ2VWaWV3KHRoaXMpLmFwcGx5IHtcbiAgICAgICAgICAgIHNldEltYWdlUmVzb3VyY2UoUi5kcmF3YWJsZS5hZG1fbG9nb190cmFuc3BhcmVudClcbiAgICAgICAgICAgIHNjYWxlVHlwZSA9IEltYWdlVmlldy5TY2FsZVR5cGUuRklUX0NFTlRFUlxuICAgICAgICAgICAgY29udGVudERlc2NyaXB0aW9uID0gIkJhbmttb3ZpZSJcbiAgICAgICAgfSwgTGluZWFyTGF5b3V0LkxheW91dFBhcmFtcyhkcCg0MiksIGRwKDQyKSkuYXBwbHkgeyBtYXJnaW5TdGFydCA9IGRwKDkpIH0pXG5cbicnJywKICAgICIiLAogICAgInJlbW92ZSBBRE0gbG9nbyBmcm9tIG1vZGFsIGhlYWRlciIsCikKcmVwbGFjZV9vbmNlKAogICAgJycnICAgICAgICAgICAgICAgIFIuZHJhd2FibGUuYWRtX2xvZ29fdHJhbnNwYXJlbnQsXG4gICAgICAgICAgICAgICAgdCgi2b7Yrti0INio2KcgQmFua21vdmllIiwgIlBsYXkgd2l0aCBCYW5rbW92aWUiKSwnJycsCiAgICAnJycgICAgICAgICAgICAgICAgUi5kcmF3YWJsZS5iYW5rbW92aWVfbG9nb190cmFuc3BhcmVudCxcbiAgICAgICAgICAgICAgICB0KCLZvtiu2LQg2KjYpyDYqNin2YbaqSDZhdmI2YjbjCIsICJQbGF5IHdpdGggQmFua21vdmllIiksJycnLAogICAgIkJhbmttb3ZpZSBidXR0b24gbG9nbyBhbmQgUGVyc2lhbiB0aXRsZSIsCikKCm1haW4ud3JpdGVfdGV4dChzb3VyY2UsIGVuY29kaW5nPSJ1dGYtOCIpCgpncmFkbGVfdGV4dCA9IGdyYWRsZS5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikKZ3JhZGxlX3RleHQsIGNoYW5nZWQgPSByZS5zdWJuKAogICAgciJ2ZXJzaW9uQ29kZVxzK1xkK1xzKlwrXHMqcnVuTnVtYmVyIiwKICAgICJ2ZXJzaW9uQ29kZSAxMTMwMDAwICsgcnVuTnVtYmVyIiwKICAgIGdyYWRsZV90ZXh0LAogICAgY291bnQ9MSwKKQppZiBjaGFuZ2VkICE9IDE6CiAgICBwcmludCgiPT09PT09PT09PT09PT09PT09PT0gUkVBTCBFUlJPUiA9PT09PT09PT09PT09PT09PT09PSIpCiAgICBwcmludCgiQ291bGQgbm90IHVwZGF0ZSB2ZXJzaW9uQ29kZSIpCiAgICBwcmludCgiPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PSIpCiAgICByYWlzZSBTeXN0ZW1FeGl0KDEpCmdyYWRsZS53cml0ZV90ZXh0KGdyYWRsZV90ZXh0LCBlbmNvZGluZz0idXRmLTgiKQpwcmludCgiVjYgbG9nbywgUGVyc2lhbiB0aXRsZSBhbmQgY29sbGVjdGlvbiBsb2FkaW5nIHBhdGNoIGFwcGxpZWQgZnJvbSBZQU1MLiIpCg==' | base64 -d > /tmp/patch_bankmovie_v6.py
+          python3 /tmp/patch_bankmovie_v6.py
+
+      - name: Verify V6 YAML-only patch
         shell: bash
         run: |
           set -euo pipefail
           MAIN="project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
           GRADLE="project/app/build.gradle"
 
-          grep -Fq 'versionCode 1110000 + runNumber' "$GRADLE"
+          grep -Fq 'versionCode 1130000 + runNumber' "$GRADLE"
           grep -Fq 'versionName "1.4"' "$GRADLE"
           grep -Fq 'include "armeabi-v7a", "arm64-v8a"' "$GRADLE"
           grep -Fq 'universalApk true' "$GRADLE"
@@ -96,7 +103,17 @@ jobs:
           grep -Fq 'json.optJSONArray("url_rewrites")' "$MAIN"
           grep -Fq 'private fun markPlayed(' "$MAIN"
           grep -Fq 'R.drawable.ic_seen_eye' "$MAIN"
-          grep -Fq 'R.drawable.adm_logo_transparent' "$MAIN"
+          grep -Fq 'R.drawable.bankmovie_logo_transparent' "$MAIN"
+          grep -Fq 't("پخش با بانک مووی", "Play with Bankmovie")' "$MAIN"
+          grep -Fq 'val collectionLoading = movieDetailLoading(JSONObject())' "$MAIN"
+          grep -Fq 'val collectionItemsLoading = movieDetailLoading(JSONObject())' "$MAIN"
+          MODAL_BLOCK="$(sed -n '/private fun showPlaybackMethodDialog/,/private fun /p' "$MAIN")"
+          if printf '%s' "$MODAL_BLOCK" | grep -Fq 'R.drawable.adm_logo_transparent'; then
+            echo "==================== REAL ERROR ===================="
+            echo "ADM logo still exists inside the playback modal."
+            echo "===================================================="
+            exit 1
+          fi
           grep -Fq 'putExtra(PlayerActivity.EXTRA_PROGRESS_KEY' "$MAIN"
           grep -Fq 'transparentIcon = true' "$MAIN"
           grep -Fq 'setDimAmount(0.58f)' "$MAIN"
@@ -105,7 +122,7 @@ jobs:
           grep -Fq 'val progressKey: String' "$PLAYER"
           grep -Fq '.putLong(stableKey, savedTime)' "$PLAYER"
 
-          echo "V1.4 V5 failover, watched-state, resume and lightweight player modal verified before build."
+          echo "V1.4 V6 YAML-only logo, Persian title, collection loading and all V5 features verified before build."
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -237,9 +254,9 @@ jobs:
           verify_apk "$UNIVERSAL" "universal"
 
           mkdir -p publish/arm64 publish/v7a publish/universal
-          cp "$ARM64" "publish/arm64/Bankmovie-v1.4-v5-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$V7A" "publish/v7a/Bankmovie-v1.4-v5-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$UNIVERSAL" "publish/universal/Bankmovie-v1.4-v5-universal-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$ARM64" "publish/arm64/Bankmovie-v1.4-v6-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$V7A" "publish/v7a/Bankmovie-v1.4-v6-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$UNIVERSAL" "publish/universal/Bankmovie-v1.4-v6-universal-build-${GITHUB_RUN_NUMBER}.apk"
           sha256sum publish/arm64/*.apk > publish/arm64/SHA256.txt
           sha256sum publish/v7a/*.apk > publish/v7a/SHA256.txt
           sha256sum publish/universal/*.apk > publish/universal/SHA256.txt
@@ -249,7 +266,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.4-V5-Build-Log-${{ github.run_number }}
+          name: Bankmovie-V1.4-V6-Build-Log-${{ github.run_number }}
           path: project/build.log
           if-no-files-found: ignore
           retention-days: 7
@@ -257,7 +274,7 @@ jobs:
       - name: Upload ARM64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.4-V5-ARM64-${{ github.run_number }}
+          name: Bankmovie-V1.4-V6-ARM64-${{ github.run_number }}
           path: project/publish/arm64/*
           if-no-files-found: error
           retention-days: 14
@@ -265,7 +282,7 @@ jobs:
       - name: Upload V7A APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.4-V5-V7A-${{ github.run_number }}
+          name: Bankmovie-V1.4-V6-V7A-${{ github.run_number }}
           path: project/publish/v7a/*
           if-no-files-found: error
           retention-days: 14
@@ -273,7 +290,7 @@ jobs:
       - name: Upload Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.4-V5-Universal-${{ github.run_number }}
+          name: Bankmovie-V1.4-V6-Universal-${{ github.run_number }}
           path: project/publish/universal/*
           if-no-files-found: error
           retention-days: 14
