@@ -1,4 +1,4 @@
-name: Build Bankmovie V1.5 V10 Archive Switch
+name: Build Bankmovie V1.5 V11 Archive 2 Content Fix
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Build V1.5 ARM64 V7A Lite Universal Full Universal
+    name: Build V1.5 V11 ARM64 V7A Lite Universal Full Universal
     runs-on: ubuntu-latest
 
     steps:
@@ -21,7 +21,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="Bankmovie-v1.5-source-v10-archive-switch.zip"
+          ZIP="Bankmovie-v1.5-source-v11-archive2-content-fix.zip"
           if [ ! -f "$ZIP" ]; then
             echo "==================== REAL ERROR ===================="
             echo "Missing $ZIP in repository root."
@@ -35,7 +35,7 @@ jobs:
           test -f project/app/build.gradle
           test -f project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
 
-      - name: Verify V1.5 archive update source
+      - name: Verify V1.5 V11 archive 2 content fixes
         shell: bash
         run: |
           set -euo pipefail
@@ -53,7 +53,7 @@ jobs:
           grep -Fq 'section == "dubbed" || section == "chinese_series"' "$MAIN"
           grep -Fq 'addRail(page, "سریال‌های چینی", 1, "chinese_series", false)' "$MAIN"
           grep -Fq 't("پخش با بانک مووی", "Play with Bankmovie")' "$MAIN"
-          grep -Fq 'BankmovieAndroidNative/1.5' "$MAIN"
+          grep -Fq 'BankmovieAndroidNative/1.5-V11' "$MAIN"
           if grep -Fq 'BankmovieAndroidNative/1.4' "$MAIN"; then
             echo "Old 1.4 User-Agent remains in source."
             exit 1
@@ -62,7 +62,19 @@ jobs:
           test -f project/app/src/main/res/drawable/ic_archive_globe.xml
           test -f project/server-required/archive1_live.php
           test -f project/server-required/api5.php
-          echo "V1.5 archive source markers verified."
+          grep -Fq '"updated_movies" -> "movies_2025_2026"' "$MAIN"
+          grep -Fq 'addRail(page, "اکران 2025 و 2026", 2, "updated_movies", false)' "$MAIN"
+          grep -Fq 'addRail(page, "سریال‌های آپدیت‌شده", 2, "updated_series", false)' "$MAIN"
+          grep -Fq 'private fun cleanArchive2DisplayTitle' "$MAIN"
+          grep -Fq 'maxLines = 2' "$MAIN"
+          if grep -Fq 'addRail(page, "زیرنویس فارسی", 2, "subtitled", false)' "$MAIN"; then
+            echo "Archive 2 subtitle rail still exists."
+            exit 1
+          fi
+          grep -Fq 'function serialblog_get_movies_2025_2026' project/server-required/api5_lib.php
+          grep -Fq 'function serialblog_clean_display_title' project/server-required/api5_lib.php
+          grep -Fq "serialblog_extract_downloads(\$xpath, \$detectedType)" project/server-required/api5_lib.php
+          echo "V1.5 V11 archive 2 content fix markers verified."
 
       - name: Force first build to ARM64 and V7A only
         shell: bash
@@ -244,9 +256,9 @@ jobs:
           verify_apk "$V7A" "v7a" "v7a"
           verify_apk "$LITE_UNIVERSAL" "universal-lite" "lite-universal"
 
-          cp "$ARM64" "publish/arm64/Bankmovie-v1.5-v10-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$V7A" "publish/v7a/Bankmovie-v1.5-v10-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v1.5-v10-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$ARM64" "publish/arm64/Bankmovie-v1.5-v11-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$V7A" "publish/v7a/Bankmovie-v1.5-v11-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v1.5-v11-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
 
           echo "========== BUILD 2: FULL UNIVERSAL 4 ABI =========="
           python3 <<'PY'
@@ -280,7 +292,7 @@ jobs:
           FULL_UNIVERSAL="$(find "$OUT" -maxdepth 1 -type f -name '*universal*release*.apk' | head -n1)"
           [ -n "$FULL_UNIVERSAL" ] || { find "$OUT" -maxdepth 1 -type f -name '*.apk' -print || true; exit 1; }
           verify_apk "$FULL_UNIVERSAL" "universal-full" "full-universal"
-          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v1.5-v10-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v1.5-v11-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
 
           for dir in arm64 v7a universal-lite universal-full; do
             sha256sum "publish/$dir"/*.apk > "publish/$dir/SHA256.txt"
@@ -298,7 +310,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.5-V10-Build-Log-${{ github.run_number }}
+          name: Bankmovie-V1.5-V11-Build-Log-${{ github.run_number }}
           path: project/build.log
           if-no-files-found: ignore
           retention-days: 7
@@ -306,7 +318,7 @@ jobs:
       - name: Upload ARM64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.5-V10-ARM64-${{ github.run_number }}
+          name: Bankmovie-V1.5-V11-ARM64-${{ github.run_number }}
           path: project/publish/arm64/*
           if-no-files-found: error
           retention-days: 14
@@ -314,7 +326,7 @@ jobs:
       - name: Upload V7A APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.5-V10-V7A-${{ github.run_number }}
+          name: Bankmovie-V1.5-V11-V7A-${{ github.run_number }}
           path: project/publish/v7a/*
           if-no-files-found: error
           retention-days: 14
@@ -322,7 +334,7 @@ jobs:
       - name: Upload Lite Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.5-V10-Universal-Lite-2ABI-${{ github.run_number }}
+          name: Bankmovie-V1.5-V11-Universal-Lite-2ABI-${{ github.run_number }}
           path: project/publish/universal-lite/*
           if-no-files-found: error
           retention-days: 14
@@ -330,7 +342,7 @@ jobs:
       - name: Upload Full Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.5-V10-Universal-Full-4ABI-${{ github.run_number }}
+          name: Bankmovie-V1.5-V11-Universal-Full-4ABI-${{ github.run_number }}
           path: project/publish/universal-full/*
           if-no-files-found: error
           retention-days: 14
