@@ -1,4 +1,4 @@
-name: Build Bankmovie V1.5 V13 Responsive Grid Fix
+name: Build Bankmovie V1.5 V14 Update Related Continue Fix
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Build V1.5 V13 ARM64 V7A Lite Universal Full Universal
+    name: Build V1.5 V14 ARM64 V7A Lite Universal Full Universal
     runs-on: ubuntu-latest
 
     steps:
@@ -21,7 +21,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="Bankmovie-v1.5-source-v13-responsive-grid-fix.zip"
+          ZIP="Bankmovie-v1.5-source-v14-update-related-continue-fix.zip"
           if [ ! -f "$ZIP" ]; then
             echo "==================== REAL ERROR ===================="
             echo "Missing $ZIP in repository root."
@@ -35,7 +35,22 @@ jobs:
           test -f project/app/build.gradle
           test -f project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
 
-      - name: Verify V1.5 V13 responsive grid and V12 fixes
+      - name: Verify legacy update signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f project/bankmovie_update.jks
+          KEY_INFO="$(keytool -list -v -keystore project/bankmovie_update.jks -storepass bankmovie123 -alias bankmovie)"
+          printf '%s\n' "$KEY_INFO"
+          NORMALIZED="$(printf '%s\n' "$KEY_INFO" | sed -n 's/.*SHA256: //p' | head -n1 | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+          EXPECTED="862bc358d8d239a2134a63fab979ff6019862372e7950ea49bac74780936205d"
+          if [ "$NORMALIZED" != "$EXPECTED" ]; then
+            echo "Legacy Bankmovie signing key mismatch: $NORMALIZED"
+            exit 1
+          fi
+          echo "Legacy signing key verified: $NORMALIZED"
+
+      - name: Verify V1.5 V14 update related continue fixes
         shell: bash
         run: |
           set -euo pipefail
@@ -43,7 +58,7 @@ jobs:
           GRADLE="project/app/build.gradle"
 
           grep -Fq 'versionName "1.5"' "$GRADLE"
-          grep -Fq 'versionCode 1150000 + runNumber' "$GRADLE"
+          grep -Fq 'versionCode 2500000 + runNumber' "$GRADLE"
           grep -Fq 'minifyEnabled true' "$GRADLE"
           grep -Fq 'shrinkResources true' "$GRADLE"
           grep -Fq 'private fun archiveSwitchBar()' "$MAIN"
@@ -53,7 +68,7 @@ jobs:
           grep -Fq 'section == "dubbed" || section == "chinese_series"' "$MAIN"
           grep -Fq 'addRail(page, "سریال‌های چینی", 1, "chinese_series", false)' "$MAIN"
           grep -Fq 't("پخش با بانک مووی", "Play with Bankmovie")' "$MAIN"
-          grep -Fq 'BankmovieAndroidNative/1.5-V13' "$MAIN"
+          grep -Fq 'BankmovieAndroidNative/1.5-V14' "$MAIN"
           if grep -Fq 'BankmovieAndroidNative/1.4' "$MAIN"; then
             echo "Old 1.4 User-Agent remains in source."
             exit 1
@@ -75,7 +90,7 @@ jobs:
           grep -Fq 'function serialblog_clean_display_title' project/server-required/api5_lib.php
           grep -Fq "serialblog_extract_downloads(\$xpath, \$detectedType)" project/server-required/api5_lib.php
           grep -Fq 'if (item.optInt("archive", selectedArchive) != 2)' "$MAIN"
-          grep -Fq 'else if (detailArchive != 2)' "$MAIN"
+          grep -Fq 'addArchive2GenreRail(' "$MAIN"
           grep -Fq 'private fun continueProgressValues(item: JSONObject)' "$MAIN"
           grep -Fq 'private fun mobileGridCardWidth(columns: Int = 3)' "$MAIN"
           grep -Fq 'private fun mobileGridSideMarginDp()' "$MAIN"
@@ -88,9 +103,17 @@ jobs:
           fi
           PLAYER="project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt"
           grep -Fq 'putLong("${stableKey}_duration", duration)' "$PLAYER"
-          grep -Fq 'handler.postDelayed({ applyResumeSeek() }, 350L)' "$PLAYER"
-          grep -Fq 'handler.postDelayed({ applyResumeSeek() }, 1100L)' "$PLAYER"
-          echo "V1.5 V13 responsive grid and V12 fix markers verified."
+          grep -Fq 'media.addOption(":start-time=${resumeBeforePlay / 1000L}")' "$PLAYER"
+          grep -Fq 'listOf(300L, 800L, 1600L, 3000L, 5000L)' "$PLAYER"
+          grep -Fq 'if (storeKey == "continue") profileStoredCard(storeKey, saved)' "$MAIN"
+          grep -Fq '"وضعیت" to listOf("دوبله", "IMDb بالا")' "$MAIN"
+          grep -Fq 'function serialblog_get_genre' project/server-required/api5_lib.php
+          grep -Fq "\$detail['related'] = \$related;" project/server-required/api5_lib.php
+          if grep -Fq "'subtitled'" project/server-required/api5_lib.php; then
+            echo "Subtitle section still exists in API catalog."
+            exit 1
+          fi
+          echo "V1.5 V14 update related continue fix markers verified."
 
       - name: Force first build to ARM64 and V7A only
         shell: bash
@@ -219,6 +242,11 @@ jobs:
             "$AAPT" dump badging "$apk" > "$badging"
             grep -Fq "versionName='1.5'" "$badging" || { echo "$label versionName is not 1.5"; grep -m1 '^package:' "$badging" || true; exit 1; }
             grep -Fq "package: name='ir.bankmoviee.app'" "$badging" || { echo "$label package is wrong"; exit 1; }
+            VERSION_CODE="$(sed -n "s/.*versionCode='\([0-9][0-9]*\)'.*/\1/p" "$badging" | head -n1)"
+            if [ -z "$VERSION_CODE" ] || [ "$VERSION_CODE" -lt 2500001 ]; then
+              echo "$label versionCode is not high enough for in-place update: ${VERSION_CODE:-missing}"
+              exit 1
+            fi
 
             local native_line
             native_line="$(grep -m1 '^native-code:' "$badging" || true)"
@@ -272,9 +300,9 @@ jobs:
           verify_apk "$V7A" "v7a" "v7a"
           verify_apk "$LITE_UNIVERSAL" "universal-lite" "lite-universal"
 
-          cp "$ARM64" "publish/arm64/Bankmovie-v1.5-v13-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$V7A" "publish/v7a/Bankmovie-v1.5-v13-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v1.5-v13-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$ARM64" "publish/arm64/Bankmovie-v1.5-v14-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$V7A" "publish/v7a/Bankmovie-v1.5-v14-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v1.5-v14-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
 
           echo "========== BUILD 2: FULL UNIVERSAL 4 ABI =========="
           python3 <<'PY'
@@ -308,7 +336,7 @@ jobs:
           FULL_UNIVERSAL="$(find "$OUT" -maxdepth 1 -type f -name '*universal*release*.apk' | head -n1)"
           [ -n "$FULL_UNIVERSAL" ] || { find "$OUT" -maxdepth 1 -type f -name '*.apk' -print || true; exit 1; }
           verify_apk "$FULL_UNIVERSAL" "universal-full" "full-universal"
-          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v1.5-v13-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v1.5-v14-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
 
           for dir in arm64 v7a universal-lite universal-full; do
             sha256sum "publish/$dir"/*.apk > "publish/$dir/SHA256.txt"
@@ -326,7 +354,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.5-V13-Build-Log-${{ github.run_number }}
+          name: Bankmovie-V1.5-V14-Build-Log-${{ github.run_number }}
           path: project/build.log
           if-no-files-found: ignore
           retention-days: 7
@@ -334,7 +362,7 @@ jobs:
       - name: Upload ARM64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.5-V13-ARM64-${{ github.run_number }}
+          name: Bankmovie-V1.5-V14-ARM64-${{ github.run_number }}
           path: project/publish/arm64/*
           if-no-files-found: error
           retention-days: 14
@@ -342,7 +370,7 @@ jobs:
       - name: Upload V7A APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.5-V13-V7A-${{ github.run_number }}
+          name: Bankmovie-V1.5-V14-V7A-${{ github.run_number }}
           path: project/publish/v7a/*
           if-no-files-found: error
           retention-days: 14
@@ -350,7 +378,7 @@ jobs:
       - name: Upload Lite Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.5-V13-Universal-Lite-2ABI-${{ github.run_number }}
+          name: Bankmovie-V1.5-V14-Universal-Lite-2ABI-${{ github.run_number }}
           path: project/publish/universal-lite/*
           if-no-files-found: error
           retention-days: 14
@@ -358,7 +386,7 @@ jobs:
       - name: Upload Full Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.5-V13-Universal-Full-4ABI-${{ github.run_number }}
+          name: Bankmovie-V1.5-V14-Universal-Full-4ABI-${{ github.run_number }}
           path: project/publish/universal-full/*
           if-no-files-found: error
           retention-days: 14
