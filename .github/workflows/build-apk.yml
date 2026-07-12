@@ -1,4 +1,4 @@
-name: Build Bankmovie V1.5 V12 YAML Only Player Profile Responsive Fix
+name: Build Bankmovie V1.5 V13 Responsive Grid Fix
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Build V1.5 V12 ARM64 V7A Lite Universal Full Universal
+    name: Build V1.5 V13 ARM64 V7A Lite Universal Full Universal
     runs-on: ubuntu-latest
 
     steps:
@@ -21,7 +21,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="Bankmovie-v1.5-source-v11-archive2-content-fix.zip"
+          ZIP="Bankmovie-v1.5-source-v13-responsive-grid-fix.zip"
           if [ ! -f "$ZIP" ]; then
             echo "==================== REAL ERROR ===================="
             echo "Missing $ZIP in repository root."
@@ -35,7 +35,7 @@ jobs:
           test -f project/app/build.gradle
           test -f project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
 
-      - name: Verify V1.5 V11 archive 2 content fixes
+      - name: Verify V1.5 V13 responsive grid and V12 fixes
         shell: bash
         run: |
           set -euo pipefail
@@ -53,716 +53,49 @@ jobs:
           grep -Fq 'section == "dubbed" || section == "chinese_series"' "$MAIN"
           grep -Fq 'addRail(page, "سریال‌های چینی", 1, "chinese_series", false)' "$MAIN"
           grep -Fq 't("پخش با بانک مووی", "Play with Bankmovie")' "$MAIN"
-          grep -Fq 'BankmovieAndroidNative/1.5-V11' "$MAIN"
-
+          grep -Fq 'BankmovieAndroidNative/1.5-V13' "$MAIN"
           if grep -Fq 'BankmovieAndroidNative/1.4' "$MAIN"; then
             echo "Old 1.4 User-Agent remains in source."
             exit 1
           fi
-
           test -f project/app/src/main/res/drawable/ic_archive_database.xml
           test -f project/app/src/main/res/drawable/ic_archive_globe.xml
           test -f project/server-required/archive1_live.php
           test -f project/server-required/api5.php
-
           grep -Fq '"updated_movies" -> "movies_2025_2026"' "$MAIN"
           grep -Fq 'addRail(page, "اکران 2025 و 2026", 2, "updated_movies", false)' "$MAIN"
           grep -Fq 'addRail(page, "سریال‌های آپدیت‌شده", 2, "updated_series", false)' "$MAIN"
           grep -Fq 'private fun cleanArchive2DisplayTitle' "$MAIN"
           grep -Fq 'maxLines = 2' "$MAIN"
-
           if grep -Fq 'addRail(page, "زیرنویس فارسی", 2, "subtitled", false)' "$MAIN"; then
             echo "Archive 2 subtitle rail still exists."
             exit 1
           fi
-
           grep -Fq 'function serialblog_get_movies_2025_2026' project/server-required/api5_lib.php
           grep -Fq 'function serialblog_clean_display_title' project/server-required/api5_lib.php
           grep -Fq "serialblog_extract_downloads(\$xpath, \$detectedType)" project/server-required/api5_lib.php
-
-          echo "V1.5 V11 base source verified before V12 YAML patch."
-
-      - name: Apply V12 YAML-only app fixes
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          cat > /tmp/patch_v12.py <<'PY'
-          from pathlib import Path
-          import re
-
-          main_path = Path(
-              "project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
-          )
-          player_path = Path(
-              "project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt"
-          )
-
-          main = main_path.read_text(encoding="utf-8")
-          player = player_path.read_text(encoding="utf-8")
-
-          # 1) حذف دکمه تریلر فقط برای آرشیو 2
-          old = '''        actions.addView(detailActionButton("پخش آنلاین", R.drawable.ic_play_fill, true) { showPlayableSheet(item) }, LinearLayout.LayoutParams(0, dp(58), 1.2f).apply { marginStart = dp(10) })
-                  actions.addView(purpleTrailerButton { playTrailer(item) }, LinearLayout.LayoutParams(0, dp(58), 1f).apply { marginStart = dp(16) })
-                  actions.addView(favoriteHeartButton(item) {
-          '''
-
-          new = '''        actions.addView(detailActionButton("پخش آنلاین", R.drawable.ic_play_fill, true) { showPlayableSheet(item) }, LinearLayout.LayoutParams(0, dp(58), 1.2f).apply { marginStart = dp(10) })
-                  if (item.optInt("archive", selectedArchive) != 2) {
-                      actions.addView(purpleTrailerButton { playTrailer(item) }, LinearLayout.LayoutParams(0, dp(58), 1f).apply { marginStart = dp(16) })
-                  }
-                  actions.addView(favoriteHeartButton(item) {
-          '''
-
-          if old not in main:
-              raise SystemExit("Trailer action block not found")
-
-          main = main.replace(old, new, 1)
-
-          # 2) آرشیو 2 فقط Similar واقعی API را نمایش دهد
-          old = '''        val related = item.optJSONArray("related") ?: item.optJSONArray("related_movies") ?: JSONArray()
-                  if (related.length() > 0) {
-                      addJsonRail(page, "پیشنهاد فیلم", related)
-                  } else {
-                      val similarQuery = genres.firstOrNull().orEmpty().ifBlank { title }
-                      addSearchRail(page, "پیشنهاد فیلم", similarQuery, "all", item.optInt("archive", selectedArchive))
-                  }
-          '''
-
-          new = '''        val detailArchive = item.optInt("archive", selectedArchive)
-                  val related = item.optJSONArray("related") ?: item.optJSONArray("related_movies") ?: JSONArray()
-                  if (related.length() > 0) {
-                      addJsonRail(page, "پیشنهاد فیلم", related)
-                  } else if (detailArchive != 2) {
-                      val similarQuery = genres.firstOrNull().orEmpty().ifBlank { title }
-                      addSearchRail(page, "پیشنهاد فیلم", similarQuery, "all", detailArchive)
-                  }
-          '''
-
-          if old not in main:
-              raise SystemExit("Related rail block not found")
-
-          main = main.replace(old, new, 1)
-
-          # 3) اصلاح عرض کارت‌ها در صفحه مشاهده همه
-          old_line = (
-              "        val cardW = if (tv) tvGridCardWidth() else dp(116)"
-          )
-
-          new_line = (
-              "        val cardW = if (tv) tvGridCardWidth() "
-              "else ((resources.displayMetrics.widthPixels - dp(72)) / 3)"
-              ".coerceAtLeast(dp(88))"
-          )
-
-          count = main.count(old_line)
-
-          if count < 2:
-              raise SystemExit(
-                  f"Expected at least two fixed list card widths, found {count}"
-              )
-
-          main = main.replace(old_line, new_line)
-
-          # 4) طراحی حرفه‌ای ادامه تماشا
-          start = main.index(
-              "    private fun profileStoredCard("
-              "storeKey: String, item: JSONObject): LinearLayout {"
-          )
-
-          end = main.index(
-              "    private fun showLocalList("
-              "title: String, storeKey: String, emptyText: String) {",
-              start,
-          )
-
-          replacement = r'''    private fun continueProgressValues(item: JSONObject): Pair<Long, Long> {
-                  val url = item.optString("url")
-                  val key = item.optString("progress_key").ifBlank {
-                      if (url.isBlank()) "" else "progress_$url"
-                  }
-
-                  if (key.isBlank()) return 0L to 0L
-
-                  val prefs = appPrefs()
-
-                  val position = prefs.getLong(
-                      key,
-                      if (url.isNotBlank()) {
-                          prefs.getLong("progress_$url", 0L)
-                      } else {
-                          0L
-                      }
-                  )
-
-                  val duration = prefs.getLong(
-                      "${key}_duration",
-                      if (url.isNotBlank()) {
-                          prefs.getLong("progress_${url}_duration", 0L)
-                      } else {
-                          0L
-                      }
-                  )
-
-                  return position.coerceAtLeast(0L) to
-                      duration.coerceAtLeast(0L)
-              }
-
-              private fun profileStoredCard(
-                  storeKey: String,
-                  item: JSONObject
-              ): LinearLayout {
-                  return LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setPadding(dp(3), dp(3), dp(3), dp(3))
-
-                      if (storeKey == "continue") {
-                          val cardBox = LinearLayout(this@MainActivity).apply {
-                              orientation = LinearLayout.HORIZONTAL
-                              layoutDirection = View.LAYOUT_DIRECTION_LTR
-                              gravity = Gravity.CENTER_VERTICAL
-
-                              background = rounded(
-                                  Color.rgb(22, 24, 29),
-                                  dp(22),
-                                  Color.argb(72, 255, 255, 255)
-                              )
-
-                              clipToOutline = true
-
-                              setOnClickListener {
-                                  openStoredContinue(item)
-                              }
-
-                              applyTvFocusHalo(
-                                  this,
-                                  22,
-                                  1.025f,
-                                  0f
-                              )
-                          }
-
-                          val imageFrame = FrameLayout(
-                              this@MainActivity
-                          ).apply {
-                              background = rounded(
-                                  Color.rgb(13, 16, 22),
-                                  dp(20),
-                                  Color.argb(70, 255, 255, 255)
-                              )
-
-                              clipToOutline = true
-                          }
-
-                          val image = ImageView(
-                              this@MainActivity
-                          ).apply {
-                              scaleType =
-                                  ImageView.ScaleType.CENTER_CROP
-                          }
-
-                          imageFrame.addView(
-                              image,
-                              FrameLayout.LayoutParams(-1, -1)
-                          )
-
-                          loadImage(
-                              item.optString("poster")
-                                  .ifBlank {
-                                      item.optString("image")
-                                  }
-                                  .ifBlank {
-                                      item.optString("cover_image")
-                                  }
-                                  .ifBlank {
-                                      item.optString("backdrop")
-                                  },
-                              image
-                          )
-
-                          cardBox.addView(
-                              imageFrame,
-                              LinearLayout.LayoutParams(
-                                  dp(112),
-                                  -1
-                              )
-                          )
-
-                          val details = LinearLayout(
-                              this@MainActivity
-                          ).apply {
-                              orientation = LinearLayout.VERTICAL
-                              layoutDirection =
-                                  View.LAYOUT_DIRECTION_RTL
-
-                              gravity =
-                                  Gravity.CENTER_VERTICAL or
-                                  Gravity.RIGHT
-
-                              setPadding(
-                                  dp(18),
-                                  dp(13),
-                                  dp(16),
-                                  dp(13)
-                              )
-                          }
-
-                          val titleValue =
-                              item.optString("title_fa")
-                                  .ifBlank {
-                                      item.optString("title")
-                                  }
-                                  .ifBlank {
-                                      "Bankmovie"
-                                  }
-
-                          val season = item.optInt("season", 0)
-                          val episode = item.optInt("episode", 0)
-
-                          val episodeLabel = when {
-                              season > 0 && episode > 0 ->
-                                  "S%02d • E%02d".format(
-                                      season,
-                                      episode
-                                  )
-
-                              episode > 0 ->
-                                  "قسمت $episode"
-
-                              else ->
-                                  item.optString("type_fa")
-                          }
-
-                          val quality =
-                              item.optString("quality")
-                                  .ifBlank {
-                                      item.optString(
-                                          "display_label"
-                                      )
-                                  }
-
-                          val (position, duration) =
-                              continueProgressValues(item)
-
-                          val remaining =
-                              if (
-                                  duration > position &&
-                                  duration > 0L
-                              ) {
-                                  duration - position
-                              } else {
-                                  0L
-                              }
-
-                          val titleRow = LinearLayout(
-                              this@MainActivity
-                          ).apply {
-                              orientation =
-                                  LinearLayout.HORIZONTAL
-
-                              layoutDirection =
-                                  View.LAYOUT_DIRECTION_LTR
-
-                              gravity =
-                                  Gravity.CENTER_VERTICAL
-                          }
-
-                          titleRow.addView(
-                              TextView(
-                                  this@MainActivity
-                              ).apply {
-                                  text = titleValue
-                                  setTextColor(Color.WHITE)
-                                  textSize = 16.5f
-                                  typeface =
-                                      Typeface.DEFAULT_BOLD
-
-                                  maxLines = 1
-                                  ellipsize =
-                                      TextUtils.TruncateAt.END
-
-                                  gravity = Gravity.LEFT
-                              },
-                              LinearLayout.LayoutParams(
-                                  0,
-                                  -2,
-                                  1f
-                              )
-                          )
-
-                          titleRow.addView(
-                              ImageView(
-                                  this@MainActivity
-                              ).apply {
-                                  setImageResource(
-                                      R.drawable.ic_seen_eye
-                                  )
-
-                                  setColorFilter(
-                                      Color.rgb(
-                                          205,
-                                          214,
-                                          228
-                                      )
-                                  )
-
-                                  setPadding(
-                                      dp(3),
-                                      dp(3),
-                                      dp(3),
-                                      dp(3)
-                                  )
-                              },
-                              LinearLayout.LayoutParams(
-                                  dp(28),
-                                  dp(28)
-                              ).apply {
-                                  marginStart = dp(8)
-                              }
-                          )
-
-                          details.addView(
-                              titleRow,
-                              LinearLayout.LayoutParams(
-                                  -1,
-                                  -2
-                              )
-                          )
-
-                          details.addView(
-                              TextView(
-                                  this@MainActivity
-                              ).apply {
-                                  text = listOf(
-                                      episodeLabel,
-                                      quality
-                                  )
-                                      .filter {
-                                          it.isNotBlank()
-                                      }
-                                      .joinToString("  •  ")
-
-                                  setTextColor(
-                                      Color.rgb(
-                                          151,
-                                          158,
-                                          171
-                                      )
-                                  )
-
-                                  textSize = 12f
-                                  maxLines = 1
-
-                                  ellipsize =
-                                      TextUtils.TruncateAt.END
-
-                                  gravity = Gravity.LEFT
-                              },
-                              LinearLayout.LayoutParams(
-                                  -1,
-                                  -2
-                              ).apply {
-                                  topMargin = dp(8)
-                              }
-                          )
-
-                          val progressTrack = FrameLayout(
-                              this@MainActivity
-                          ).apply {
-                              background = rounded(
-                                  Color.rgb(48, 53, 61),
-                                  dp(3),
-                                  Color.TRANSPARENT
-                              )
-                          }
-
-                          val fraction = when {
-                              duration > 0L ->
-                                  (
-                                      position.toFloat() /
-                                      duration.toFloat()
-                                  ).coerceIn(0.03f, 1f)
-
-                              position > 0L -> 0.35f
-                              else -> 0.03f
-                          }
-
-                          progressTrack.addView(
-                              View(
-                                  this@MainActivity
-                              ).apply {
-                                  background = rounded(
-                                      Color.rgb(
-                                          95,
-                                          130,
-                                          151
-                                      ),
-                                      dp(3),
-                                      Color.TRANSPARENT
-                                  )
-                              },
-                              FrameLayout.LayoutParams(
-                                  0,
-                                  -1
-                              ).apply {
-                                  width = (
-                                      (
-                                          resources
-                                              .displayMetrics
-                                              .density * 145f
-                                      ) * fraction
-                                  )
-                                      .toInt()
-                                      .coerceAtLeast(dp(8))
-
-                                  gravity = Gravity.LEFT
-                              }
-                          )
-
-                          details.addView(
-                              progressTrack,
-                              LinearLayout.LayoutParams(
-                                  -1,
-                                  dp(6)
-                              ).apply {
-                                  topMargin = dp(10)
-                              }
-                          )
-
-                          details.addView(
-                              TextView(
-                                  this@MainActivity
-                              ).apply {
-                                  text = when {
-                                      remaining > 0L ->
-                                          "${
-                                              formatResumeTime(
-                                                  remaining
-                                              )
-                                          } باقی‌مانده"
-
-                                      position > 0L ->
-                                          "ادامه از ${
-                                              formatResumeTime(
-                                                  position
-                                              )
-                                          }"
-
-                                      else ->
-                                          "ادامه تماشا"
-                                  }
-
-                                  setTextColor(
-                                      Color.rgb(
-                                          164,
-                                          169,
-                                          180
-                                      )
-                                  )
-
-                                  textSize = 11.5f
-                                  gravity = Gravity.LEFT
-                              },
-                              LinearLayout.LayoutParams(
-                                  -1,
-                                  -2
-                              ).apply {
-                                  topMargin = dp(7)
-                              }
-                          )
-
-                          cardBox.addView(
-                              details,
-                              LinearLayout.LayoutParams(
-                                  dp(196),
-                                  -1
-                              )
-                          )
-
-                          addView(
-                              cardBox,
-                              LinearLayout.LayoutParams(
-                                  dp(308),
-                                  dp(132)
-                              )
-                          )
-
-                          return@apply
-                      }
-
-                      addView(
-                          posterCard(
-                              item,
-                              dp(116),
-                              dp(206)
-                          )
-                      )
-
-                      if (storeKey == "favorites") {
-                          addView(
-                              TextView(
-                                  this@MainActivity
-                              ).apply {
-                                  text = "حذف از واچ‌لیست"
-                                  setTextColor(white)
-                                  textSize = 10.5f
-                                  gravity = Gravity.CENTER
-
-                                  background = rounded(
-                                      Color.rgb(
-                                          120,
-                                          24,
-                                          35
-                                      ),
-                                      dp(10),
-                                      Color.TRANSPARENT
-                                  )
-
-                                  setOnClickListener {
-                                      removeStoreItem(
-                                          storeKey,
-                                          item
-                                      )
-
-                                      showProfile()
-                                  }
-                              },
-                              LinearLayout.LayoutParams(
-                                  -1,
-                                  dp(28)
-                              ).apply {
-                                  topMargin = dp(3)
-                              }
-                          )
-                      }
-                  }
-              }
-
-          '''
-
-          main = main[:start] + replacement + main[end:]
-
-          # 5) ذخیره مدت زمان کامل در کنار زمان پخش
-          old = '''            getSharedPreferences("bm_smart_cinema", MODE_PRIVATE).edit()
-                          .putLong(stableKey, savedTime)
-                          .putLong("progress_$videoUrl", savedTime)
-                          .apply()
-          '''
-
-          new = '''            val duration = p.length.coerceAtLeast(0L)
-                      getSharedPreferences("bm_smart_cinema", MODE_PRIVATE).edit()
-                          .putLong(stableKey, savedTime)
-                          .putLong("progress_$videoUrl", savedTime)
-                          .putLong("${stableKey}_duration", duration)
-                          .putLong("progress_${videoUrl}_duration", duration)
-                          .apply()
-          '''
-
-          if old not in player:
-              raise SystemExit("Progress save block not found")
-
-          player = player.replace(old, new, 1)
-
-          # 6) اجرای چندمرحله‌ای Seek برای Resume مطمئن
-          old = '''                        if (!resumeApplied) {
-                                      resumeApplied = true
-                                      val prefs = getSharedPreferences("bm_smart_cinema", MODE_PRIVATE)
-                                      val stableKey = progressKey.ifBlank { "progress_$videoUrl" }
-                                      val saved = prefs.getLong(stableKey, prefs.getLong("progress_$videoUrl", 0L))
-                                      if (saved > 15000L) {
-                                          try { player?.time = saved } catch (_: Throwable) {}
-                                          showHud("ادامه از ${fmt(saved)}")
-                                      }
-                                  }
-          '''
-
-          new = '''                        if (!resumeApplied) {
-                                      resumeApplied = true
-                                      val prefs = getSharedPreferences("bm_smart_cinema", MODE_PRIVATE)
-                                      val stableKey = progressKey.ifBlank { "progress_$videoUrl" }
-                                      val saved = prefs.getLong(stableKey, prefs.getLong("progress_$videoUrl", 0L))
-
-                                      if (saved > 15000L) {
-                                          fun applyResumeSeek() {
-                                              try {
-                                                  val current =
-                                                      player?.time
-                                                          ?: 0L
-
-                                                  if (
-                                                      current <
-                                                      saved - 5000L
-                                                  ) {
-                                                      player?.time =
-                                                          saved
-                                                  }
-                                              } catch (
-                                                  _: Throwable
-                                              ) {
-                                              }
-                                          }
-
-                                          applyResumeSeek()
-
-                                          handler.postDelayed(
-                                              {
-                                                  applyResumeSeek()
-                                              },
-                                              350L
-                                          )
-
-                                          handler.postDelayed(
-                                              {
-                                                  applyResumeSeek()
-                                              },
-                                              1100L
-                                          )
-
-                                          showHud(
-                                              "ادامه از ${fmt(saved)}"
-                                          )
-                                      }
-                                  }
-          '''
-
-          if old not in player:
-              raise SystemExit("Resume block not found")
-
-          player = player.replace(old, new, 1)
-
-          main_path.write_text(
-              main,
-              encoding="utf-8"
-          )
-
-          player_path.write_text(
-              player,
-              encoding="utf-8"
-          )
-
-          print("V12 YAML-only patch applied.")
-          PY
-
-          python3 /tmp/patch_v12.py
-
-          MAIN="project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
-          PLAYER="project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt"
-
           grep -Fq 'if (item.optInt("archive", selectedArchive) != 2)' "$MAIN"
           grep -Fq 'else if (detailArchive != 2)' "$MAIN"
           grep -Fq 'private fun continueProgressValues(item: JSONObject)' "$MAIN"
-          grep -Fq 'resources.displayMetrics.widthPixels - dp(72)' "$MAIN"
+          grep -Fq 'private fun mobileGridCardWidth(columns: Int = 3)' "$MAIN"
+          grep -Fq 'private fun mobileGridSideMarginDp()' "$MAIN"
+          grep -Fq 'private fun mobileGridCardHeight(width: Int, tall: Boolean = false)' "$MAIN"
+          grep -Fq 'val safetyDp = 12' "$MAIN"
+          grep -Fq 'val sideMargin = if (tv) dp(7) else dp(mobileGridSideMarginDp())' "$MAIN"
+          if grep -Fq 'resources.displayMetrics.widthPixels - dp(72)' "$MAIN"; then
+            echo "Old display-width grid formula still exists."
+            exit 1
+          fi
+          PLAYER="project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt"
           grep -Fq 'putLong("${stableKey}_duration", duration)' "$PLAYER"
           grep -Fq 'handler.postDelayed({ applyResumeSeek() }, 350L)' "$PLAYER"
           grep -Fq 'handler.postDelayed({ applyResumeSeek() }, 1100L)' "$PLAYER"
-
-          echo "V12 YAML-only fixes verified."
+          echo "V1.5 V13 responsive grid and V12 fix markers verified."
 
       - name: Force first build to ARM64 and V7A only
         shell: bash
         run: |
           set -euo pipefail
-
           python3 <<'PY'
           from pathlib import Path
           import re
@@ -772,32 +105,22 @@ jobs:
 
           source = re.sub(
               r'\n\s*ndk\s*\{\s*abiFilters[^\n]*\n\s*\}',
-              "",
+              '',
               source,
               count=1,
               flags=re.MULTILINE,
           )
 
           marker = '        versionName "1.5"\n'
-
           replacement = (
               '        versionName "1.5"\n'
               '        ndk {\n'
-              '            abiFilters '
-              '"armeabi-v7a", "arm64-v8a"\n'
+              '            abiFilters "armeabi-v7a", "arm64-v8a"\n'
               '        }\n'
           )
-
           if marker not in source:
-              raise SystemExit(
-                  "Could not find versionName insertion point"
-              )
-
-          source = source.replace(
-              marker,
-              replacement,
-              1
-          )
+              raise SystemExit("Could not find versionName insertion point")
+          source = source.replace(marker, replacement, 1)
 
           source, changed = re.subn(
               r'include\s+[^\n]+',
@@ -805,11 +128,8 @@ jobs:
               source,
               count=1,
           )
-
           if changed != 1:
-              raise SystemExit(
-                  "Could not set two-ABI split list"
-              )
+              raise SystemExit("Could not set two-ABI split list")
 
           source, changed = re.subn(
               r'universalApk\s+(?:false|true)',
@@ -817,18 +137,11 @@ jobs:
               source,
               count=1,
           )
-
           if changed != 1:
-              raise SystemExit(
-                  "Could not enable universal APK"
-              )
+              raise SystemExit("Could not enable universal APK")
 
-          path.write_text(
-              source,
-              encoding="utf-8"
-          )
+          path.write_text(source, encoding="utf-8")
           PY
-
           grep -Fq 'abiFilters "armeabi-v7a", "arm64-v8a"' project/app/build.gradle
           grep -Fq 'include "armeabi-v7a", "arm64-v8a"' project/app/build.gradle
 
@@ -845,12 +158,8 @@ jobs:
         shell: bash
         run: |
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
-
-          echo "sdk.dir=$ANDROID_HOME" \
-            > project/local.properties
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_HOME" > project/local.properties
 
       - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
@@ -862,411 +171,162 @@ jobs:
         shell: bash
         run: |
           set -uo pipefail
-
           rm -rf app/build publish
-
-          mkdir -p \
-            publish/arm64 \
-            publish/v7a \
-            publish/universal-lite \
-            publish/universal-full
+          mkdir -p publish/arm64 publish/v7a publish/universal-lite publish/universal-full
 
           print_real_error() {
             local log_file="$1"
             local exit_code="$2"
-
             echo ""
             echo "================ KOTLIN COMPILER ERRORS ================"
-
-            grep -E \
-              '(^e: |^w: |\.kt:[0-9]+:[0-9]+|\.kt \([0-9]+,[0-9]+\)|Unresolved reference|Type mismatch|Overload resolution ambiguity|Cannot infer|No value passed|Too many arguments|Unsupported escape|Expecting)' \
-              "$log_file" \
-              | tail -n 260 \
-              || true
-
+            grep -E '(^e: |^w: |\.kt:[0-9]+:[0-9]+|\.kt \([0-9]+,[0-9]+\)|Unresolved reference|Type mismatch|Overload resolution ambiguity|Cannot infer|No value passed|Too many arguments|Unsupported escape|Expecting)' "$log_file" | tail -n 260 || true
             echo "==================== REAL ERROR ========================="
-
-            grep -Ei \
-              'FAILURE:|What went wrong:|Execution failed|error:|Exception|Caused by:' \
-              "$log_file" \
-              | tail -n 200 \
-              || true
-
+            grep -Ei 'FAILURE:|What went wrong:|Execution failed|error:|Exception|Caused by:' "$log_file" | tail -n 200 || true
             echo "-------------------- LAST LOG LINES ---------------------"
-
             tail -n 140 "$log_file" || true
-
             echo "========================================================="
-
             exit "$exit_code"
           }
 
           build_release() {
             local log_file="$1"
             local mode="$2"
-
             rm -rf app/build
             set +e
-
             if [ "$mode" = "append" ]; then
-              gradle \
-                :app:assembleRelease \
-                --no-daemon \
-                --max-workers=1 \
-                --stacktrace \
-                --console=plain \
-                2>&1 \
-                | tee -a "$log_file"
+              gradle :app:assembleRelease --no-daemon --max-workers=1 --stacktrace --console=plain 2>&1 | tee -a "$log_file"
             else
-              gradle \
-                :app:assembleRelease \
-                --no-daemon \
-                --max-workers=1 \
-                --stacktrace \
-                --console=plain \
-                2>&1 \
-                | tee "$log_file"
+              gradle :app:assembleRelease --no-daemon --max-workers=1 --stacktrace --console=plain 2>&1 | tee "$log_file"
             fi
-
             local status=${PIPESTATUS[0]}
-
             set -e
-
             if [ "$status" -ne 0 ]; then
-              print_real_error \
-                "$log_file" \
-                "$status"
+              print_real_error "$log_file" "$status"
             fi
           }
 
           AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
           APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
-
           EXPECTED_SHA256="862bc358d8d239a2134a63fab979ff6019862372e7950ea49bac74780936205d"
 
           verify_apk() {
             local apk="$1"
             local label="$2"
             local expected_mode="$3"
-
             local badging="apk-badging-${label}.txt"
             local signing="apk-signature-${label}.txt"
 
-            "$AAPT" dump badging \
-              "$apk" \
-              > "$badging"
-
-            grep -Fq "versionName='1.5'" "$badging" || {
-              echo "$label versionName is not 1.5"
-              grep -m1 '^package:' "$badging" || true
-              exit 1
-            }
-
-            grep -Fq \
-              "package: name='ir.bankmoviee.app'" \
-              "$badging" || {
-                echo "$label package is wrong"
-                exit 1
-              }
+            "$AAPT" dump badging "$apk" > "$badging"
+            grep -Fq "versionName='1.5'" "$badging" || { echo "$label versionName is not 1.5"; grep -m1 '^package:' "$badging" || true; exit 1; }
+            grep -Fq "package: name='ir.bankmoviee.app'" "$badging" || { echo "$label package is wrong"; exit 1; }
 
             local native_line
-
-            native_line="$(
-              grep -m1 '^native-code:' "$badging" || true
-            )"
-
+            native_line="$(grep -m1 '^native-code:' "$badging" || true)"
             case "$expected_mode" in
               arm64)
-                printf '%s' "$native_line" \
-                  | grep -Fq "'arm64-v8a'" || {
-                    echo "ARM64 ABI missing"
-                    exit 1
-                  }
-
-                printf '%s' "$native_line" \
-                  | grep -Eq "armeabi-v7a|x86" && {
-                    echo "ARM64 APK contains unwanted ABI: $native_line"
-                    exit 1
-                  } || true
+                printf '%s' "$native_line" | grep -Fq "'arm64-v8a'" || { echo "ARM64 ABI missing"; exit 1; }
+                printf '%s' "$native_line" | grep -Eq "armeabi-v7a|x86" && { echo "ARM64 APK contains unwanted ABI: $native_line"; exit 1; } || true
                 ;;
-
               v7a)
-                printf '%s' "$native_line" \
-                  | grep -Fq "'armeabi-v7a'" || {
-                    echo "V7A ABI missing"
-                    exit 1
-                  }
-
-                printf '%s' "$native_line" \
-                  | grep -Eq "arm64-v8a|x86" && {
-                    echo "V7A APK contains unwanted ABI: $native_line"
-                    exit 1
-                  } || true
+                printf '%s' "$native_line" | grep -Fq "'armeabi-v7a'" || { echo "V7A ABI missing"; exit 1; }
+                printf '%s' "$native_line" | grep -Eq "arm64-v8a|x86" && { echo "V7A APK contains unwanted ABI: $native_line"; exit 1; } || true
                 ;;
-
               lite-universal)
-                printf '%s' "$native_line" \
-                  | grep -Fq "'arm64-v8a'" || {
-                    echo "Lite Universal arm64 missing"
-                    exit 1
-                  }
-
-                printf '%s' "$native_line" \
-                  | grep -Fq "'armeabi-v7a'" || {
-                    echo "Lite Universal v7a missing"
-                    exit 1
-                  }
-
-                printf '%s' "$native_line" \
-                  | grep -Eq "'x86'|'x86_64'" && {
-                    echo "Lite Universal contains x86: $native_line"
-                    exit 1
-                  } || true
+                printf '%s' "$native_line" | grep -Fq "'arm64-v8a'" || { echo "Lite Universal arm64 missing"; exit 1; }
+                printf '%s' "$native_line" | grep -Fq "'armeabi-v7a'" || { echo "Lite Universal v7a missing"; exit 1; }
+                printf '%s' "$native_line" | grep -Eq "'x86'|'x86_64'" && { echo "Lite Universal contains x86: $native_line"; exit 1; } || true
                 ;;
-
               full-universal)
-                for abi in \
-                  arm64-v8a \
-                  armeabi-v7a \
-                  x86 \
-                  x86_64
-                do
-                  printf '%s' "$native_line" \
-                    | grep -Fq "'$abi'" || {
-                      echo "Full Universal missing $abi: $native_line"
-                      exit 1
-                    }
+                for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+                  printf '%s' "$native_line" | grep -Fq "'$abi'" || { echo "Full Universal missing $abi: $native_line"; exit 1; }
                 done
                 ;;
             esac
 
             set +e
-
-            "$APKSIGNER" verify \
-              --verbose \
-              --print-certs \
-              "$apk" \
-              > "$signing" \
-              2>&1
-
+            "$APKSIGNER" verify --verbose --print-certs "$apk" > "$signing" 2>&1
             local sign_status=$?
-
             set -e
-
-            [ "$sign_status" -eq 0 ] || {
-              cat "$signing"
-              exit "$sign_status"
-            }
+            [ "$sign_status" -eq 0 ] || { cat "$signing"; exit "$sign_status"; }
 
             local actual_sha256
-
-            actual_sha256="$(
-              sed -n \
-                's/^Signer #1 certificate SHA-256 digest: //p' \
-                "$signing" \
-                | head -n1 \
-                | tr '[:upper:]' '[:lower:]' \
-                | tr -d ':[:space:]'
-            )"
-
-            [ "$actual_sha256" = "$EXPECTED_SHA256" ] || {
-              echo "$label signer mismatch: $actual_sha256"
-              exit 1
-            }
+            actual_sha256="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$signing" | head -n1 | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+            [ "$actual_sha256" = "$EXPECTED_SHA256" ] || { echo "$label signer mismatch: $actual_sha256"; exit 1; }
 
             echo "$label verified:"
-
             grep -m1 '^package:' "$badging"
-
             grep -m1 '^native-code:' "$badging" || true
-
-            grep -E \
-              '^Signer #1 certificate (DN|SHA-256 digest):' \
-              "$signing" \
-              || true
+            grep -E '^Signer #1 certificate (DN|SHA-256 digest):' "$signing" || true
           }
 
           echo "========== BUILD 1: ARM64 + V7A + LITE UNIVERSAL =========="
-
-          build_release \
-            "build.log" \
-            "new"
+          build_release "build.log" "new"
 
           OUT="app/build/outputs/apk/release"
+          ARM64="$(find "$OUT" -maxdepth 1 -type f -name '*arm64-v8a*release*.apk' | head -n1)"
+          V7A="$(find "$OUT" -maxdepth 1 -type f -name '*armeabi-v7a*release*.apk' | head -n1)"
+          LITE_UNIVERSAL="$(find "$OUT" -maxdepth 1 -type f -name '*universal*release*.apk' | head -n1)"
+          [ -n "$ARM64" ] && [ -n "$V7A" ] && [ -n "$LITE_UNIVERSAL" ] || { find "$OUT" -maxdepth 1 -type f -name '*.apk' -print || true; exit 1; }
 
-          ARM64="$(
-            find "$OUT" \
-              -maxdepth 1 \
-              -type f \
-              -name '*arm64-v8a*release*.apk' \
-              | head -n1
-          )"
+          verify_apk "$ARM64" "arm64" "arm64"
+          verify_apk "$V7A" "v7a" "v7a"
+          verify_apk "$LITE_UNIVERSAL" "universal-lite" "lite-universal"
 
-          V7A="$(
-            find "$OUT" \
-              -maxdepth 1 \
-              -type f \
-              -name '*armeabi-v7a*release*.apk' \
-              | head -n1
-          )"
-
-          LITE_UNIVERSAL="$(
-            find "$OUT" \
-              -maxdepth 1 \
-              -type f \
-              -name '*universal*release*.apk' \
-              | head -n1
-          )"
-
-          [ -n "$ARM64" ] \
-            && [ -n "$V7A" ] \
-            && [ -n "$LITE_UNIVERSAL" ] || {
-              find "$OUT" \
-                -maxdepth 1 \
-                -type f \
-                -name '*.apk' \
-                -print || true
-
-              exit 1
-            }
-
-          verify_apk \
-            "$ARM64" \
-            "arm64" \
-            "arm64"
-
-          verify_apk \
-            "$V7A" \
-            "v7a" \
-            "v7a"
-
-          verify_apk \
-            "$LITE_UNIVERSAL" \
-            "universal-lite" \
-            "lite-universal"
-
-          cp \
-            "$ARM64" \
-            "publish/arm64/Bankmovie-v1.5-v12-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
-
-          cp \
-            "$V7A" \
-            "publish/v7a/Bankmovie-v1.5-v12-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
-
-          cp \
-            "$LITE_UNIVERSAL" \
-            "publish/universal-lite/Bankmovie-v1.5-v12-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$ARM64" "publish/arm64/Bankmovie-v1.5-v13-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$V7A" "publish/v7a/Bankmovie-v1.5-v13-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v1.5-v13-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
 
           echo "========== BUILD 2: FULL UNIVERSAL 4 ABI =========="
-
           python3 <<'PY'
           from pathlib import Path
           import re
 
           path = Path("app/build.gradle")
           source = path.read_text(encoding="utf-8")
-
           source, split_changed = re.subn(
               r'include\s+"armeabi-v7a",\s*"arm64-v8a"',
               'include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"',
               source,
               count=1,
           )
-
           source, filter_changed = re.subn(
               r'abiFilters\s+"armeabi-v7a",\s*"arm64-v8a"',
               'abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"',
               source,
               count=1,
           )
-
           if split_changed != 1 or filter_changed != 1:
-              raise SystemExit(
-                  "Could not enable four ABIs: "
-                  f"split={split_changed}, "
-                  f"filter={filter_changed}"
-              )
-
-          path.write_text(
-              source,
-              encoding="utf-8"
-          )
+              raise SystemExit(f"Could not enable four ABIs: split={split_changed}, filter={filter_changed}")
+          path.write_text(source, encoding="utf-8")
           PY
 
-          grep -Fq \
-            'include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"' \
-            app/build.gradle
-
-          grep -Fq \
-            'abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"' \
-            app/build.gradle
-
-          build_release \
-            "build.log" \
-            "append"
+          grep -Fq 'include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"' app/build.gradle
+          grep -Fq 'abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"' app/build.gradle
+          build_release "build.log" "append"
 
           OUT="app/build/outputs/apk/release"
+          FULL_UNIVERSAL="$(find "$OUT" -maxdepth 1 -type f -name '*universal*release*.apk' | head -n1)"
+          [ -n "$FULL_UNIVERSAL" ] || { find "$OUT" -maxdepth 1 -type f -name '*.apk' -print || true; exit 1; }
+          verify_apk "$FULL_UNIVERSAL" "universal-full" "full-universal"
+          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v1.5-v13-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
 
-          FULL_UNIVERSAL="$(
-            find "$OUT" \
-              -maxdepth 1 \
-              -type f \
-              -name '*universal*release*.apk' \
-              | head -n1
-          )"
-
-          [ -n "$FULL_UNIVERSAL" ] || {
-            find "$OUT" \
-              -maxdepth 1 \
-              -type f \
-              -name '*.apk' \
-              -print || true
-
-            exit 1
-          }
-
-          verify_apk \
-            "$FULL_UNIVERSAL" \
-            "universal-full" \
-            "full-universal"
-
-          cp \
-            "$FULL_UNIVERSAL" \
-            "publish/universal-full/Bankmovie-v1.5-v12-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
-
-          for dir in \
-            arm64 \
-            v7a \
-            universal-lite \
-            universal-full
-          do
-            sha256sum \
-              "publish/$dir"/*.apk \
-              > "publish/$dir/SHA256.txt"
+          for dir in arm64 v7a universal-lite universal-full; do
+            sha256sum "publish/$dir"/*.apk > "publish/$dir/SHA256.txt"
           done
 
           echo "================ APK SIZES ================"
-
-          for apk in publish/*/*.apk
-          do
+          for apk in publish/*/*.apk; do
             bytes=$(stat -c%s "$apk")
-
-            mib=$(
-              awk \
-                -v b="$bytes" \
-                'BEGIN { printf "%.1f", b/1048576 }'
-            )
-
+            mib=$(awk -v b="$bytes" 'BEGIN { printf "%.1f", b/1048576 }')
             echo "$(basename "$apk"): ${mib} MiB"
           done
-
           echo "==========================================="
 
       - name: Upload diagnostic build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.5-V12-Build-Log-${{ github.run_number }}
+          name: Bankmovie-V1.5-V13-Build-Log-${{ github.run_number }}
           path: project/build.log
           if-no-files-found: ignore
           retention-days: 7
@@ -1274,7 +334,7 @@ jobs:
       - name: Upload ARM64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.5-V12-ARM64-${{ github.run_number }}
+          name: Bankmovie-V1.5-V13-ARM64-${{ github.run_number }}
           path: project/publish/arm64/*
           if-no-files-found: error
           retention-days: 14
@@ -1282,7 +342,7 @@ jobs:
       - name: Upload V7A APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.5-V12-V7A-${{ github.run_number }}
+          name: Bankmovie-V1.5-V13-V7A-${{ github.run_number }}
           path: project/publish/v7a/*
           if-no-files-found: error
           retention-days: 14
@@ -1290,7 +350,7 @@ jobs:
       - name: Upload Lite Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.5-V12-Universal-Lite-2ABI-${{ github.run_number }}
+          name: Bankmovie-V1.5-V13-Universal-Lite-2ABI-${{ github.run_number }}
           path: project/publish/universal-lite/*
           if-no-files-found: error
           retention-days: 14
@@ -1298,7 +358,7 @@ jobs:
       - name: Upload Full Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.5-V12-Universal-Full-4ABI-${{ github.run_number }}
+          name: Bankmovie-V1.5-V13-Universal-Full-4ABI-${{ github.run_number }}
           path: project/publish/universal-full/*
           if-no-files-found: error
           retention-days: 14
