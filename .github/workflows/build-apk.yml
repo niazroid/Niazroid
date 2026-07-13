@@ -1,4 +1,4 @@
-name: Build Bankmovie V1.5 V14 Update Related Continue Fix
+name: Build Bankmovie V1.6 V16 Unified Audio Subtitle Player
 
 on:
   workflow_dispatch:
@@ -10,18 +10,18 @@ permissions:
 
 jobs:
   build:
-    name: Build V1.5 V14 ARM64 V7A Lite Universal Full Universal
+    name: Build V1.6 V16 ARM64 V7A Lite Universal Full Universal
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Unzip exact V1.5 source
+      - name: Unzip exact V1.6 source
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="Bankmovie-v1.5-source-v14-update-related-continue-fix.zip"
+          ZIP="Bankmovie-v1.6-source-v16-unified-audio-subtitle.zip"
           if [ ! -f "$ZIP" ]; then
             echo "==================== REAL ERROR ===================="
             echo "Missing $ZIP in repository root."
@@ -34,6 +34,44 @@ jobs:
           test -f project/settings.gradle
           test -f project/app/build.gradle
           test -f project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+
+      - name: Prepare optional Bankmovie font
+        shell: bash
+        run: |
+          set -euo pipefail
+          FONT_FILE=""
+          for candidate in "bonVF (2).woff2" "bonVF.woff2" "bonvf.woff2"; do
+            if [ -f "$candidate" ]; then
+              FONT_FILE="$candidate"
+              break
+            fi
+          done
+          if [ -z "$FONT_FILE" ]; then
+            FONT_FILE="$(find . -maxdepth 1 -type f -iname '*.woff2' | head -n1 || true)"
+          fi
+
+          mkdir -p project/app/src/main/assets/fonts
+          rm -f project/app/src/main/assets/fonts/bonvf.ttf
+
+          if [ -n "$FONT_FILE" ] && [ -f "$FONT_FILE" ]; then
+            python3 -m pip install --quiet --disable-pip-version-check fonttools brotli
+            FONT_INPUT="$FONT_FILE" python3 <<'PY'
+          import os
+          from pathlib import Path
+          from fontTools.ttLib import TTFont
+
+          source = Path(os.environ['FONT_INPUT'])
+          target = Path('project/app/src/main/assets/fonts/bonvf.ttf')
+          font = TTFont(str(source))
+          font.flavor = None
+          font.save(str(target))
+          if not target.exists() or target.stat().st_size < 1024:
+              raise SystemExit('Converted font is missing or invalid')
+          print(f'Optional Bankmovie font prepared: {target.stat().st_size} bytes')
+          PY
+          else
+            echo "Optional WOFF2 font not found; system font fallback will be used."
+          fi
 
       - name: Verify legacy update signing key
         shell: bash
@@ -50,70 +88,61 @@ jobs:
           fi
           echo "Legacy signing key verified: $NORMALIZED"
 
-      - name: Verify V1.5 V14 update related continue fixes
+      - name: Verify V1.6 V16 unified audio subtitle source
         shell: bash
         run: |
           set -euo pipefail
           MAIN="project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
+          PLAYER="project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt"
+          PREFS="project/app/src/main/java/ir/bankmoviee/app/UiPreferences.kt"
+          LOADER="project/app/src/main/java/ir/bankmoviee/app/PremiumLoaderView.kt"
           GRADLE="project/app/build.gradle"
 
-          grep -Fq 'versionName "1.5"' "$GRADLE"
-          grep -Fq 'versionCode 2500000 + runNumber' "$GRADLE"
+          grep -Fq 'versionName "1.6"' "$GRADLE"
+          grep -Fq 'versionCode 2700000 + runNumber' "$GRADLE"
           grep -Fq 'minifyEnabled true' "$GRADLE"
           grep -Fq 'shrinkResources true' "$GRADLE"
-          grep -Fq 'private fun archiveSwitchBar()' "$MAIN"
-          grep -Fq 'private var selectedArchive = 1' "$MAIN"
-          grep -Fq 'private var archive2ApiBase' "$MAIN"
-          grep -Fq 'private var archive1LiveApiBase' "$MAIN"
-          grep -Fq 'section == "dubbed" || section == "chinese_series"' "$MAIN"
-          grep -Fq 'addRail(page, "سریال‌های چینی", 1, "chinese_series", false)' "$MAIN"
-          grep -Fq 't("پخش با بانک مووی", "Play with Bankmovie")' "$MAIN"
-          grep -Fq 'BankmovieAndroidNative/1.5-V14' "$MAIN"
-          if grep -Fq 'BankmovieAndroidNative/1.4' "$MAIN"; then
-            echo "Old 1.4 User-Agent remains in source."
-            exit 1
-          fi
-          test -f project/app/src/main/res/drawable/ic_archive_database.xml
-          test -f project/app/src/main/res/drawable/ic_archive_globe.xml
-          test -f project/server-required/archive1_live.php
-          test -f project/server-required/api5.php
-          grep -Fq '"updated_movies" -> "movies_2025_2026"' "$MAIN"
-          grep -Fq 'addRail(page, "اکران 2025 و 2026", 2, "updated_movies", false)' "$MAIN"
-          grep -Fq 'addRail(page, "سریال‌های آپدیت‌شده", 2, "updated_series", false)' "$MAIN"
-          grep -Fq 'private fun cleanArchive2DisplayTitle' "$MAIN"
-          grep -Fq 'maxLines = 2' "$MAIN"
-          if grep -Fq 'addRail(page, "زیرنویس فارسی", 2, "subtitled", false)' "$MAIN"; then
-            echo "Archive 2 subtitle rail still exists."
-            exit 1
-          fi
-          grep -Fq 'function serialblog_get_movies_2025_2026' project/server-required/api5_lib.php
-          grep -Fq 'function serialblog_clean_display_title' project/server-required/api5_lib.php
-          grep -Fq "serialblog_extract_downloads(\$xpath, \$detectedType)" project/server-required/api5_lib.php
-          grep -Fq 'if (item.optInt("archive", selectedArchive) != 2)' "$MAIN"
-          grep -Fq 'addArchive2GenreRail(' "$MAIN"
-          grep -Fq 'private fun continueProgressValues(item: JSONObject)' "$MAIN"
-          grep -Fq 'private fun mobileGridCardWidth(columns: Int = 3)' "$MAIN"
-          grep -Fq 'private fun mobileGridSideMarginDp()' "$MAIN"
-          grep -Fq 'private fun mobileGridCardHeight(width: Int, tall: Boolean = false)' "$MAIN"
-          grep -Fq 'val safetyDp = 12' "$MAIN"
-          grep -Fq 'val sideMargin = if (tv) dp(7) else dp(mobileGridSideMarginDp())' "$MAIN"
-          if grep -Fq 'resources.displayMetrics.widthPixels - dp(72)' "$MAIN"; then
-            echo "Old display-width grid formula still exists."
-            exit 1
-          fi
-          PLAYER="project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt"
-          grep -Fq 'putLong("${stableKey}_duration", duration)' "$PLAYER"
+          test -f "$PREFS"
+          test -f "$LOADER"
+          grep -Fq 'BankmovieAndroidNative/1.6-V16' "$MAIN"
+          grep -Fq 'private fun showSettingsPage()' "$MAIN"
+          grep -Fq 'private fun showGlobalSubtitleSettings()' "$MAIN"
+          grep -Fq 'private fun showAboutPage()' "$MAIN"
+          grep -Fq 'private fun addProfileContinueSection(page: LinearLayout)' "$MAIN"
+          grep -Fq 'private fun openStoredContinue(item: JSONObject)' "$MAIN"
+          grep -Fq 'PremiumLoaderView(this@MainActivity)' "$MAIN"
+          grep -Fq 'Manuel' "$MAIN"
+          grep -Fq '@bankmovie_org' "$MAIN"
+          grep -Fq '@bankmovieROBOT' "$MAIN"
+          grep -Fq 'const val KEY_THEME = "ui_theme_mode"' "$PREFS"
+          grep -Fq 'const val KEY_SUB_BG_MODE = "subtitle_background_mode"' "$PREFS"
+          grep -Fq 'fun customFontFile(context: Context): File?' "$PREFS"
+          grep -Fq 'const val EXTRA_RESUME_POSITION = "resume_position"' "$PLAYER"
+          grep -Fq 'private fun showNativeTrackDialog' "$PLAYER"
+          grep -Fq 'private fun showSubtitleStyleSheet()' "$PLAYER"
+          grep -Fq 'private fun showAudioSubtitleSettingsSheet()' "$PLAYER"
+          grep -Fq 'private fun applyPreferredNativeTracks()' "$PLAYER"
+          grep -Fq 'R.drawable.ic_player_quality) { showQualitySheet()' "$PLAYER"
+          grep -Fq 'صدا، زیرنویس و ظاهر' "$PLAYER"
+          grep -Fq 'اعمال صدا و زیرنویس' "$PLAYER"
+          grep -Fq 'private fun qualityOnlyLinks(links: List<JSONObject>)' "$MAIN"
+          grep -Fq 'ui("کیفیت‌های پخش")' "$MAIN"
+          grep -Fq 'private fun applySubtitleVisibility()' "$PLAYER"
           grep -Fq 'media.addOption(":start-time=${resumeBeforePlay / 1000L}")' "$PLAYER"
-          grep -Fq 'listOf(300L, 800L, 1600L, 3000L, 5000L)' "$PLAYER"
-          grep -Fq 'if (storeKey == "continue") profileStoredCard(storeKey, saved)' "$MAIN"
-          grep -Fq '"وضعیت" to listOf("دوبله", "IMDb بالا")' "$MAIN"
-          grep -Fq 'function serialblog_get_genre' project/server-required/api5_lib.php
-          grep -Fq "\$detail['related'] = \$related;" project/server-required/api5_lib.php
-          if grep -Fq "'subtitled'" project/server-required/api5_lib.php; then
-            echo "Subtitle section still exists in API catalog."
+          grep -Fq 'listOf(300L, 800L, 1600L, 3000L, 5000L, 8000L, 11000L)' "$PLAYER"
+          grep -Fq 'putLong("${stableKey}_duration", duration)' "$PLAYER"
+          grep -Fq 'UiPreferences.subtitleBackgroundOpacity(this)' "$PLAYER"
+          grep -Fq 'UiPreferences.customFontFile(this)' "$PLAYER"
+          grep -Fq 'private fun mobileGridCardWidth(columns: Int = 3)' "$MAIN"
+          grep -Fq 'addArchive2GenreRail(' "$MAIN"
+          if grep -Fq 'actions.addView(simplePlayerIcon(R.drawable.ic_player_audio) { quickTypeSwitch(false) }' "$PLAYER"; then
+            echo "Old dubbed/subtitle source switch is still wired in player controls."
             exit 1
           fi
-          echo "V1.5 V14 update related continue fix markers verified."
+          test -f project/bankmovie_update.jks
+          test -f project/server-required/api5.php
+          test -f project/server-required/api5_lib.php
+          echo "V1.6 V16 unified audio/subtitle markers verified."
 
       - name: Force first build to ARM64 and V7A only
         shell: bash
@@ -134,9 +163,9 @@ jobs:
               flags=re.MULTILINE,
           )
 
-          marker = '        versionName "1.5"\n'
+          marker = '        versionName "1.6"\n'
           replacement = (
-              '        versionName "1.5"\n'
+              '        versionName "1.6"\n'
               '        ndk {\n'
               '            abiFilters "armeabi-v7a", "arm64-v8a"\n'
               '        }\n'
@@ -240,11 +269,11 @@ jobs:
             local signing="apk-signature-${label}.txt"
 
             "$AAPT" dump badging "$apk" > "$badging"
-            grep -Fq "versionName='1.5'" "$badging" || { echo "$label versionName is not 1.5"; grep -m1 '^package:' "$badging" || true; exit 1; }
+            grep -Fq "versionName='1.6'" "$badging" || { echo "$label versionName is not 1.6"; grep -m1 '^package:' "$badging" || true; exit 1; }
             grep -Fq "package: name='ir.bankmoviee.app'" "$badging" || { echo "$label package is wrong"; exit 1; }
             VERSION_CODE="$(sed -n "s/.*versionCode='\([0-9][0-9]*\)'.*/\1/p" "$badging" | head -n1)"
-            if [ -z "$VERSION_CODE" ] || [ "$VERSION_CODE" -lt 2500001 ]; then
-              echo "$label versionCode is not high enough for in-place update: ${VERSION_CODE:-missing}"
+            if [ -z "$VERSION_CODE" ] || [ "$VERSION_CODE" -lt 2600001 ]; then
+              echo "$label versionCode is not high enough for V15 in-place update: ${VERSION_CODE:-missing}"
               exit 1
             fi
 
@@ -300,9 +329,9 @@ jobs:
           verify_apk "$V7A" "v7a" "v7a"
           verify_apk "$LITE_UNIVERSAL" "universal-lite" "lite-universal"
 
-          cp "$ARM64" "publish/arm64/Bankmovie-v1.5-v14-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$V7A" "publish/v7a/Bankmovie-v1.5-v14-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v1.5-v14-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$ARM64" "publish/arm64/Bankmovie-v1.6-v16-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$V7A" "publish/v7a/Bankmovie-v1.6-v16-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v1.6-v16-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
 
           echo "========== BUILD 2: FULL UNIVERSAL 4 ABI =========="
           python3 <<'PY'
@@ -336,7 +365,7 @@ jobs:
           FULL_UNIVERSAL="$(find "$OUT" -maxdepth 1 -type f -name '*universal*release*.apk' | head -n1)"
           [ -n "$FULL_UNIVERSAL" ] || { find "$OUT" -maxdepth 1 -type f -name '*.apk' -print || true; exit 1; }
           verify_apk "$FULL_UNIVERSAL" "universal-full" "full-universal"
-          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v1.5-v14-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v1.6-v16-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
 
           for dir in arm64 v7a universal-lite universal-full; do
             sha256sum "publish/$dir"/*.apk > "publish/$dir/SHA256.txt"
@@ -354,7 +383,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.5-V14-Build-Log-${{ github.run_number }}
+          name: Bankmovie-V1.6-V16-Build-Log-${{ github.run_number }}
           path: project/build.log
           if-no-files-found: ignore
           retention-days: 7
@@ -362,7 +391,7 @@ jobs:
       - name: Upload ARM64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.5-V14-ARM64-${{ github.run_number }}
+          name: Bankmovie-V1.6-V16-ARM64-${{ github.run_number }}
           path: project/publish/arm64/*
           if-no-files-found: error
           retention-days: 14
@@ -370,7 +399,7 @@ jobs:
       - name: Upload V7A APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.5-V14-V7A-${{ github.run_number }}
+          name: Bankmovie-V1.6-V16-V7A-${{ github.run_number }}
           path: project/publish/v7a/*
           if-no-files-found: error
           retention-days: 14
@@ -378,7 +407,7 @@ jobs:
       - name: Upload Lite Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.5-V14-Universal-Lite-2ABI-${{ github.run_number }}
+          name: Bankmovie-V1.6-V16-Universal-Lite-2ABI-${{ github.run_number }}
           path: project/publish/universal-lite/*
           if-no-files-found: error
           retention-days: 14
@@ -386,7 +415,7 @@ jobs:
       - name: Upload Full Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.5-V14-Universal-Full-4ABI-${{ github.run_number }}
+          name: Bankmovie-V1.6-V16-Universal-Full-4ABI-${{ github.run_number }}
           path: project/publish/universal-full/*
           if-no-files-found: error
           retention-days: 14
