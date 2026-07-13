@@ -1,4 +1,4 @@
-name: Build Bankmovie V1.9 V19 Downloader Path Player Fix
+name: Build Bankmovie V1.9 V19 Light English Downloads Hotfix
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Build V1.9 V19 ARM64 V7A Lite Universal Full Universal
+    name: Build V1.9 V19 Hotfix ARM64 V7A Lite Universal Full Universal
     runs-on: ubuntu-latest
 
     steps:
@@ -142,6 +142,668 @@ jobs:
           fi
 
           echo "V1.9 V19 storage picker, player crash fix, related items, subtitle backgrounds and dubbed badges verified."
+
+      - name: Apply V1.9 light theme English and Downloads hotfix
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/patch_v19_hotfix.py <<'PY'
+          from pathlib import Path
+          import re
+          
+          root = Path('project')
+          main_path = root/'app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
+          player_path = root/'app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
+          prefs_path = root/'app/src/main/java/ir/bankmoviee/app/UiPreferences.kt'
+          loc_path = root/'app/src/main/java/ir/bankmoviee/app/DownloadLocationPrefs.kt'
+          store_path = root/'app/src/main/java/ir/bankmoviee/app/InternalDownloadStore.kt'
+          service_path = root/'app/src/main/java/ir/bankmoviee/app/InternalDownloadService.kt'
+          downloads_path = root/'app/src/main/java/ir/bankmoviee/app/DownloadsActivity.kt'
+          
+          # 1) Download location defaults to public Downloads/Bankmovie.
+          loc_path.write_text(r'''package ir.bankmoviee.app
+          
+          import android.content.Context
+          import android.net.Uri
+          import android.os.Environment
+          import java.io.File
+          
+          object DownloadLocationPrefs {
+              private const val PREFS = "bankmovie_download_location"
+              private const val KEY_MODE = "mode"
+              private const val KEY_TREE_URI = "tree_uri"
+              private const val KEY_TREE_LABEL = "tree_label"
+              private const val KEY_CONFIGURED = "configured"
+          
+              const val MODE_PUBLIC = "public"
+              const val MODE_TREE = "tree"
+          
+              private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+          
+              fun hasChoice(context: Context): Boolean = true
+          
+              fun mode(context: Context): String {
+                  val saved = prefs(context).getString(KEY_MODE, MODE_PUBLIC).orEmpty()
+                  return if (saved == MODE_TREE && treeUri(context) != null) MODE_TREE else MODE_PUBLIC
+              }
+          
+              fun treeUri(context: Context): Uri? {
+                  val raw = prefs(context).getString(KEY_TREE_URI, "").orEmpty()
+                  return if (raw.isBlank()) null else runCatching { Uri.parse(raw) }.getOrNull()
+              }
+          
+              fun setPublicDownloads(context: Context) {
+                  prefs(context).edit()
+                      .putBoolean(KEY_CONFIGURED, true)
+                      .putString(KEY_MODE, MODE_PUBLIC)
+                      .remove(KEY_TREE_URI)
+                      .remove(KEY_TREE_LABEL)
+                      .apply()
+              }
+          
+              // Kept for compatibility with older call sites. It now means public Downloads/Bankmovie.
+              fun setAppFolder(context: Context) = setPublicDownloads(context)
+          
+              fun setTree(context: Context, uri: Uri) {
+                  val label = uri.lastPathSegment
+                      ?.substringAfterLast(':')
+                      ?.replace("%2F", "/", true)
+                      ?.ifBlank { "پوشه انتخاب‌شده" }
+                      ?: "پوشه انتخاب‌شده"
+                  prefs(context).edit()
+                      .putBoolean(KEY_CONFIGURED, true)
+                      .putString(KEY_MODE, MODE_TREE)
+                      .putString(KEY_TREE_URI, uri.toString())
+                      .putString(KEY_TREE_LABEL, label)
+                      .apply()
+              }
+          
+              @Suppress("DEPRECATION")
+              fun publicFolder(): File {
+                  return File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Bankmovie").apply { mkdirs() }
+              }
+          
+              fun displayName(context: Context): String {
+                  return if (mode(context) == MODE_TREE && treeUri(context) != null) {
+                      prefs(context).getString(KEY_TREE_LABEL, "پوشه انتخاب‌شده") ?: "پوشه انتخاب‌شده"
+                  } else {
+                      "Downloads / Bankmovie"
+                  }
+              }
+          }
+          ''', encoding='utf-8')
+          
+          # 2) Internal download store supports MediaStore/public Downloads.
+          store = store_path.read_text(encoding='utf-8')
+          store = store.replace('    const val STORAGE_FILE = "file"\n    const val STORAGE_TREE = "tree"',
+                                '    const val STORAGE_FILE = "file"\n    const val STORAGE_TREE = "tree"\n    const val STORAGE_MEDIA = "media"')
+          old = '''    fun exists(context: Context, item: JSONObject): Boolean {
+                  return if (item.optString("storage_mode") == STORAGE_TREE) {
+                      val raw = item.optString("document_uri")
+                      if (raw.isBlank()) false else runCatching {
+                          DocumentFile.fromSingleUri(context, Uri.parse(raw))?.exists() == true
+                      }.getOrDefault(false)
+                  } else {
+                      val path = item.optString("path")
+                      path.isNotBlank() && File(path).exists()
+                  }
+              }
+          
+              fun deleteDownloadedFile(context: Context, item: JSONObject) {
+                  if (item.optString("storage_mode") == STORAGE_TREE) {
+                      val raw = item.optString("document_uri")
+                      if (raw.isNotBlank()) runCatching {
+                          DocumentFile.fromSingleUri(context, Uri.parse(raw))?.delete()
+                      }
+                  } else {
+                      val path = item.optString("path")
+                      if (path.isNotBlank()) runCatching { File(path).delete() }
+                  }
+              }
+          '''
+          new = '''    fun exists(context: Context, item: JSONObject): Boolean {
+                  val mode = item.optString("storage_mode")
+                  if (mode == STORAGE_TREE || mode == STORAGE_MEDIA) {
+                      val raw = item.optString("document_uri")
+                      if (raw.isBlank()) return false
+                      return runCatching {
+                          context.contentResolver.openFileDescriptor(Uri.parse(raw), "r")?.use { true } ?: false
+                      }.getOrDefault(false)
+                  }
+                  val path = item.optString("path")
+                  return path.isNotBlank() && File(path).exists()
+              }
+          
+              fun deleteDownloadedFile(context: Context, item: JSONObject) {
+                  val mode = item.optString("storage_mode")
+                  if (mode == STORAGE_TREE || mode == STORAGE_MEDIA) {
+                      val raw = item.optString("document_uri")
+                      if (raw.isNotBlank()) runCatching {
+                          if (mode == STORAGE_MEDIA) {
+                              context.contentResolver.delete(Uri.parse(raw), null, null)
+                          } else {
+                              DocumentFile.fromSingleUri(context, Uri.parse(raw))?.delete()
+                          }
+                      }
+                      return
+                  }
+                  val path = item.optString("path")
+                  if (path.isNotBlank()) runCatching { File(path).delete() }
+              }
+          '''
+          assert old in store, 'store exists/delete block not found'
+          store = store.replace(old,new,1)
+          store = store.replace('        put("storage_mode", STORAGE_FILE)', '        put("storage_mode", STORAGE_MEDIA)', 1)
+          store_path.write_text(store, encoding='utf-8')
+          
+          # 3) Service: MediaStore Downloads/Bankmovie on Android 10+, public folder before Android 10.
+          service = service_path.read_text(encoding='utf-8')
+          service = service.replace('import android.content.Context\nimport android.content.Intent', 'import android.content.ContentValues\nimport android.content.Context\nimport android.content.Intent')
+          service = service.replace('import android.os.ParcelFileDescriptor', 'import android.os.Environment\nimport android.os.ParcelFileDescriptor')
+          service = service.replace('import androidx.core.app.NotificationCompat', 'import android.provider.MediaStore\nimport androidx.core.app.NotificationCompat')
+          old = '''    private fun configureTarget(item: JSONObject, fileName: String) {
+                  val tree = DownloadLocationPrefs.treeUri(this)
+                  if (DownloadLocationPrefs.mode(this) == DownloadLocationPrefs.MODE_TREE && tree != null) {
+                      val root = DocumentFile.fromTreeUri(this, tree)
+                          ?: throw IllegalStateException("پوشه انتخاب‌شده در دسترس نیست")
+                      val document = root.findFile(fileName)
+                          ?: root.createFile(InternalDownloadStore.mimeForName(fileName), fileName)
+                          ?: throw IllegalStateException("ساخت فایل در پوشه انتخاب‌شده ممکن نیست")
+                      item.put("storage_mode", InternalDownloadStore.STORAGE_TREE)
+                      item.put("tree_uri", tree.toString())
+                      item.put("document_uri", document.uri.toString())
+                      item.put("path", "")
+                      item.put("location_label", DownloadLocationPrefs.displayName(this))
+                  } else {
+                      val target = File(DownloadLocationPrefs.appFolder(this), fileName)
+                      item.put("storage_mode", InternalDownloadStore.STORAGE_FILE)
+                      item.put("tree_uri", "")
+                      item.put("document_uri", "")
+                      item.put("path", target.absolutePath)
+                      item.put("location_label", DownloadLocationPrefs.displayName(this))
+                  }
+              }
+          '''
+          new = '''    private fun configureTarget(item: JSONObject, fileName: String) {
+                  val tree = DownloadLocationPrefs.treeUri(this)
+                  if (DownloadLocationPrefs.mode(this) == DownloadLocationPrefs.MODE_TREE && tree != null) {
+                      val root = DocumentFile.fromTreeUri(this, tree)
+                          ?: throw IllegalStateException("پوشه انتخاب‌شده در دسترس نیست")
+                      val document = root.findFile(fileName)
+                          ?: root.createFile(InternalDownloadStore.mimeForName(fileName), fileName)
+                          ?: throw IllegalStateException("ساخت فایل در پوشه انتخاب‌شده ممکن نیست")
+                      item.put("storage_mode", InternalDownloadStore.STORAGE_TREE)
+                      item.put("tree_uri", tree.toString())
+                      item.put("document_uri", document.uri.toString())
+                      item.put("path", "")
+                      item.put("location_label", DownloadLocationPrefs.displayName(this))
+                      return
+                  }
+          
+                  DownloadLocationPrefs.setPublicDownloads(this)
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                      val values = ContentValues().apply {
+                          put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                          put(MediaStore.MediaColumns.MIME_TYPE, InternalDownloadStore.mimeForName(fileName))
+                          put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Bankmovie")
+                          put(MediaStore.MediaColumns.IS_PENDING, 1)
+                      }
+                      val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                          ?: throw IllegalStateException("ساخت فایل در Downloads/Bankmovie ممکن نیست")
+                      item.put("storage_mode", InternalDownloadStore.STORAGE_MEDIA)
+                      item.put("tree_uri", "")
+                      item.put("document_uri", uri.toString())
+                      item.put("path", "")
+                      item.put("location_label", "Downloads / Bankmovie")
+                  } else {
+                      val target = File(DownloadLocationPrefs.publicFolder(), fileName)
+                      item.put("storage_mode", InternalDownloadStore.STORAGE_FILE)
+                      item.put("tree_uri", "")
+                      item.put("document_uri", "")
+                      item.put("path", target.absolutePath)
+                      item.put("location_label", "Downloads / Bankmovie")
+                  }
+              }
+          '''
+          assert old in service, 'service configureTarget block not found'
+          service = service.replace(old,new,1)
+          old = '''    private fun openTarget(item: JSONObject): DownloadTarget {
+                  return if (item.optString("storage_mode") == InternalDownloadStore.STORAGE_TREE) {
+                      val uri = Uri.parse(item.optString("document_uri"))
+                      val descriptor = contentResolver.openFileDescriptor(uri, "rw")
+                          ?: throw IllegalStateException("مسیر ذخیره‌سازی در دسترس نیست")
+                      val stream = FileOutputStream(descriptor.fileDescriptor)
+                      TreeTarget(descriptor, stream)
+                  } else {
+                      val file = File(item.optString("path"))
+                      file.parentFile?.mkdirs()
+                      FileTarget(file)
+                  }
+              }
+          '''
+          new = '''    private fun openTarget(item: JSONObject): DownloadTarget {
+                  val mode = item.optString("storage_mode")
+                  return if (mode == InternalDownloadStore.STORAGE_TREE || mode == InternalDownloadStore.STORAGE_MEDIA) {
+                      val uri = Uri.parse(item.optString("document_uri"))
+                      val descriptor = contentResolver.openFileDescriptor(uri, "rw")
+                          ?: throw IllegalStateException("مسیر ذخیره‌سازی در دسترس نیست")
+                      val stream = FileOutputStream(descriptor.fileDescriptor)
+                      TreeTarget(descriptor, stream)
+                  } else {
+                      val file = File(item.optString("path"))
+                      file.parentFile?.mkdirs()
+                      FileTarget(file)
+                  }
+              }
+          '''
+          assert old in service, 'service openTarget block not found'
+          service = service.replace(old,new,1)
+          needle = '''            target.sync()
+                      updateItem(id, InternalDownloadStore.STATUS_COMPLETED, downloaded, if (total > 0L) total else downloaded, 0L, "")
+          '''
+          replacement = '''            target.sync()
+                      if (item.optString("storage_mode") == InternalDownloadStore.STORAGE_MEDIA && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                          val uri = Uri.parse(item.optString("document_uri"))
+                          contentResolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
+                      }
+                      updateItem(id, InternalDownloadStore.STATUS_COMPLETED, downloaded, if (total > 0L) total else downloaded, 0L, "")
+          '''
+          assert needle in service, 'service completion block not found'
+          service = service.replace(needle,replacement,1)
+          service_path.write_text(service, encoding='utf-8')
+          
+          # 4) Downloads activity opens MediaStore items and defaults to Downloads/Bankmovie.
+          downloads = downloads_path.read_text(encoding='utf-8')
+          # Add English helpers/import ViewGroup.
+          downloads = downloads.replace('import android.view.View\n', 'import android.view.View\nimport android.view.ViewGroup\n')
+          # Make public folder the first and default option.
+          old = '''        box.addView(actionButtonWide("انتخاب پوشه دلخواه") {
+                      dialog.dismiss()
+                      startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                          addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                      }, folderRequestCode)
+                  }, LinearLayout.LayoutParams(-1, dp(50)).apply { bottomMargin = dp(8) })
+                  box.addView(actionButtonWide("حافظه اختصاصی برنامه") {
+                      DownloadLocationPrefs.setAppFolder(this)
+                      dialog.dismiss()
+                      lastSnapshot = ""
+                      render()
+                  }, LinearLayout.LayoutParams(-1, dp(50)))
+          '''
+          new = '''        box.addView(actionButtonWide("Downloads / Bankmovie (پیش‌فرض)") {
+                      DownloadLocationPrefs.setPublicDownloads(this)
+                      dialog.dismiss()
+                      lastSnapshot = ""
+                      render()
+                  }, LinearLayout.LayoutParams(-1, dp(50)).apply { bottomMargin = dp(8) })
+                  box.addView(actionButtonWide("انتخاب پوشه دلخواه") {
+                      dialog.dismiss()
+                      startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                          addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                      }, folderRequestCode)
+                  }, LinearLayout.LayoutParams(-1, dp(50)))
+          '''
+          assert old in downloads, 'downloads location dialog block not found'
+          downloads = downloads.replace(old,new,1)
+          # Open media/tree the same way.
+          downloads = downloads.replace(
+          '''            if (item.optString("storage_mode") == InternalDownloadStore.STORAGE_TREE && documentRaw.isNotBlank()) {''',
+          '''            if (item.optString("storage_mode") in listOf(InternalDownloadStore.STORAGE_TREE, InternalDownloadStore.STORAGE_MEDIA) && documentRaw.isNotBlank()) {''',1)
+          # Add translation helpers before dp().
+          insert_anchor = '    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()\n'
+          helper = r'''    private fun isFa(): Boolean = (getSharedPreferences("bm_smart_cinema", MODE_PRIVATE).getString("lang_code", "fa") ?: "fa") != "en"
+          
+              private fun ui(raw: String): String {
+                  if (isFa()) return raw
+                  val exact = mapOf(
+                      "دانلودهای من" to "My Downloads",
+                      "دانلودر اختصاصی بانک مووی • توقف و ادامه واقعی" to "Bankmovie downloader • real pause and resume",
+                      "مسیر ذخیره‌سازی" to "Download location",
+                      "تغییر" to "Change",
+                      "انتخاب مسیر دانلود" to "Choose download location",
+                      "انتخاب پوشه دلخواه" to "Choose another folder",
+                      "هنوز دانلودی نداری" to "No downloads yet",
+                      "از باکس دانلود هر فیلم یا قسمت، دانلودر داخلی را انتخاب کن." to "Choose Bankmovie Downloader from any movie or episode download box.",
+                      "فعال" to "active",
+                      "کامل‌شده" to "completed",
+                      "کل" to "total",
+                      "پاک‌کردن سوابق دانلودهای کامل‌شده" to "Clear completed download history",
+                      "ذخیره در:" to "Saved in:",
+                      "توقف" to "Pause",
+                      "لغو" to "Cancel",
+                      "ادامه" to "Resume",
+                      "حذف" to "Delete",
+                      "بازکردن" to "Open",
+                      "فایل پیدا نشد" to "File not found",
+                      "مسیر دانلود تغییر کرد" to "Download location changed",
+                      "در صف" to "Queued",
+                      "در حال دانلود" to "Downloading",
+                      "متوقف شده" to "Paused",
+                      "دانلود کامل شد" to "Completed",
+                      "خطا" to "Failed",
+                      "درصد" to "Percent"
+                  )
+                  exact[raw.trim()]?.let { return it }
+                  return raw
+                      .replace("ذخیره در:", "Saved in:")
+                      .replace(" فعال", " active")
+                      .replace(" کامل‌شده", " completed")
+                      .replace(" کل", " total")
+                      .replace("در حال دانلود", "Downloading")
+                      .replace("متوقف شده", "Paused")
+                      .replace("دانلود کامل شد", "Completed")
+                      .replace("در صف", "Queued")
+              }
+          
+              private fun translateTree(view: View) {
+                  if (isFa()) return
+                  if (view is TextView) {
+                      val before = view.text?.toString().orEmpty()
+                      val after = ui(before)
+                      if (before != after) view.text = after
+                  }
+                  if (view is ViewGroup) {
+                      for (i in 0 until view.childCount) translateTree(view.getChildAt(i))
+                  }
+              }
+          
+          '''
+          assert insert_anchor in downloads, 'Downloads dp anchor missing'
+          downloads = downloads.replace(insert_anchor, helper+insert_anchor,1)
+          # Translate after every render.
+          needle = '''        if (completed > 0) {
+                      content.addView(TextView(this).apply {'''
+          # We'll post translation at end of render by inserting before function closing after completed block. Find actionButton function anchor.
+          anchor = '    private fun downloadLocationCard(): LinearLayout {'
+          idx = downloads.index(anchor)
+          render_part = downloads[:idx]
+          # Find last closing sequence before anchor; append call just before end of render method.
+          last = render_part.rfind('    }\n\n')
+          assert last != -1
+          render_part = render_part[:last] + '        content.post { translateTree(content) }\n' + render_part[last:]
+          downloads = render_part + downloads[idx:]
+          downloads_path.write_text(downloads, encoding='utf-8')
+          
+          # 5) MainActivity: automatic public download, light contrast, global English translation.
+          main = main_path.read_text(encoding='utf-8')
+          # startInternalDownload direct, no first-time prompt.
+          start = main.index('    private fun startInternalDownload(item: JSONObject, link: JSONObject) {')
+          end = main.index('    private fun showDownloadChoiceModal(item: JSONObject, link: JSONObject) {', start)
+          main = main[:start] + '''    private fun startInternalDownload(item: JSONObject, link: JSONObject) {
+                  if (DownloadLocationPrefs.mode(this) != DownloadLocationPrefs.MODE_TREE) {
+                      DownloadLocationPrefs.setPublicDownloads(this)
+                  }
+                  launchInternalDownload(item, link)
+              }
+          
+          ''' + main[end:]
+          # setupChoice active colors become theme-aware.
+          main = main.replace('setTextColor(if (active) Color.WHITE else white)', 'setTextColor(if (active) UiPreferences.palette(this@MainActivity).onPrimary else white)', 1)
+          main = main.replace('GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(Color.rgb(20, 22, 26), Color.rgb(80, 84, 92))).apply { cornerRadius = dp(16).toFloat() }', 'GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(blue, blue2)).apply { cornerRadius = dp(16).toFloat() }', 1)
+          # Language dialog uses palette surface.
+          main = main.replace('background = rounded(Color.rgb(8, 12, 20), dp(26), stroke)', 'background = rounded(panel, dp(26), stroke)', 1)
+          # Preserve selected theme when saving language instead of forcing black.
+          main = main.replace('appPrefs().edit().putString("lang_code", lang).putString("theme_mode", "black").apply()', 'appPrefs().edit().putString("lang_code", lang).apply()', 1)
+          # Add English translation watcher after setContentView(root).
+          main = main.replace('        setContentView(root)\n        buildBottomNav()', '        setContentView(root)\n        installEnglishTranslationWatcher()\n        buildBottomNav()', 1)
+          # Insert helper before ui(raw).
+          anchor = '    private fun ui(raw: String): String {\n'
+          helper = r'''    private var translatingEnglishTree = false
+          
+              private fun installEnglishTranslationWatcher() {
+                  root.viewTreeObserver.addOnGlobalLayoutListener {
+                      if (isFa() || translatingEnglishTree || !::root.isInitialized) return@addOnGlobalLayoutListener
+                      translatingEnglishTree = true
+                      try { translateEnglishTree(root) } finally { translatingEnglishTree = false }
+                  }
+              }
+          
+              private fun translateEnglishTree(view: View) {
+                  if (isFa()) return
+                  if (view is TextView) {
+                      val before = view.text?.toString().orEmpty()
+                      val after = ui(before)
+                      if (before != after) view.text = after
+                  }
+                  if (view is ViewGroup) {
+                      for (i in 0 until view.childCount) translateEnglishTree(view.getChildAt(i))
+                  }
+              }
+          
+          '''
+          assert anchor in main
+          main = main.replace(anchor, helper+anchor,1)
+          # Expand exact English map before closing map. Insert before last known entry.
+          map_anchor = '            "کمتر ⌃" to "Less ⌃"\n'
+          extra = '''            "کمتر ⌃" to "Less ⌃",
+                      "کیفیت‌های پخش" to "Playback qualities",
+                      "کیفیت را انتخاب کن؛ ترک صدا، زیرنویس و ظاهر زیرنویس داخل پلیر قابل تغییر است." to "Choose a quality. Audio, subtitles and subtitle appearance can be changed in the player.",
+                      "انتخاب روش دانلود" to "Choose download method",
+                      "دانلودر داخلی بانک مووی" to "Bankmovie Downloader",
+                      "دانلود در Downloads / Bankmovie ذخیره می‌شود" to "The download will be saved in Downloads / Bankmovie",
+                      "مسیر ذخیره دانلود" to "Download location",
+                      "دانلودهای من" to "My Downloads",
+                      "تنظیمات" to "Settings",
+                      "درباره ما" to "About",
+                      "تم برنامه" to "App theme",
+                      "حالت روشن" to "Light mode",
+                      "حالت تیره" to "Dark mode",
+                      "حالت مشکی" to "Black mode",
+                      "رنگ اصلی" to "Accent color",
+                      "ترک صدا و زیرنویس" to "Audio and subtitles",
+                      "تنظیمات زیرنویس" to "Subtitle settings",
+                      "پخش خودکار قسمت بعدی" to "Autoplay next episode",
+                      "فعال" to "Enabled",
+                      "غیرفعال" to "Disabled",
+                      "شفاف" to "Transparent",
+                      "مشکی" to "Black",
+                      "سفید" to "White",
+                      "زرد" to "Yellow",
+                      "قرمز" to "Red",
+                      "آبی" to "Blue",
+                      "صورتی" to "Pink",
+                      "سبز" to "Green",
+                      "بنفش" to "Purple",
+                      "فیروزه‌ای" to "Teal",
+                      "طلایی" to "Gold",
+                      "نارنجی" to "Orange",
+                      "کیفیت" to "Quality",
+                      "نسخه اصلی" to "Original",
+                      "چندصدا" to "Multi-audio",
+                      "سافت‌ساب فارسی" to "Persian soft-sub",
+                      "هاردساب فارسی" to "Persian hard-sub",
+                      "زیرنویس فارسی" to "Persian subtitle",
+                      "دانلودر بانک مووی آماده است" to "Bankmovie Downloader is ready",
+                      "فایل دانلود" to "Download file",
+                      "دانلود با ADM" to "Download with ADM"
+          '''
+          assert map_anchor in main
+          main = main.replace(map_anchor, extra,1)
+          # Stronger generic replacements.
+          main = main.replace('            .replace("کالکشن", "Collection")\n        return s', '''            .replace("کالکشن", "Collection")
+                      .replace("دانلودهای من", "My Downloads")
+                      .replace("تنظیمات", "Settings")
+                      .replace("درباره ما", "About")
+                      .replace("کیفیت", "Quality")
+                      .replace("انتخاب", "Choose")
+                      .replace("مسیر ذخیره", "Download location")
+                      .replace("دانلودر داخلی بانک مووی", "Bankmovie Downloader")
+                      .replace("فعال", "Enabled")
+                      .replace("غیرفعال", "Disabled")
+                  return s''',1)
+          # Light theme download notice.
+          old = '''        private fun downloadNotice(): TextView {
+                  return TextView(this).apply {
+                      text = ui("برای پخش روی دکمه سبز بزن. برای دانلود روی آیکن دانلود کنار هر نسخه بزن.")
+                      setTextColor(Color.rgb(205, 214, 230))
+                      textSize = 12.1f
+                      gravity = Gravity.RIGHT
+                      setLineSpacing(dp(2).toFloat(), 1.0f)
+                      background = rounded(Color.argb(72, 255, 255, 255), dp(14), Color.argb(58, 255, 255, 255))
+                      setPadding(dp(12), dp(10), dp(12), dp(10))
+                  }
+              }
+          '''
+          new = '''        private fun downloadNotice(): TextView {
+                  val p = UiPreferences.palette(this)
+                  return TextView(this).apply {
+                      text = ui("برای پخش روی دکمه سبز بزن. برای دانلود روی آیکن دانلود کنار هر نسخه بزن.")
+                      setTextColor(if (p.light) Color.rgb(58, 66, 80) else Color.rgb(205, 214, 230))
+                      textSize = 12.1f
+                      gravity = Gravity.RIGHT
+                      setLineSpacing(dp(2).toFloat(), 1.0f)
+                      background = rounded(if (p.light) Color.rgb(247, 249, 252) else Color.argb(72, 255, 255, 255), dp(14), if (p.light) p.stroke else Color.argb(58, 255, 255, 255))
+                      setPadding(dp(12), dp(10), dp(12), dp(10))
+                  }
+              }
+          '''
+          assert old in main, 'downloadNotice block missing'
+          main = main.replace(old,new,1)
+          # info grid light surface.
+          main = main.replace('background = rounded(Color.rgb(8, 15, 27), dp(18), Color.rgb(28, 45, 72))', 'background = rounded(alphaSurface2(), dp(18), alphaLine(72))',1)
+          # section more button surface.
+          main = main.replace('background = rounded(Color.argb(72, 255, 255, 255), dp(18), Color.argb(58, 255, 255, 255))', 'background = rounded(alphaSurface2(), dp(18), alphaLine(70))',1)
+          # Fix alpha text helpers.
+          main = main.replace('private fun alphaTextOnPrimary(): Int = if (isLightTheme()) Color.WHITE else Color.rgb(12, 12, 14)', 'private fun alphaTextOnPrimary(): Int = UiPreferences.palette(this).onPrimary',1)
+          main = main.replace('private fun alphaPrimary(): Int = if (isLightTheme()) Color.rgb(18, 20, 24) else Color.WHITE', 'private fun alphaPrimary(): Int = UiPreferences.palette(this).text',1)
+          # Season card hardcoded dark surfaces and white icons.
+          main = main.replace('setColorFilter(Color.WHITE)\n            rotation = 0f', 'setColorFilter(alphaPrimary())\n            rotation = 0f', 2)
+          main = main.replace('setImageResource(R.drawable.ic_download)\n            setColorFilter(Color.WHITE)', 'setImageResource(R.drawable.ic_download)\n            setColorFilter(alphaPrimary())', 2)
+          main = main.replace('setTextColor(Color.rgb(226, 230, 245))', 'setTextColor(alphaSecondaryText())',1)
+          main = main.replace('background = rounded(Color.rgb(8, 15, 28), dp(16), Color.argb(58, 255, 255, 255))', 'background = rounded(alphaSurface(), dp(16), alphaLine(58))',1)
+          main = main.replace('background = rounded(Color.rgb(15, 25, 43), dp(14), Color.argb(70, 139, 92, 246))', 'background = rounded(alphaSurface2(), dp(14), alphaLine(70))',1)
+          # Playback page header and warning.
+          main = main.replace('background = rounded(Color.rgb(9, 16, 29), dp(22), Color.argb(110, 255, 185, 45))', 'background = rounded(panel, dp(22), stroke)',1)
+          main = main.replace('setTextColor(Color.rgb(178, 188, 205))', 'setTextColor(muted)',2)
+          old_warning = '''            setTextColor(Color.rgb(205, 214, 230))
+                      textSize = 12.6f
+                      gravity = Gravity.RIGHT
+                      background = rounded(Color.argb(90, 255, 176, 30), dp(13), Color.argb(75, 255, 214, 90))
+          '''
+          new_warning = '''            setTextColor(if (isLightTheme()) Color.rgb(88, 60, 0) else Color.rgb(235, 224, 190))
+                      textSize = 12.6f
+                      gravity = Gravity.RIGHT
+                      background = rounded(if (isLightTheme()) Color.rgb(255, 244, 194) else Color.argb(90, 255, 176, 30), dp(13), if (isLightTheme()) Color.rgb(226, 190, 75) else Color.argb(75, 255, 214, 90))
+          '''
+          assert old_warning in main
+          main = main.replace(old_warning,new_warning,1)
+          # Mobile playable modal and download modal use palette surfaces.
+          main = main.replace('background = rounded(Color.rgb(7, 12, 22), dp(24), Color.argb(150, 139, 92, 246))', 'background = rounded(panel, dp(24), stroke)',1)
+          main = main.replace('background = rounded(Color.rgb(7, 12, 22), dp(24), Color.argb(145, Color.red(blue), Color.green(blue), Color.blue(blue)))', 'background = rounded(panel, dp(24), stroke)',1)
+          # General modal button surface.
+          main = main.replace('else rounded(Color.rgb(15, 25, 42), dp(15), Color.argb(105, 90, 120, 165))', 'else rounded(panel2, dp(15), stroke)',1)
+          # Premium cards unused/alternate path theme-aware.
+          main = main.replace('background = rounded(Color.rgb(7, 13, 25), dp(24), Color.argb(135, 65, 105, 170))', 'background = rounded(alphaSurface(), dp(24), alphaLine(90))',1)
+          main = main.replace('background = rounded(Color.rgb(10, 19, 35), dp(20), Color.argb(115, 58, 96, 155))', 'background = rounded(alphaSurface2(), dp(20), alphaLine(75))',1)
+          main = main.replace('background = rounded(Color.rgb(7, 13, 25), dp(24), Color.argb(145, 65, 105, 170))', 'background = rounded(alphaSurface(), dp(24), alphaLine(90))',1)
+          main = main.replace('background = rounded(Color.rgb(11, 21, 39), dp(18), Color.argb(110, 60, 103, 178))', 'background = rounded(alphaSurface2(), dp(18), alphaLine(75))',1)
+          main = main.replace('background = rounded(Color.rgb(10, 19, 35), dp(20), Color.argb(105, 45, 80, 135))', 'background = rounded(alphaSurface2(), dp(20), alphaLine(75))',1)
+          main_path.write_text(main, encoding='utf-8')
+          
+          # 6) Player English translation watcher.
+          player = player_path.read_text(encoding='utf-8')
+          player = player.replace('import android.view.View\n', 'import android.view.View\nimport android.view.ViewGroup\n')
+          player = player.replace('        setContentView(root)\n        applyPlayerFocusTree(root)', '        setContentView(root)\n        installEnglishTranslationWatcher()\n        applyPlayerFocusTree(root)',1)
+          anchor = '    private fun playerFocusDrawable(radiusDp: Int): android.graphics.drawable.Drawable {\n'
+          helper = r'''    private fun isFa(): Boolean = (getSharedPreferences("bm_smart_cinema", MODE_PRIVATE).getString("lang_code", "fa") ?: "fa") != "en"
+          
+              private fun ui(raw: String): String {
+                  if (isFa()) return raw
+                  val exact = mapOf(
+                      "متناسب" to "Fit", "برش سینمایی" to "Crop", "کشیده" to "Stretch",
+                      "پایین" to "Bottom", "وسط" to "Middle", "بالا" to "Top",
+                      "زمان خواب رسید" to "Sleep timer finished",
+                      "تنظیمات پخش" to "Playback settings",
+                      "ترک صدا" to "Audio track", "زیرنویس" to "Subtitles",
+                      "خاموش" to "Off", "نمایش زیرنویس" to "Show subtitles",
+                      "رنگ متن" to "Text color", "رنگ پس‌زمینه" to "Background color",
+                      "شفاف" to "Transparent", "مشکی" to "Black", "سفید" to "White",
+                      "زرد" to "Yellow", "قرمز" to "Red", "آبی" to "Blue", "صورتی" to "Pink",
+                      "اندازه متن" to "Text size", "هماهنگی زیرنویس" to "Subtitle delay",
+                      "زمان پرش" to "Seek time", "پخش خودکار قسمت بعدی" to "Autoplay next episode",
+                      "قسمت بعدی" to "Next episode", "بله" to "Yes", "خیر" to "No",
+                      "کیفیت" to "Quality", "سرعت پخش" to "Playback speed",
+                      "تنظیمات" to "Settings", "بستن" to "Close", "ذخیره" to "Save",
+                      "فعال" to "Enabled", "غیرفعال" to "Disabled",
+                      "ادامه از" to "Resume from", "در حال پخش" to "Playing"
+                  )
+                  exact[raw.trim()]?.let { return it }
+                  return raw
+                      .replace("قسمت بعدی", "Next episode")
+                      .replace("قسمت", "Episode")
+                      .replace("فصل", "Season")
+                      .replace("کیفیت", "Quality")
+                      .replace("دوبله فارسی", "Persian Dubbed")
+                      .replace("زیرنویس فارسی", "Persian Subtitle")
+                      .replace("هاردساب", "Hard-sub")
+                      .replace("سافت‌ساب", "Soft-sub")
+                      .replace("صوت دوبله", "Dubbed Audio")
+                      .replace("دقیقه", "minutes")
+                      .replace("ثانیه", "seconds")
+              }
+          
+              private var translatingEnglishTree = false
+              private fun installEnglishTranslationWatcher() {
+                  root.viewTreeObserver.addOnGlobalLayoutListener {
+                      if (isFa() || translatingEnglishTree) return@addOnGlobalLayoutListener
+                      translatingEnglishTree = true
+                      try { translateEnglishTree(root) } finally { translatingEnglishTree = false }
+                  }
+              }
+          
+              private fun translateEnglishTree(view: View) {
+                  if (isFa()) return
+                  if (view is TextView) {
+                      val before = view.text?.toString().orEmpty()
+                      val after = ui(before)
+                      if (before != after) view.text = after
+                  }
+                  if (view is ViewGroup) {
+                      for (i in 0 until view.childCount) translateEnglishTree(view.getChildAt(i))
+                  }
+              }
+          
+          '''
+          assert anchor in player
+          player = player.replace(anchor, helper+anchor,1)
+          player_path.write_text(player, encoding='utf-8')
+          
+          # 7) Light palette stronger contrast.
+          prefs = prefs_path.read_text(encoding='utf-8')
+          prefs = prefs.replace('background = Color.rgb(242, 244, 248)', 'background = Color.rgb(246, 247, 250)',1)
+          prefs = prefs.replace('panel2 = Color.rgb(236, 240, 246)', 'panel2 = Color.rgb(239, 242, 247)',1)
+          prefs = prefs.replace('stroke = Color.rgb(211, 217, 228)', 'stroke = Color.rgb(180, 188, 202)',1)
+          prefs = prefs.replace('text = Color.rgb(18, 21, 27)', 'text = Color.rgb(9, 12, 18)',1)
+          prefs = prefs.replace('muted = Color.rgb(88, 96, 111)', 'muted = Color.rgb(52, 60, 74)',1)
+          prefs = prefs.replace('faint = Color.rgb(128, 137, 153)', 'faint = Color.rgb(82, 91, 106)',1)
+          prefs_path.write_text(prefs, encoding='utf-8')
+          
+          print('Patch applied successfully.')
+          PY
+
+          python3 /tmp/patch_v19_hotfix.py
+
+          MAIN="project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
+          PLAYER="project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt"
+          PREFS="project/app/src/main/java/ir/bankmoviee/app/UiPreferences.kt"
+          LOCATION="project/app/src/main/java/ir/bankmoviee/app/DownloadLocationPrefs.kt"
+          STORE="project/app/src/main/java/ir/bankmoviee/app/InternalDownloadStore.kt"
+          SERVICE="project/app/src/main/java/ir/bankmoviee/app/InternalDownloadService.kt"
+          DOWNLOADS="project/app/src/main/java/ir/bankmoviee/app/DownloadsActivity.kt"
+
+          grep -Fq 'const val MODE_PUBLIC = "public"' "$LOCATION"
+          grep -Fq '"Downloads / Bankmovie"' "$LOCATION"
+          grep -Fq 'MediaStore.Downloads.EXTERNAL_CONTENT_URI' "$SERVICE"
+          grep -Fq 'Environment.DIRECTORY_DOWNLOADS + "/Bankmovie"' "$SERVICE"
+          grep -Fq 'const val STORAGE_MEDIA = "media"' "$STORE"
+          grep -Fq 'installEnglishTranslationWatcher()' "$MAIN"
+          grep -Fq 'installEnglishTranslationWatcher()' "$PLAYER"
+          grep -Fq 'content.post { translateTree(content) }' "$DOWNLOADS"
+          grep -Fq 'setTextColor(if (p.light) Color.rgb(58, 66, 80)' "$MAIN"
+          grep -Fq 'muted = Color.rgb(52, 60, 74)' "$PREFS"
+          grep -Fq 'faint = Color.rgb(82, 91, 106)' "$PREFS"
+
+          echo "V1.9 hotfix markers verified."
 
       - name: Force first build to ARM64 and V7A only
         shell: bash
@@ -328,9 +990,9 @@ jobs:
           verify_apk "$V7A" "v7a" "v7a"
           verify_apk "$LITE_UNIVERSAL" "universal-lite" "lite-universal"
 
-          cp "$ARM64" "publish/arm64/Bankmovie-v1.9-v19-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$V7A" "publish/v7a/Bankmovie-v1.9-v19-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v1.9-v19-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$ARM64" "publish/arm64/Bankmovie-v1.9-v19-hotfix-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$V7A" "publish/v7a/Bankmovie-v1.9-v19-hotfix-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v1.9-v19-hotfix-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
 
           echo "========== BUILD 2: FULL UNIVERSAL 4 ABI =========="
           python3 <<'PY'
@@ -364,7 +1026,7 @@ jobs:
           FULL_UNIVERSAL="$(find "$OUT" -maxdepth 1 -type f -name '*universal*release*.apk' | head -n1)"
           [ -n "$FULL_UNIVERSAL" ] || { find "$OUT" -maxdepth 1 -type f -name '*.apk' -print || true; exit 1; }
           verify_apk "$FULL_UNIVERSAL" "universal-full" "full-universal"
-          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v1.9-v19-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v1.9-v19-hotfix-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
 
           for dir in arm64 v7a universal-lite universal-full; do
             sha256sum "publish/$dir"/*.apk > "publish/$dir/SHA256.txt"
@@ -382,7 +1044,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V19-Build-Log-${{ github.run_number }}
+          name: Bankmovie-V1.9-V19-Hotfix-Build-Log-${{ github.run_number }}
           path: project/build.log
           if-no-files-found: ignore
           retention-days: 7
@@ -390,7 +1052,7 @@ jobs:
       - name: Upload ARM64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V19-ARM64-${{ github.run_number }}
+          name: Bankmovie-V1.9-V19-Hotfix-ARM64-${{ github.run_number }}
           path: project/publish/arm64/*
           if-no-files-found: error
           retention-days: 14
@@ -398,7 +1060,7 @@ jobs:
       - name: Upload V7A APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V19-V7A-${{ github.run_number }}
+          name: Bankmovie-V1.9-V19-Hotfix-V7A-${{ github.run_number }}
           path: project/publish/v7a/*
           if-no-files-found: error
           retention-days: 14
@@ -406,7 +1068,7 @@ jobs:
       - name: Upload Lite Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V19-Universal-Lite-2ABI-${{ github.run_number }}
+          name: Bankmovie-V1.9-V19-Hotfix-Universal-Lite-2ABI-${{ github.run_number }}
           path: project/publish/universal-lite/*
           if-no-files-found: error
           retention-days: 14
@@ -414,7 +1076,7 @@ jobs:
       - name: Upload Full Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V19-Universal-Full-4ABI-${{ github.run_number }}
+          name: Bankmovie-V1.9-V19-Hotfix-Universal-Full-4ABI-${{ github.run_number }}
           path: project/publish/universal-full/*
           if-no-files-found: error
           retention-days: 14
