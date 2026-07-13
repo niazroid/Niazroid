@@ -1,4 +1,4 @@
-name: Build Bankmovie V1.6 V16 Unified Audio Subtitle Player
+name: Build Bankmovie V1.7 V17 Restore Links Theme About
 
 on:
   workflow_dispatch:
@@ -10,18 +10,18 @@ permissions:
 
 jobs:
   build:
-    name: Build V1.6 V16 ARM64 V7A Lite Universal Full Universal
+    name: Build V1.7 V17 ARM64 V7A Lite Universal Full Universal
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Unzip exact V1.6 source
+      - name: Unzip exact V1.7 source
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="Bankmovie-v1.6-source-v16-unified-audio-subtitle.zip"
+          ZIP="Bankmovie-v1.7-source-v17-restore-links-theme-about.zip"
           if [ ! -f "$ZIP" ]; then
             echo "==================== REAL ERROR ===================="
             echo "Missing $ZIP in repository root."
@@ -35,7 +35,7 @@ jobs:
           test -f project/app/build.gradle
           test -f project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
 
-      - name: Prepare optional Bankmovie font
+      - name: Prepare optional Vazir font
         shell: bash
         run: |
           set -euo pipefail
@@ -51,7 +51,7 @@ jobs:
           fi
 
           mkdir -p project/app/src/main/assets/fonts
-          rm -f project/app/src/main/assets/fonts/bonvf.ttf
+          rm -f project/app/src/main/assets/fonts/vazir.ttf
 
           if [ -n "$FONT_FILE" ] && [ -f "$FONT_FILE" ]; then
             python3 -m pip install --quiet --disable-pip-version-check fonttools brotli
@@ -61,13 +61,13 @@ jobs:
           from fontTools.ttLib import TTFont
 
           source = Path(os.environ['FONT_INPUT'])
-          target = Path('project/app/src/main/assets/fonts/bonvf.ttf')
+          target = Path('project/app/src/main/assets/fonts/vazir.ttf')
           font = TTFont(str(source))
           font.flavor = None
           font.save(str(target))
           if not target.exists() or target.stat().st_size < 1024:
               raise SystemExit('Converted font is missing or invalid')
-          print(f'Optional Bankmovie font prepared: {target.stat().st_size} bytes')
+          print(f'Optional Vazir font prepared: {target.stat().st_size} bytes')
           PY
           else
             echo "Optional WOFF2 font not found; system font fallback will be used."
@@ -88,7 +88,7 @@ jobs:
           fi
           echo "Legacy signing key verified: $NORMALIZED"
 
-      - name: Verify V1.6 V16 unified audio subtitle source
+      - name: Verify V1.7 V17 source
         shell: bash
         run: |
           set -euo pipefail
@@ -98,13 +98,13 @@ jobs:
           LOADER="project/app/src/main/java/ir/bankmoviee/app/PremiumLoaderView.kt"
           GRADLE="project/app/build.gradle"
 
-          grep -Fq 'versionName "1.6"' "$GRADLE"
-          grep -Fq 'versionCode 2700000 + runNumber' "$GRADLE"
+          grep -Fq 'versionName "1.7"' "$GRADLE"
+          grep -Fq 'versionCode 2800000 + runNumber' "$GRADLE"
           grep -Fq 'minifyEnabled true' "$GRADLE"
           grep -Fq 'shrinkResources true' "$GRADLE"
           test -f "$PREFS"
           test -f "$LOADER"
-          grep -Fq 'BankmovieAndroidNative/1.6-V16' "$MAIN"
+          grep -Fq 'BankmovieAndroidNative/1.7-V17' "$MAIN"
           grep -Fq 'private fun showSettingsPage()' "$MAIN"
           grep -Fq 'private fun showGlobalSubtitleSettings()' "$MAIN"
           grep -Fq 'private fun showAboutPage()' "$MAIN"
@@ -126,6 +126,10 @@ jobs:
           grep -Fq 'صدا، زیرنویس و ظاهر' "$PLAYER"
           grep -Fq 'اعمال صدا و زیرنویس' "$PLAYER"
           grep -Fq 'private fun qualityOnlyLinks(links: List<JSONObject>)' "$MAIN"
+          grep -Fq 'linkKindKey(link),' "$MAIN"
+          grep -Fq 'getString(KEY_ACCENT, "blue")' "$PREFS"
+          grep -Fq 'getString(KEY_FONT, "vazir")' "$PREFS"
+          grep -Fq 'بررسی به‌روزرسانی' "$MAIN"
           grep -Fq 'ui("کیفیت‌های پخش")' "$MAIN"
           grep -Fq 'private fun applySubtitleVisibility()' "$PLAYER"
           grep -Fq 'media.addOption(":start-time=${resumeBeforePlay / 1000L}")' "$PLAYER"
@@ -142,7 +146,7 @@ jobs:
           test -f project/bankmovie_update.jks
           test -f project/server-required/api5.php
           test -f project/server-required/api5_lib.php
-          echo "V1.6 V16 unified audio/subtitle markers verified."
+          echo "V1.7 V17 markers verified."
 
       - name: Force first build to ARM64 and V7A only
         shell: bash
@@ -163,9 +167,9 @@ jobs:
               flags=re.MULTILINE,
           )
 
-          marker = '        versionName "1.6"\n'
+          marker = '        versionName "1.7"\n'
           replacement = (
-              '        versionName "1.6"\n'
+              '        versionName "1.7"\n'
               '        ndk {\n'
               '            abiFilters "armeabi-v7a", "arm64-v8a"\n'
               '        }\n'
@@ -269,7 +273,7 @@ jobs:
             local signing="apk-signature-${label}.txt"
 
             "$AAPT" dump badging "$apk" > "$badging"
-            grep -Fq "versionName='1.6'" "$badging" || { echo "$label versionName is not 1.6"; grep -m1 '^package:' "$badging" || true; exit 1; }
+            grep -Fq "versionName='1.7'" "$badging" || { echo "$label versionName is not 1.7"; grep -m1 '^package:' "$badging" || true; exit 1; }
             grep -Fq "package: name='ir.bankmoviee.app'" "$badging" || { echo "$label package is wrong"; exit 1; }
             VERSION_CODE="$(sed -n "s/.*versionCode='\([0-9][0-9]*\)'.*/\1/p" "$badging" | head -n1)"
             if [ -z "$VERSION_CODE" ] || [ "$VERSION_CODE" -lt 2600001 ]; then
@@ -329,9 +333,9 @@ jobs:
           verify_apk "$V7A" "v7a" "v7a"
           verify_apk "$LITE_UNIVERSAL" "universal-lite" "lite-universal"
 
-          cp "$ARM64" "publish/arm64/Bankmovie-v1.6-v16-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$V7A" "publish/v7a/Bankmovie-v1.6-v16-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v1.6-v16-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$ARM64" "publish/arm64/Bankmovie-v1.7-v17-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$V7A" "publish/v7a/Bankmovie-v1.7-v17-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v1.7-v17-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
 
           echo "========== BUILD 2: FULL UNIVERSAL 4 ABI =========="
           python3 <<'PY'
@@ -365,7 +369,7 @@ jobs:
           FULL_UNIVERSAL="$(find "$OUT" -maxdepth 1 -type f -name '*universal*release*.apk' | head -n1)"
           [ -n "$FULL_UNIVERSAL" ] || { find "$OUT" -maxdepth 1 -type f -name '*.apk' -print || true; exit 1; }
           verify_apk "$FULL_UNIVERSAL" "universal-full" "full-universal"
-          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v1.6-v16-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v1.7-v17-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
 
           for dir in arm64 v7a universal-lite universal-full; do
             sha256sum "publish/$dir"/*.apk > "publish/$dir/SHA256.txt"
@@ -383,7 +387,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.6-V16-Build-Log-${{ github.run_number }}
+          name: Bankmovie-V1.7-V17-Build-Log-${{ github.run_number }}
           path: project/build.log
           if-no-files-found: ignore
           retention-days: 7
@@ -391,7 +395,7 @@ jobs:
       - name: Upload ARM64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.6-V16-ARM64-${{ github.run_number }}
+          name: Bankmovie-V1.7-V17-ARM64-${{ github.run_number }}
           path: project/publish/arm64/*
           if-no-files-found: error
           retention-days: 14
@@ -399,7 +403,7 @@ jobs:
       - name: Upload V7A APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.6-V16-V7A-${{ github.run_number }}
+          name: Bankmovie-V1.7-V17-V7A-${{ github.run_number }}
           path: project/publish/v7a/*
           if-no-files-found: error
           retention-days: 14
@@ -407,7 +411,7 @@ jobs:
       - name: Upload Lite Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.6-V16-Universal-Lite-2ABI-${{ github.run_number }}
+          name: Bankmovie-V1.7-V17-Universal-Lite-2ABI-${{ github.run_number }}
           path: project/publish/universal-lite/*
           if-no-files-found: error
           retention-days: 14
@@ -415,7 +419,7 @@ jobs:
       - name: Upload Full Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.6-V16-Universal-Full-4ABI-${{ github.run_number }}
+          name: Bankmovie-V1.7-V17-Universal-Full-4ABI-${{ github.run_number }}
           path: project/publish/universal-full/*
           if-no-files-found: error
           retention-days: 14
