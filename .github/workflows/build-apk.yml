@@ -1,4 +1,4 @@
-name: Build Bankmovie V1.8 V18 Internal Downloader Cast
+name: Build Bankmovie V1.9 V19 Downloader Path Player Fix
 
 on:
   workflow_dispatch:
@@ -10,18 +10,18 @@ permissions:
 
 jobs:
   build:
-    name: Build V1.8 V18 ARM64 V7A Lite Universal Full Universal
+    name: Build V1.9 V19 ARM64 V7A Lite Universal Full Universal
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Unzip exact V1.8 source
+      - name: Unzip exact V1.9 source
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="Bankmovie-v1.8-source-v18-downloader-cast-subtitle.zip"
+          ZIP="Bankmovie-v1.9-source-v19-downloader-path-player-fix.zip"
           if [ ! -f "$ZIP" ]; then
             echo "==================== REAL ERROR ===================="
             echo "Missing $ZIP in repository root."
@@ -50,41 +50,7 @@ jobs:
           fi
           echo "Legacy signing key verified: $NORMALIZED"
 
-      - name: Restore production API authentication key
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          MAIN="project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
-
-          python3 <<'PY'
-          from pathlib import Path
-
-          path = Path("project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt")
-          source = path.read_text(encoding="utf-8")
-
-          old = 'private val bmAppKey = "bm_android_v1_8c2f40"'
-          new = 'private val bmAppKey = "bm_android_v1_7c2f40"'
-
-          count = source.count(old)
-          if count != 1:
-              print("==================== REAL ERROR ====================")
-              print(f"Expected one invalid V18 API key occurrence, found: {count}")
-              print("====================================================")
-              raise SystemExit(1)
-
-          path.write_text(source.replace(old, new, 1), encoding="utf-8")
-          print("Production API authentication key restored.")
-          PY
-
-          grep -Fq 'private val bmAppKey = "bm_android_v1_7c2f40"' "$MAIN"
-
-          if grep -Fq 'private val bmAppKey = "bm_android_v1_8c2f40"' "$MAIN"; then
-            echo "Invalid V18 API key still exists."
-            exit 1
-          fi
-
-      - name: Verify V1.8 V18 source
+      - name: Verify V1.9 V19 source
         shell: bash
         run: |
           set -euo pipefail
@@ -94,14 +60,13 @@ jobs:
           STORE="project/app/src/main/java/ir/bankmoviee/app/InternalDownloadStore.kt"
           SERVICE="project/app/src/main/java/ir/bankmoviee/app/InternalDownloadService.kt"
           DOWNLOADS="project/app/src/main/java/ir/bankmoviee/app/DownloadsActivity.kt"
-          CAST="project/app/src/main/java/ir/bankmoviee/app/CastOptionsProvider.kt"
+          LOCATION="project/app/src/main/java/ir/bankmoviee/app/DownloadLocationPrefs.kt"
           MANIFEST="project/app/src/main/AndroidManifest.xml"
           GRADLE="project/app/build.gradle"
 
-          grep -Fq 'versionName "1.8"' "$GRADLE"
-          grep -Fq 'versionCode 3200000 + runNumber' "$GRADLE"
-          grep -Fq "androidx.core:core-ktx" "$GRADLE"
-          grep -Fq "play-services-cast-framework" "$GRADLE"
+          grep -Fq 'versionName "1.9"' "$GRADLE"
+          grep -Fq 'versionCode 3400000 + runNumber' "$GRADLE"
+          grep -Fq "androidx.documentfile:documentfile" "$GRADLE"
           grep -Fq 'minifyEnabled true' "$GRADLE"
           grep -Fq 'shrinkResources true' "$GRADLE"
 
@@ -109,53 +74,66 @@ jobs:
           test -f "$STORE"
           test -f "$SERVICE"
           test -f "$DOWNLOADS"
-          test -f "$CAST"
+          test -f "$LOCATION"
           test -f project/app/src/main/res/xml/file_paths.xml
           test -f project/app/src/main/res/drawable/ic_telegram.xml
+          test -f project/app/src/main/res/drawable/ic_dubbed_mic_green.xml
 
           grep -Fq 'InternalDownloadService' "$MANIFEST"
           grep -Fq 'DownloadsActivity' "$MANIFEST"
-          grep -Fq 'CastOptionsProvider' "$MANIFEST"
           grep -Fq 'android.permission.FOREGROUND_SERVICE_DATA_SYNC' "$MANIFEST"
-          grep -Fq 'android.permission.CHANGE_WIFI_MULTICAST_STATE' "$MANIFEST"
           grep -Fq 'androidx.core.content.FileProvider' "$MANIFEST"
 
-          grep -Fq 'دانلودر داخلی بانک مووی' "$MAIN"
-          grep -Fq 'InternalDownloadService.start' "$MAIN"
-          grep -Fq 'دانلودهای من' "$MAIN"
-          grep -Fq 'private fun linkKindLabel(link: JSONObject)' "$MAIN"
+          grep -Fq 'private val bmAppKey = "bm_android_v1_7c2f40"' "$MAIN"
+          grep -Fq 'DownloadLocationPrefs.hasChoice' "$MAIN"
+          grep -Fq 'Intent.ACTION_OPEN_DOCUMENT_TREE' "$MAIN"
+          grep -Fq 'itemHasDubbedBadge' "$MAIN"
+          grep -Fq 'ic_dubbed_mic_green' "$MAIN"
+          grep -Fq 'normalizeArchiveItem(it, archive)' "$MAIN"
+          grep -Fq 'text = "نسخه ${appVersionName()}"' "$MAIN"
           grep -Fq 'سافت‌ساب فارسی' "$MAIN"
           grep -Fq 'هاردساب فارسی' "$MAIN"
           grep -Fq 'دوبله فارسی' "$MAIN"
           grep -Fq 'صوت دوبله' "$MAIN"
-          grep -Fq 'showDownloadChoiceModal(item, link)' "$MAIN"
-          grep -Fq 'if (iconRes != R.drawable.ic_telegram)' "$MAIN"
 
-          grep -Fq 'MediaRouteButton' "$PLAYER"
-          grep -Fq 'CastButtonFactory.setUpMediaRouteButton' "$PLAYER"
-          grep -Fq 'private fun castCurrentMedia' "$PLAYER"
-          grep -Fq 'MediaLoadRequestData.Builder()' "$PLAYER"
-          grep -Fq 'private fun maybePromptNextEpisode' "$PLAYER"
-          grep -Fq 'time.toDouble() / length.toDouble() < 0.95' "$PLAYER"
-          grep -Fq 'private fun nextEpisodeIndex()' "$PLAYER"
           grep -Fq 'private fun showAudioSubtitleSettingsSheet()' "$PLAYER"
-          grep -Fq 'اعمال صدا و زیرنویس' "$PLAYER"
+          grep -Fq 'time.toDouble() / length.toDouble() < 0.95' "$PLAYER"
+          grep -Fq '"pink" to "صورتی"' "$PLAYER"
+          if grep -Eq 'CastContext|MediaRouteButton|CastButtonFactory|castCurrentMedia' "$PLAYER"; then
+            echo "Cast code still exists in PlayerActivity."
+            exit 1
+          fi
+          if grep -Eq 'play-services-cast-framework|androidx.mediarouter' "$GRADLE"; then
+            echo "Cast dependencies still exist."
+            exit 1
+          fi
+          if grep -Fq 'CastOptionsProvider' "$MANIFEST"; then
+            echo "Cast manifest metadata still exists."
+            exit 1
+          fi
 
           grep -Fq 'getInt(KEY_SUB_TEXT_COLOR, Color.YELLOW)' "$PREFS"
           grep -Fq 'getString(KEY_SUB_BG_MODE, "black")' "$PREFS"
-          grep -Fq 'const val KEY_AUTO_NEXT = "player_auto_next"' "$PREFS"
+          grep -Fq '"pink" -> Color.rgb(236, 64, 122)' "$PREFS"
+          if grep -Fq '"glass"' "$PREFS"; then
+            echo "Broken glass subtitle mode still exists."
+            exit 1
+          fi
 
-          grep -Fq 'RandomAccessFile' "$SERVICE"
+          grep -Fq 'DocumentFile.fromTreeUri' "$SERVICE"
+          grep -Fq 'ParcelFileDescriptor' "$SERVICE"
           grep -Fq 'setRequestProperty("Range", "bytes=$start-")' "$SERVICE"
           grep -Fq 'Executors.newFixedThreadPool(2)' "$SERVICE"
-          grep -Fq 'FileProvider.getUriForFile' "$DOWNLOADS"
+          grep -Fq 'مسیر ذخیره‌سازی' "$DOWNLOADS"
+          grep -Fq 'ذخیره در:' "$DOWNLOADS"
+          grep -Fq 'DownloadLocationPrefs.setTree' "$DOWNLOADS"
 
           if grep -R -E 'bonVF|vazir\.ttf|KEY_FONT|KEY_SUB_FONT|customFontFile' project/app/src/main project/app/build.gradle; then
             echo "Custom font code or asset still exists."
             exit 1
           fi
           if grep -Fq 'دانلود با Chrome' "$MAIN"; then
-            echo "Chrome downloader must be removed from the modal."
+            echo "Chrome downloader must stay removed."
             exit 1
           fi
           if find project/app/src/main -type f \( -iname '*.ttf' -o -iname '*.otf' -o -iname '*.woff' -o -iname '*.woff2' \) | grep -q .; then
@@ -163,7 +141,7 @@ jobs:
             exit 1
           fi
 
-          echo "V1.8 V18 downloader, Cast, subtitle defaults and link labels verified."
+          echo "V1.9 V19 storage picker, player crash fix, related items, subtitle backgrounds and dubbed badges verified."
 
       - name: Force first build to ARM64 and V7A only
         shell: bash
@@ -184,9 +162,9 @@ jobs:
               flags=re.MULTILINE,
           )
 
-          marker = '        versionName "1.8"\n'
+          marker = '        versionName "1.9"\n'
           replacement = (
-              '        versionName "1.8"\n'
+              '        versionName "1.9"\n'
               '        ndk {\n'
               '            abiFilters "armeabi-v7a", "arm64-v8a"\n'
               '        }\n'
@@ -290,11 +268,11 @@ jobs:
             local signing="apk-signature-${label}.txt"
 
             "$AAPT" dump badging "$apk" > "$badging"
-            grep -Fq "versionName='1.8'" "$badging" || { echo "$label versionName is not 1.8"; grep -m1 '^package:' "$badging" || true; exit 1; }
+            grep -Fq "versionName='1.9'" "$badging" || { echo "$label versionName is not 1.9"; grep -m1 '^package:' "$badging" || true; exit 1; }
             grep -Fq "package: name='ir.bankmoviee.app'" "$badging" || { echo "$label package is wrong"; exit 1; }
             VERSION_CODE="$(sed -n "s/.*versionCode='\([0-9][0-9]*\)'.*/\1/p" "$badging" | head -n1)"
-            if [ -z "$VERSION_CODE" ] || [ "$VERSION_CODE" -lt 3200001 ]; then
-              echo "$label versionCode is not high enough for V18 in-place update: ${VERSION_CODE:-missing}"
+            if [ -z "$VERSION_CODE" ] || [ "$VERSION_CODE" -lt 3400001 ]; then
+              echo "$label versionCode is not high enough for V19 in-place update: ${VERSION_CODE:-missing}"
               exit 1
             fi
 
@@ -350,9 +328,9 @@ jobs:
           verify_apk "$V7A" "v7a" "v7a"
           verify_apk "$LITE_UNIVERSAL" "universal-lite" "lite-universal"
 
-          cp "$ARM64" "publish/arm64/Bankmovie-v1.8-v18-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$V7A" "publish/v7a/Bankmovie-v1.8-v18-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v1.8-v18-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$ARM64" "publish/arm64/Bankmovie-v1.9-v19-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$V7A" "publish/v7a/Bankmovie-v1.9-v19-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v1.9-v19-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
 
           echo "========== BUILD 2: FULL UNIVERSAL 4 ABI =========="
           python3 <<'PY'
@@ -386,7 +364,7 @@ jobs:
           FULL_UNIVERSAL="$(find "$OUT" -maxdepth 1 -type f -name '*universal*release*.apk' | head -n1)"
           [ -n "$FULL_UNIVERSAL" ] || { find "$OUT" -maxdepth 1 -type f -name '*.apk' -print || true; exit 1; }
           verify_apk "$FULL_UNIVERSAL" "universal-full" "full-universal"
-          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v1.8-v18-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v1.9-v19-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
 
           for dir in arm64 v7a universal-lite universal-full; do
             sha256sum "publish/$dir"/*.apk > "publish/$dir/SHA256.txt"
@@ -404,7 +382,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.8-V18-Hotfix-Build-Log-${{ github.run_number }}
+          name: Bankmovie-V1.9-V19-Build-Log-${{ github.run_number }}
           path: project/build.log
           if-no-files-found: ignore
           retention-days: 7
@@ -412,7 +390,7 @@ jobs:
       - name: Upload ARM64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.8-V18-Hotfix-ARM64-${{ github.run_number }}
+          name: Bankmovie-V1.9-V19-ARM64-${{ github.run_number }}
           path: project/publish/arm64/*
           if-no-files-found: error
           retention-days: 14
@@ -420,7 +398,7 @@ jobs:
       - name: Upload V7A APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.8-V18-Hotfix-V7A-${{ github.run_number }}
+          name: Bankmovie-V1.9-V19-V7A-${{ github.run_number }}
           path: project/publish/v7a/*
           if-no-files-found: error
           retention-days: 14
@@ -428,7 +406,7 @@ jobs:
       - name: Upload Lite Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.8-V18-Hotfix-Universal-Lite-2ABI-${{ github.run_number }}
+          name: Bankmovie-V1.9-V19-Universal-Lite-2ABI-${{ github.run_number }}
           path: project/publish/universal-lite/*
           if-no-files-found: error
           retention-days: 14
@@ -436,7 +414,7 @@ jobs:
       - name: Upload Full Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.8-V18-Hotfix-Universal-Full-4ABI-${{ github.run_number }}
+          name: Bankmovie-V1.9-V19-Universal-Full-4ABI-${{ github.run_number }}
           path: project/publish/universal-full/*
           if-no-files-found: error
           retention-days: 14
