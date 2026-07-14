@@ -1,4 +1,4 @@
-name: Build Bankmovie V1.9 V20 Archive Name Hotfix Fixed
+name: Build Bankmovie V1.9 V22 Professional Search Filters
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Build V1.9 V20 Archive Name Hotfix Fixed
+    name: Build V1.9 V22 ARM64 V7A Lite Universal Full Universal
     runs-on: ubuntu-latest
 
     steps:
@@ -21,7 +21,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="Bankmovie-v1.9-source-v20-player-crash-playlist-guide.zip"
+          ZIP="Bankmovie-v1.9-source-v22-professional-search-ui.zip"
           if [ ! -f "$ZIP" ]; then
             echo "==================== REAL ERROR ===================="
             echo "Missing $ZIP in repository root."
@@ -50,7 +50,7 @@ jobs:
           fi
           echo "Legacy signing key verified: $NORMALIZED"
 
-      - name: Verify V1.9 V20 source
+      - name: Verify V1.9 V22 source
         shell: bash
         run: |
           set -euo pipefail
@@ -65,7 +65,7 @@ jobs:
           GRADLE="project/app/build.gradle"
 
           grep -Fq 'versionName "1.9"' "$GRADLE"
-          grep -Fq 'versionCode 3500000 + runNumber' "$GRADLE"
+          grep -Fq 'versionCode 3700000 + runNumber' "$GRADLE"
           grep -Fq "androidx.documentfile:documentfile" "$GRADLE"
           grep -Fq 'minifyEnabled true' "$GRADLE"
           grep -Fq 'shrinkResources true' "$GRADLE"
@@ -95,6 +95,31 @@ jobs:
           grep -Fq 'هاردساب فارسی' "$MAIN"
           grep -Fq 'دوبله فارسی' "$MAIN"
           grep -Fq 'صوت دوبله' "$MAIN"
+
+          grep -Fq 'private fun showAdvancedSearchResults(state: AdvancedSearchState)' "$MAIN"
+          grep -Fq 'private fun advancedSearchAccordion(' "$MAIN"
+          grep -Fq 'private fun showAdvancedFiltersDialog(' "$MAIN"
+          grep -Fq 'private fun advancedFilterCount(' "$MAIN"
+          grep -Fq 'جستجوی پیشرفته' "$MAIN"
+          grep -Fq 'اعمال فیلتر' "$MAIN"
+          grep -Fq 'هر آرشیو دیتابیس جدا دارد' "$MAIN"
+          grep -Fq 'private fun advancedSearchUrl(state: AdvancedSearchState' "$MAIN"
+          grep -Fq 'جستجوی پیشرفته' "$MAIN"
+          grep -Fq 'آرشیو ۱' "$MAIN"
+          grep -Fq 'آرشیو ۲' "$MAIN"
+          if grep -Fq 'پلی‌لیست' "$MAIN"; then
+            echo "Old Playlist label still exists."
+            exit 1
+          fi
+
+          php -l project/server-required/api5.php
+          php -l project/server-required/api5_lib.php
+          php -l project/server-required/archive1_live.php
+          php -l project/server-required/archive1_live_lib.php
+          grep -Fq 'serialblog_advanced_search' project/server-required/api5_lib.php
+          grep -Fq 'bma1_advanced_url' project/server-required/archive1_live_lib.php
+          grep -Fq "isset(\$_GET['advanced'])" project/server-required/api5.php
+          grep -Fq "isset(\$_GET['advanced'])" project/server-required/archive1_live.php
 
           grep -Fq 'private fun showAudioSubtitleSettingsSheet()' "$PLAYER"
           grep -Fq 'time.toDouble() / length.toDouble() < 0.95' "$PLAYER"
@@ -155,64 +180,9 @@ jobs:
           grep -Fq 'archiveSwitchBar { archive ->' "$MAIN"
           grep -Fq 'Executors.newFixedThreadPool(4)' "$MAIN"
           test -f project/V20_PLAYER_CRASH_PLAYLIST_GUIDE_README_FA.txt
+          test -f project/V22_SEARCH_FILTER_UI_README_FA.txt
 
-          echo "V1.9 V20 player payload cache, bounded retry, playlist guide, favorites page and search selector verified."
-
-      - name: Restore Archive 1 and Archive 2 labels safely
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          MAIN="project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
-
-          python3 <<'PY'
-          from pathlib import Path
-
-          path = Path("project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt")
-          source = path.read_text(encoding="utf-8")
-
-          # Persian replacements are UI-only and do not touch Kotlin identifiers.
-          source = source.replace("پلی‌لیست", "آرشیو")
-          source = source.replace("آرشیو‌ها", "آرشیوها")
-
-          # Replace only complete English UI strings.
-          replacements = {
-              '"Playlist 1"': '"Archive 1"',
-              '"Playlist 2"': '"Archive 2"',
-              '"Playlist guide"': '"Archive guide"',
-              '"Playlist 2 uses a separate database and is updated less frequently. Some titles are available only here."':
-                  '"Archive 2 uses a separate database and is updated less frequently. Some titles are available only here."',
-              '"Playlist 1 is Bankmovie\'s main, frequently updated database. New titles usually appear here first."':
-                  '"Archive 1 is Bankmovie\'s main, frequently updated database. New titles usually appear here first."',
-              '"How Bankmovie playlists work"': '"How Bankmovie archives work"',
-              '"Each playlist is connected to a completely separate database. A title may exist only in Playlist 1 or only in Playlist 2. If you cannot find it, search the other playlist too."':
-                  '"Each archive is connected to a completely separate database. A title may exist only in Archive 1 or only in Archive 2. If you cannot find it, search the other archive too."',
-              '"Playlist 1 — Frequently updated"': '"Archive 1 — Frequently updated"',
-              '"Playlist 2 — Less frequent updates"': '"Archive 2 — Less frequent updates"',
-              '"Playlist 1 is selected by default"': '"Archive 1 is selected by default"',
-              '"Playlist"': '"Archive"',
-          }
-
-          for old, new in replacements.items():
-              source = source.replace(old, new)
-
-          path.write_text(source, encoding="utf-8")
-          print("Archive 1 / Archive 2 labels restored safely.")
-          PY
-
-          grep -Fq '"آرشیو ۱" to "Archive 1"' "$MAIN"
-          grep -Fq '"آرشیو ۲" to "Archive 2"' "$MAIN"
-          grep -Fq 'راهنمای آرشیوها' "$MAIN"
-          grep -Fq 'آرشیو ۱ — همیشه به‌روز' "$MAIN"
-          grep -Fq 'آرشیو ۲ — به‌روزرسانی دیرتر' "$MAIN"
-
-          # Internal function and payload names must stay unchanged.
-          grep -Fq 'private fun showPlaylistGuide()' "$MAIN"
-          grep -Fq 'private fun playlistSummary(playlist: Int)' "$MAIN"
-          grep -Fq 'private fun playlistGuideCard(compact: Boolean = false)' "$MAIN"
-          grep -Fq '"playlist_${System.currentTimeMillis()}' "$MAIN"
-
-          echo "Archive naming hotfix verified."
+          echo "V1.9 V22 professional search filters, compact archive guide and prior fixes verified."
 
       - name: Force first build to ARM64 and V7A only
         shell: bash
@@ -399,9 +369,9 @@ jobs:
           verify_apk "$V7A" "v7a" "v7a"
           verify_apk "$LITE_UNIVERSAL" "universal-lite" "lite-universal"
 
-          cp "$ARM64" "publish/arm64/Bankmovie-v1.9-v20-archive-fixed-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$V7A" "publish/v7a/Bankmovie-v1.9-v20-archive-fixed-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v1.9-v20-archive-fixed-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$ARM64" "publish/arm64/Bankmovie-v1.9-v22-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$V7A" "publish/v7a/Bankmovie-v1.9-v22-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v1.9-v22-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
 
           echo "========== BUILD 2: FULL UNIVERSAL 4 ABI =========="
           python3 <<'PY'
@@ -435,7 +405,7 @@ jobs:
           FULL_UNIVERSAL="$(find "$OUT" -maxdepth 1 -type f -name '*universal*release*.apk' | head -n1)"
           [ -n "$FULL_UNIVERSAL" ] || { find "$OUT" -maxdepth 1 -type f -name '*.apk' -print || true; exit 1; }
           verify_apk "$FULL_UNIVERSAL" "universal-full" "full-universal"
-          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v1.9-v20-archive-fixed-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v1.9-v22-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
 
           for dir in arm64 v7a universal-lite universal-full; do
             sha256sum "publish/$dir"/*.apk > "publish/$dir/SHA256.txt"
@@ -453,7 +423,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V20-Archive-Fixed-Build-Log-${{ github.run_number }}
+          name: Bankmovie-V1.9-V22-Build-Log-${{ github.run_number }}
           path: project/build.log
           if-no-files-found: ignore
           retention-days: 7
@@ -461,7 +431,7 @@ jobs:
       - name: Upload ARM64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V20-Archive-Fixed-ARM64-${{ github.run_number }}
+          name: Bankmovie-V1.9-V22-ARM64-${{ github.run_number }}
           path: project/publish/arm64/*
           if-no-files-found: error
           retention-days: 14
@@ -469,7 +439,7 @@ jobs:
       - name: Upload V7A APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V20-Archive-Fixed-V7A-${{ github.run_number }}
+          name: Bankmovie-V1.9-V22-V7A-${{ github.run_number }}
           path: project/publish/v7a/*
           if-no-files-found: error
           retention-days: 14
@@ -477,7 +447,7 @@ jobs:
       - name: Upload Lite Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V20-Archive-Fixed-Universal-Lite-2ABI-${{ github.run_number }}
+          name: Bankmovie-V1.9-V22-Universal-Lite-2ABI-${{ github.run_number }}
           path: project/publish/universal-lite/*
           if-no-files-found: error
           retention-days: 14
@@ -485,7 +455,7 @@ jobs:
       - name: Upload Full Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V20-Archive-Fixed-Universal-Full-4ABI-${{ github.run_number }}
+          name: Bankmovie-V1.9-V22-Universal-Full-4ABI-${{ github.run_number }}
           path: project/publish/universal-full/*
           if-no-files-found: error
           retention-days: 14
