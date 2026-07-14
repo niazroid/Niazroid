@@ -1,4 +1,4 @@
-name: Build Bankmovie V1.9 V22 UI Compile Hotfix
+name: Build Bankmovie V1.9 V22 Archive Failover Hotfix
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Build V1.9 V22 UI Compile Hotfix
+    name: Build V1.9 V22 Archive Failover Hotfix
     runs-on: ubuntu-latest
 
     steps:
@@ -184,7 +184,7 @@ jobs:
 
           echo "V1.9 V22 professional search filters, Archive 1/2 guide and prior fixes verified."
 
-      - name: Fix transparent background Kotlin compile error
+      - name: Fix V22 transparent background compile error
         shell: bash
         run: |
           set -euo pipefail
@@ -197,18 +197,29 @@ jobs:
           path = Path("project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt")
           source = path.read_text(encoding="utf-8")
 
-          old = "            background = Color.TRANSPARENT"
-          new = "            setBackgroundColor(Color.TRANSPARENT)"
+          old = (
+              "        val wrapper = LinearLayout(this).apply {\n"
+              "            orientation = LinearLayout.VERTICAL\n"
+              "            background = Color.TRANSPARENT\n"
+              "        }"
+          )
+
+          new = (
+              "        val wrapper = LinearLayout(this).apply {\n"
+              "            orientation = LinearLayout.VERTICAL\n"
+              "            setBackgroundColor(Color.TRANSPARENT)\n"
+              "        }"
+          )
 
           count = source.count(old)
           if count != 1:
               print("==================== REAL ERROR ====================")
-              print(f"Expected one broken transparent background line, found: {count}")
+              print(f"Expected one broken transparent background block, found: {count}")
               print("====================================================")
               raise SystemExit(1)
 
           path.write_text(source.replace(old, new, 1), encoding="utf-8")
-          print("Kotlin transparent background assignment fixed.")
+          print("V22 compile error fixed.")
           PY
 
           grep -Fq 'setBackgroundColor(Color.TRANSPARENT)' "$MAIN"
@@ -218,7 +229,422 @@ jobs:
             exit 1
           fi
 
-          echo "V22 Kotlin compile hotfix verified."
+          echo "V22 compile hotfix verified."
+
+      - name: Make startup independent from archive availability
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > /tmp/patch_archive_fallback.py <<'PY'
+          from pathlib import Path
+          
+          path = Path('project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt')
+          source = path.read_text(encoding='utf-8')
+          
+          # Keep remote-config failure from delaying app entry for too long.
+          source = source.replace('connectTimeout = 6500', 'connectTimeout = 3500', 1)
+          source = source.replace('readTimeout = 9000', 'readTimeout = 5000', 1)
+          
+          # 1) Runtime archive state fields.
+          old = '''    private var pendingDownloadItemJson = ""
+              private var pendingDownloadLinkJson = ""
+          '''
+          new = '''    private var pendingDownloadItemJson = ""
+              private var pendingDownloadLinkJson = ""
+              private var archive1Available: Boolean? = null
+              private var archive2Available: Boolean? = null
+              private var archiveProbeRemaining = 0
+              private var archiveStatusNoticeShown = false
+          '''
+          if old not in source:
+              raise SystemExit('fields anchor not found')
+          source = source.replace(old, new, 1)
+          
+          # 2) Replace direct archive selection with availability-aware selection.
+          start = source.index('    private fun setSelectedArchive(archive: Int) {')
+          end = source.index('\n    private fun archiveSectionUrl(', start)
+          selection_code = r'''    private fun archiveKnownAvailable(archive: Int): Boolean? {
+                  return if (archive == 2) archive2Available else archive1Available
+              }
+          
+              private fun archiveOther(archive: Int): Int = if (archive == 2) 1 else 2
+          
+              private fun archiveDownMessage(archive: Int): String {
+                  val other = archiveOther(archive)
+                  return t(
+                      "${archiveLabel(archive)} موقتاً در دسترس نیست. تا زمان رفع مشکل از ${archiveLabel(other)} استفاده کنید.",
+                      "${archiveLabel(archive)} is temporarily unavailable. Please use ${archiveLabel(other)} until it is restored."
+                  )
+              }
+          
+              private fun chooseArchive(archive: Int, onSelected: ((Int) -> Unit)? = null) {
+                  val safe = if (archive == 2) 2 else 1
+                  val other = archiveOther(safe)
+                  if (archiveKnownAvailable(safe) == false && archiveKnownAvailable(other) == true) {
+                      showArchiveUnavailableDialog(safe, other)
+                      return
+                  }
+                  val changed = selectedArchive != safe
+                  selectedArchive = safe
+                  appPrefs().edit().putInt("selected_archive", safe).apply()
+                  if (onSelected != null) {
+                      onSelected(safe)
+                  } else if (changed) {
+                      navigationHistory.clear()
+                      showHome()
+                  }
+              }
+          
+              private fun setSelectedArchive(archive: Int) {
+                  chooseArchive(archive, null)
+              }
+          '''
+          source = source[:start] + selection_code + source[end:]
+          
+          # 3) Make archive switch use chooseArchive().
+          old = '''            setOnClickListener {
+                          val safe = if (archive == 2) 2 else 1
+                          val changed = selectedArchive != safe
+                          selectedArchive = safe
+                          appPrefs().edit().putInt("selected_archive", safe).apply()
+                          if (onSelected != null) {
+                              onSelected(safe)
+                          } else if (changed) {
+                              navigationHistory.clear()
+                              showHome()
+                          }
+                      }
+          '''
+          new = '''            setOnClickListener {
+                          chooseArchive(archive, onSelected)
+                      }
+          '''
+          if old not in source:
+              raise SystemExit('archive segment click block not found')
+          source = source.replace(old, new, 1)
+          
+          # 4) Add resilient archive probes, banners and fallback boot.
+          boot_start = source.index('    private fun boot() {')
+          boot_end = source.index('\n        private fun attachSmartHeader(', boot_start)
+          boot_code = r'''    private fun cachedArchiveAvailability(archive: Int): Boolean? {
+                  val prefs = appPrefs()
+                  val checkedAt = prefs.getLong("archive_${archive}_checked_at", 0L)
+                  if (checkedAt <= 0L || System.currentTimeMillis() - checkedAt > 30L * 60L * 1000L) return null
+                  return when (prefs.getInt("archive_${archive}_available", -1)) {
+                      1 -> true
+                      0 -> false
+                      else -> null
+                  }
+              }
+          
+              private fun saveArchiveAvailability(archive: Int, available: Boolean) {
+                  if (archive == 2) archive2Available = available else archive1Available = available
+                  appPrefs().edit()
+                      .putInt("archive_${archive}_available", if (available) 1 else 0)
+                      .putLong("archive_${archive}_checked_at", System.currentTimeMillis())
+                      .apply()
+              }
+          
+              private fun archiveProbeUrl(archive: Int): String {
+                  return if (archive == 2) {
+                      "$archive2ApiBase?section=movies_2025_2026&page=1&limit=1"
+                  } else {
+                      "$apiBase?action=section&archive=1&section=updated_movies&page=1&limit=1"
+                  }
+              }
+          
+              private fun probeJsonFast(rawUrl: String): Boolean {
+                  ensureDefaultServerPool()
+                  val rewritten = rewriteConfiguredUrl(rawUrl)
+                  val original = try { URL(rewritten) } catch (_: Throwable) { return false }
+                  val query = original.query?.let { "?$it" }.orEmpty()
+                  val candidates = mutableListOf<String>()
+                  if (original.path.endsWith("app_api.php", true)) {
+                      apiServers.forEach { endpoint -> candidates.add(endpoint.apiUrl.substringBefore('?') + query) }
+                  } else {
+                      candidates.add(rewritten)
+                  }
+                  if (candidates.none { it.equals(rewritten, true) }) candidates.add(0, rewritten)
+          
+                  for (candidate in candidates.distinctBy { it.lowercase(Locale.US) }) {
+                      var connection: HttpURLConnection? = null
+                      try {
+                          val url = URL(candidate)
+                          connection = (url.openConnection() as HttpURLConnection).apply {
+                              connectTimeout = 3500
+                              readTimeout = 5000
+                              instanceFollowRedirects = true
+                              setRequestProperty("Accept", "application/json")
+                              setRequestProperty("User-Agent", "BankmovieAndroidNative/1.9-ArchiveFallback")
+                              setRequestProperty("Cache-Control", "no-cache")
+                          }
+                          if (url.path.endsWith("app_api.php", true)) {
+                              val ts = (System.currentTimeMillis() / 1000L + serverClockOffsetSec).toString()
+                              val pathQuery = url.path + if (url.query.isNullOrBlank()) "" else "?${url.query}"
+                              connection.setRequestProperty("X-BM-App-Key", bmAppKey)
+                              connection.setRequestProperty("X-BM-Ts", ts)
+                              connection.setRequestProperty("X-BM-Sign", hmacSha256Hex("$ts|$pathQuery", bmAppSecret))
+                          }
+                          val code = connection.responseCode
+                          val body = (if (code in 200..299) connection.inputStream else connection.errorStream)
+                              ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+                          if (code !in 200..299 || body.isBlank()) continue
+                          val json = JSONObject(body)
+                          val explicitFailure =
+                              (json.has("ok") && !json.optBoolean("ok", false)) ||
+                              (json.has("success") && !json.optBoolean("success", false)) ||
+                              json.optString("error").isNotBlank()
+                          val hasPayload = json.has("items") || json.has("movies") || json.has("data") ||
+                              json.optBoolean("ready", false) || json.optBoolean("ok", false) || json.optBoolean("success", false)
+                          if (!explicitFailure && hasPayload) return true
+                      } catch (_: Throwable) {
+                      } finally {
+                          try { connection?.disconnect() } catch (_: Throwable) {}
+                      }
+                  }
+                  return false
+              }
+          
+              private fun showArchiveUnavailableDialog(unavailable: Int, available: Int) {
+                  if (isFinishing) return
+                  AlertDialog.Builder(this)
+                      .setTitle(t("${archiveLabel(unavailable)} موقتاً قطع است", "${archiveLabel(unavailable)} is temporarily offline"))
+                      .setMessage(archiveDownMessage(unavailable))
+                      .setPositiveButton(t("استفاده از ${archiveLabel(available)}", "Use ${archiveLabel(available)}")) { dialog, _ ->
+                          dialog.dismiss()
+                          val changed = selectedArchive != available
+                          selectedArchive = available
+                          appPrefs().edit().putInt("selected_archive", available).apply()
+                          if (changed && ::root.isInitialized && currentScreen == "home") showHome()
+                      }
+                      .setNegativeButton(t("بعداً", "Later"), null)
+                      .show()
+              }
+          
+              private fun activateArchiveFallback(unavailable: Int, available: Int) {
+                  if (selectedArchive != unavailable || archiveKnownAvailable(available) != true) return
+                  selectedArchive = available
+                  appPrefs().edit().putInt("selected_archive", available).apply()
+                  if (::root.isInitialized && currentScreen == "home") showHome()
+                  if (!archiveStatusNoticeShown) {
+                      archiveStatusNoticeShown = true
+                      showArchiveUnavailableDialog(unavailable, available)
+                  } else {
+                      Toast.makeText(this, archiveDownMessage(unavailable), Toast.LENGTH_LONG).show()
+                  }
+              }
+          
+              private fun handleArchiveProbeResult(archive: Int, available: Boolean) {
+                  saveArchiveAvailability(archive, available)
+                  archiveProbeRemaining = (archiveProbeRemaining - 1).coerceAtLeast(0)
+                  val other = archiveOther(archive)
+          
+                  if (!available && archiveKnownAvailable(other) == true) {
+                      activateArchiveFallback(archive, other)
+                  } else if (available && selectedArchive == other && archiveKnownAvailable(other) != true) {
+                      uiHandler.postDelayed({
+                          if (selectedArchive == other && archiveKnownAvailable(other) != true && archiveKnownAvailable(archive) == true) {
+                              activateArchiveFallback(other, archive)
+                          }
+                      }, 4000L)
+                  }
+          
+                  if (archiveProbeRemaining == 0 && ::root.isInitialized && currentScreen == "home") {
+                      showHome()
+                  }
+              }
+          
+              private fun refreshArchiveAvailability() {
+                  archiveProbeRemaining = 2
+                  for (archive in 1..2) {
+                      Thread {
+                          val available = probeJsonFast(archiveProbeUrl(archive))
+                          runOnUiThread { handleArchiveProbeResult(archive, available) }
+                      }.start()
+                  }
+              }
+          
+              private fun archiveStatusBanner(): View? {
+                  val a1 = archive1Available
+                  val a2 = archive2Available
+                  val message = when {
+                      a1 == false && a2 == true -> t(
+                          "آرشیو ۱ موقتاً در دسترس نیست؛ فعلاً از آرشیو ۲ استفاده کنید.",
+                          "Archive 1 is temporarily unavailable; please use Archive 2."
+                      )
+                      a2 == false && a1 == true -> t(
+                          "آرشیو ۲ موقتاً در دسترس نیست؛ فعلاً از آرشیو ۱ استفاده کنید.",
+                          "Archive 2 is temporarily unavailable; please use Archive 1."
+                      )
+                      a1 == false && a2 == false -> t(
+                          "هر دو آرشیو موقتاً در دسترس نیستند. برنامه باز می‌ماند؛ کمی بعد دوباره تلاش کنید.",
+                          "Both archives are temporarily unavailable. The app will stay open; try again shortly."
+                      )
+                      else -> return null
+                  }
+                  val target = when {
+                      a1 == false && a2 == true -> 2
+                      a2 == false && a1 == true -> 1
+                      else -> 0
+                  }
+                  return TextView(this).apply {
+                      text = message
+                      setTextColor(if (UiPreferences.themeMode(this@MainActivity) == "light") Color.rgb(92, 45, 0) else Color.rgb(255, 219, 153))
+                      textSize = 12.3f
+                      gravity = Gravity.CENTER
+                      typeface = Typeface.DEFAULT_BOLD
+                      setPadding(dp(14), dp(11), dp(14), dp(11))
+                      background = rounded(
+                          if (UiPreferences.themeMode(this@MainActivity) == "light") Color.rgb(255, 243, 214) else Color.rgb(56, 35, 12),
+                          dp(16),
+                          Color.rgb(226, 162, 48)
+                      )
+                      if (target != 0) setOnClickListener { chooseArchive(target, null) }
+                  }
+              }
+          
+              private fun archiveUnavailableView(archive: Int, rawError: String?): View {
+                  val other = archiveOther(archive)
+                  return LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      gravity = Gravity.CENTER
+                      setPadding(dp(16), dp(14), dp(16), dp(14))
+                      background = rounded(card, dp(16), Color.argb(100, 235, 168, 53))
+                      addView(TextView(this@MainActivity).apply {
+                          text = t("${archiveLabel(archive)} لود نشد", "${archiveLabel(archive)} could not be loaded")
+                          setTextColor(white)
+                          textSize = 13.5f
+                          typeface = Typeface.DEFAULT_BOLD
+                          gravity = Gravity.CENTER
+                      })
+                      addView(TextView(this@MainActivity).apply {
+                          text = if (archiveKnownAvailable(other) != false) archiveDownMessage(archive) else friendlyError(rawError)
+                          setTextColor(muted)
+                          textSize = 11.5f
+                          gravity = Gravity.CENTER
+                          setPadding(0, dp(6), 0, 0)
+                      })
+                      if (archiveKnownAvailable(other) != false) {
+                          addView(TextView(this@MainActivity).apply {
+                              text = t("رفتن به ${archiveLabel(other)}", "Open ${archiveLabel(other)}")
+                              setTextColor(Color.WHITE)
+                              textSize = 12f
+                              typeface = Typeface.DEFAULT_BOLD
+                              gravity = Gravity.CENTER
+                              background = blueGradient(dp(14))
+                              setPadding(dp(16), dp(8), dp(16), dp(8))
+                              setOnClickListener { chooseArchive(other, null) }
+                          }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(10) })
+                      }
+                  }
+              }
+          
+              private fun boot() {
+                  loadAppConfig {
+                      if (maintenanceMode) {
+                          runOnUiThread { showNetworkError(maintenanceMessage) }
+                          return@loadAppConfig
+                      }
+                      val versionBlockReason = currentVersionBlockReason()
+                      if (versionBlockReason != null) {
+                          runOnUiThread {
+                              val apkUrl = selectedRemoteApkUrl()
+                              if (apkUrl.isNotBlank() && forceUpdateBlockedVersions) {
+                                  showUpdateDialog(
+                                      remoteUpdateTitle.ifBlank { t("این نسخه غیرفعال شده است", "This version is disabled") },
+                                      versionBlockReason,
+                                      apkUrl,
+                                      true,
+                                      remoteVersionName.ifBlank { t("نسخه جدید", "Latest version") },
+                                      appVersionName(),
+                                      remoteUpdateChanges
+                                  )
+                              } else {
+                                  showBlockedVersionScreen(versionBlockReason)
+                              }
+                          }
+                          return@loadAppConfig
+                      }
+          
+                      archive1Available = cachedArchiveAvailability(1)
+                      archive2Available = cachedArchiveAvailability(2)
+                      if (selectedArchive == 1 && archive1Available == false && archive2Available != false) selectedArchive = 2
+                      if (selectedArchive == 2 && archive2Available == false && archive1Available != false) selectedArchive = 1
+                      appPrefs().edit().putInt("selected_archive", selectedArchive).apply()
+          
+                      val cachedBoot = appPrefs().getString("cached_boot_json_v1", "").orEmpty()
+                      bootJson = try {
+                          if (cachedBoot.isNotBlank()) JSONObject(cachedBoot) else JSONObject().put("ready", true).put("sliders", JSONArray())
+                      } catch (_: Throwable) {
+                          JSONObject().put("ready", true).put("sliders", JSONArray())
+                      }
+          
+                      runOnUiThread {
+                          buildShell()
+                          showHome()
+                          showRemoteNoticeIfNeeded()
+                          showConfigUpdateIfNeeded(false)
+                          refreshArchiveAvailability()
+                      }
+          
+                      // Boot metadata is optional. Its failure must never block entering the app.
+                      fetch("$apiBase?action=boot") { ok, json, _ ->
+                          if (ok && json != null && json.optBoolean("ready", false)) {
+                              bootJson = json
+                              appPrefs().edit().putString("cached_boot_json_v1", json.toString()).apply()
+                          }
+                      }
+                  }
+              }
+          '''
+          source = source[:boot_start] + boot_code + source[boot_end:]
+          
+          # 5) Show archive status on home without blocking the UI.
+          old = '''        page.addView(playlistGuideCard(compact = true), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+                  addQuickTabs(page)
+          '''
+          new = '''        page.addView(playlistGuideCard(compact = true), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
+                  archiveStatusBanner()?.let { banner ->
+                      page.addView(banner, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
+                  }
+                  addQuickTabs(page)
+          '''
+          if old not in source:
+              raise SystemExit('home guide anchor not found')
+          source = source.replace(old, new, 1)
+          
+          # 6) Friendly per-archive error with a direct switch button.
+          old = '                    row.addView(errorView(err ?: "خطا در دریافت اطلاعات"))\n'
+          new = '                    row.addView(archiveUnavailableView(archive, err))\n'
+          if old not in source:
+              raise SystemExit('addRail error anchor not found')
+          source = source.replace(old, new, 1)
+          
+          path.write_text(source, encoding='utf-8')
+          print('archive fallback patch applied')
+          PY
+
+          python3 /tmp/patch_archive_fallback.py
+
+          MAIN="project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
+
+          grep -Fq 'private var archive1Available: Boolean? = null' "$MAIN"
+          grep -Fq 'private var archive2Available: Boolean? = null' "$MAIN"
+          grep -Fq 'private fun probeJsonFast(rawUrl: String): Boolean' "$MAIN"
+          grep -Fq 'private fun refreshArchiveAvailability()' "$MAIN"
+          grep -Fq 'private fun archiveStatusBanner(): View?' "$MAIN"
+          grep -Fq 'private fun archiveUnavailableView(archive: Int, rawError: String?): View' "$MAIN"
+          grep -Fq 'cached_boot_json_v1' "$MAIN"
+          grep -Fq 'Boot metadata is optional. Its failure must never block entering the app.' "$MAIN"
+          grep -Fq 'آرشیو ۱ موقتاً در دسترس نیست؛ فعلاً از آرشیو ۲ استفاده کنید.' "$MAIN"
+          grep -Fq 'آرشیو ۲ موقتاً در دسترس نیست؛ فعلاً از آرشیو ۱ استفاده کنید.' "$MAIN"
+          grep -Fq 'هر دو آرشیو موقتاً در دسترس نیستند. برنامه باز می‌ماند' "$MAIN"
+          grep -Fq 'row.addView(archiveUnavailableView(archive, err))' "$MAIN"
+          grep -Fq 'connectTimeout = 3500' "$MAIN"
+          grep -Fq 'readTimeout = 5000' "$MAIN"
+
+          echo "Archive-independent startup and automatic failover verified."
 
       - name: Force first build to ARM64 and V7A only
         shell: bash
@@ -405,9 +831,9 @@ jobs:
           verify_apk "$V7A" "v7a" "v7a"
           verify_apk "$LITE_UNIVERSAL" "universal-lite" "lite-universal"
 
-          cp "$ARM64" "publish/arm64/Bankmovie-v1.9-v22-compile-hotfix-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$V7A" "publish/v7a/Bankmovie-v1.9-v22-compile-hotfix-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v1.9-v22-compile-hotfix-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$ARM64" "publish/arm64/Bankmovie-v1.9-v22-archive-failover-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$V7A" "publish/v7a/Bankmovie-v1.9-v22-archive-failover-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v1.9-v22-archive-failover-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
 
           echo "========== BUILD 2: FULL UNIVERSAL 4 ABI =========="
           python3 <<'PY'
@@ -441,7 +867,7 @@ jobs:
           FULL_UNIVERSAL="$(find "$OUT" -maxdepth 1 -type f -name '*universal*release*.apk' | head -n1)"
           [ -n "$FULL_UNIVERSAL" ] || { find "$OUT" -maxdepth 1 -type f -name '*.apk' -print || true; exit 1; }
           verify_apk "$FULL_UNIVERSAL" "universal-full" "full-universal"
-          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v1.9-v22-compile-hotfix-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v1.9-v22-archive-failover-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
 
           for dir in arm64 v7a universal-lite universal-full; do
             sha256sum "publish/$dir"/*.apk > "publish/$dir/SHA256.txt"
@@ -459,7 +885,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V22-Compile-Hotfix-Build-Log-${{ github.run_number }}
+          name: Bankmovie-V1.9-V22-Archive-Failover-Build-Log-${{ github.run_number }}
           path: project/build.log
           if-no-files-found: ignore
           retention-days: 7
@@ -467,7 +893,7 @@ jobs:
       - name: Upload ARM64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V22-Compile-Hotfix-ARM64-${{ github.run_number }}
+          name: Bankmovie-V1.9-V22-Archive-Failover-ARM64-${{ github.run_number }}
           path: project/publish/arm64/*
           if-no-files-found: error
           retention-days: 14
@@ -475,7 +901,7 @@ jobs:
       - name: Upload V7A APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V22-Compile-Hotfix-V7A-${{ github.run_number }}
+          name: Bankmovie-V1.9-V22-Archive-Failover-V7A-${{ github.run_number }}
           path: project/publish/v7a/*
           if-no-files-found: error
           retention-days: 14
@@ -483,7 +909,7 @@ jobs:
       - name: Upload Lite Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V22-Compile-Hotfix-Universal-Lite-2ABI-${{ github.run_number }}
+          name: Bankmovie-V1.9-V22-Archive-Failover-Universal-Lite-2ABI-${{ github.run_number }}
           path: project/publish/universal-lite/*
           if-no-files-found: error
           retention-days: 14
@@ -491,7 +917,7 @@ jobs:
       - name: Upload Full Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V22-Compile-Hotfix-Universal-Full-4ABI-${{ github.run_number }}
+          name: Bankmovie-V1.9-V22-Archive-Failover-Universal-Full-4ABI-${{ github.run_number }}
           path: project/publish/universal-full/*
           if-no-files-found: error
           retention-days: 14
