@@ -1,4 +1,4 @@
-name: Build Bankmovie V1.9 V22 Professional Search Filters Fixed
+name: Build Bankmovie V1.9 V22 UI Compile Hotfix
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Build V1.9 V22 Fixed ARM64 V7A Lite Universal Full Universal
+    name: Build V1.9 V22 UI Compile Hotfix
     runs-on: ubuntu-latest
 
     steps:
@@ -183,6 +183,42 @@ jobs:
           test -f project/V22_SEARCH_FILTER_UI_README_FA.txt
 
           echo "V1.9 V22 professional search filters, Archive 1/2 guide and prior fixes verified."
+
+      - name: Fix transparent background Kotlin compile error
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MAIN="project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
+
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path("project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt")
+          source = path.read_text(encoding="utf-8")
+
+          old = "            background = Color.TRANSPARENT"
+          new = "            setBackgroundColor(Color.TRANSPARENT)"
+
+          count = source.count(old)
+          if count != 1:
+              print("==================== REAL ERROR ====================")
+              print(f"Expected one broken transparent background line, found: {count}")
+              print("====================================================")
+              raise SystemExit(1)
+
+          path.write_text(source.replace(old, new, 1), encoding="utf-8")
+          print("Kotlin transparent background assignment fixed.")
+          PY
+
+          grep -Fq 'setBackgroundColor(Color.TRANSPARENT)' "$MAIN"
+
+          if grep -Fq 'background = Color.TRANSPARENT' "$MAIN"; then
+            echo "Broken Drawable assignment still exists."
+            exit 1
+          fi
+
+          echo "V22 Kotlin compile hotfix verified."
 
       - name: Force first build to ARM64 and V7A only
         shell: bash
@@ -369,9 +405,9 @@ jobs:
           verify_apk "$V7A" "v7a" "v7a"
           verify_apk "$LITE_UNIVERSAL" "universal-lite" "lite-universal"
 
-          cp "$ARM64" "publish/arm64/Bankmovie-v1.9-v22-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$V7A" "publish/v7a/Bankmovie-v1.9-v22-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v1.9-v22-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$ARM64" "publish/arm64/Bankmovie-v1.9-v22-compile-hotfix-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$V7A" "publish/v7a/Bankmovie-v1.9-v22-compile-hotfix-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v1.9-v22-compile-hotfix-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
 
           echo "========== BUILD 2: FULL UNIVERSAL 4 ABI =========="
           python3 <<'PY'
@@ -405,7 +441,7 @@ jobs:
           FULL_UNIVERSAL="$(find "$OUT" -maxdepth 1 -type f -name '*universal*release*.apk' | head -n1)"
           [ -n "$FULL_UNIVERSAL" ] || { find "$OUT" -maxdepth 1 -type f -name '*.apk' -print || true; exit 1; }
           verify_apk "$FULL_UNIVERSAL" "universal-full" "full-universal"
-          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v1.9-v22-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v1.9-v22-compile-hotfix-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
 
           for dir in arm64 v7a universal-lite universal-full; do
             sha256sum "publish/$dir"/*.apk > "publish/$dir/SHA256.txt"
@@ -423,7 +459,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V22-Build-Log-${{ github.run_number }}
+          name: Bankmovie-V1.9-V22-Compile-Hotfix-Build-Log-${{ github.run_number }}
           path: project/build.log
           if-no-files-found: ignore
           retention-days: 7
@@ -431,7 +467,7 @@ jobs:
       - name: Upload ARM64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V22-ARM64-${{ github.run_number }}
+          name: Bankmovie-V1.9-V22-Compile-Hotfix-ARM64-${{ github.run_number }}
           path: project/publish/arm64/*
           if-no-files-found: error
           retention-days: 14
@@ -439,7 +475,7 @@ jobs:
       - name: Upload V7A APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V22-V7A-${{ github.run_number }}
+          name: Bankmovie-V1.9-V22-Compile-Hotfix-V7A-${{ github.run_number }}
           path: project/publish/v7a/*
           if-no-files-found: error
           retention-days: 14
@@ -447,7 +483,7 @@ jobs:
       - name: Upload Lite Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V22-Universal-Lite-2ABI-${{ github.run_number }}
+          name: Bankmovie-V1.9-V22-Compile-Hotfix-Universal-Lite-2ABI-${{ github.run_number }}
           path: project/publish/universal-lite/*
           if-no-files-found: error
           retention-days: 14
@@ -455,7 +491,7 @@ jobs:
       - name: Upload Full Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V22-Universal-Full-4ABI-${{ github.run_number }}
+          name: Bankmovie-V1.9-V22-Compile-Hotfix-Universal-Full-4ABI-${{ github.run_number }}
           path: project/publish/universal-full/*
           if-no-files-found: error
           retention-days: 14
