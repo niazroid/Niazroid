@@ -1,4 +1,4 @@
-name: Build Bankmovie V1.9 V22 Professional Search Filters
+name: Build Bankmovie V1.9 V22 Professional Search Filters Fixed
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Build V1.9 V22 ARM64 V7A Lite Universal Full Universal
+    name: Build V1.9 V22 Fixed ARM64 V7A Lite Universal Full Universal
     runs-on: ubuntu-latest
 
     steps:
@@ -172,8 +172,8 @@ jobs:
           grep -Fq 'private fun cachePlayerPayload(payload: JSONObject)' "$MAIN"
           grep -Fq 'putExtra(PlayerActivity.EXTRA_PLAYLIST_FILE, payloadPath)' "$MAIN"
           grep -Fq 'private fun showPlaylistGuide()' "$MAIN"
-          grep -Fq 'پلی‌لیست ۱ — همیشه به‌روز' "$MAIN"
-          grep -Fq 'پلی‌لیست ۲ — به‌روزرسانی دیرتر' "$MAIN"
+          grep -Fq 'آرشیو ۱ — همیشه به‌روز' "$MAIN"
+          grep -Fq 'آرشیو ۲ — به‌روزرسانی دیرتر' "$MAIN"
           grep -Fq 'private fun showFavorites()' "$MAIN"
           grep -Fq '"favorites", R.drawable.ic_nav_heart' "$MAIN"
           grep -Fq 'currentScreen != "search"' "$MAIN"
@@ -182,7 +182,7 @@ jobs:
           test -f project/V20_PLAYER_CRASH_PLAYLIST_GUIDE_README_FA.txt
           test -f project/V22_SEARCH_FILTER_UI_README_FA.txt
 
-          echo "V1.9 V22 professional search filters, compact archive guide and prior fixes verified."
+          echo "V1.9 V22 professional search filters, Archive 1/2 guide and prior fixes verified."
 
       - name: Force first build to ARM64 and V7A only
         shell: bash
