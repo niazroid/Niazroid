@@ -1,4 +1,4 @@
-name: Build Bankmovie V1.9 V22 Slider Remote Controls Hotfix
+name: Build Bankmovie V2.0 Complete
 
 on:
   workflow_dispatch:
@@ -10,18 +10,18 @@ permissions:
 
 jobs:
   build:
-    name: Build V1.9 V22 Slider Remote Controls Hotfix
+    name: Build V2.0 Complete
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Unzip exact V1.9 source
+      - name: Unzip exact V2.0 source
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="Bankmovie-v1.9-source-v22-professional-search-ui.zip"
+          ZIP="Bankmovie-v2.0-complete-source.zip"
           if [ ! -f "$ZIP" ]; then
             echo "==================== REAL ERROR ===================="
             echo "Missing $ZIP in repository root."
@@ -50,7 +50,7 @@ jobs:
           fi
           echo "Legacy signing key verified: $NORMALIZED"
 
-      - name: Verify V1.9 V22 source
+      - name: Verify V2.0 complete source
         shell: bash
         run: |
           set -euo pipefail
@@ -61,11 +61,15 @@ jobs:
           SERVICE="project/app/src/main/java/ir/bankmoviee/app/InternalDownloadService.kt"
           DOWNLOADS="project/app/src/main/java/ir/bankmoviee/app/DownloadsActivity.kt"
           LOCATION="project/app/src/main/java/ir/bankmoviee/app/DownloadLocationPrefs.kt"
+          ACCOUNT_API="project/app/src/main/java/ir/bankmoviee/app/AccountApi.kt"
+          ACCOUNT_SESSION="project/app/src/main/java/ir/bankmoviee/app/AccountSession.kt"
+          AUTH_ACTIVITY="project/app/src/main/java/ir/bankmoviee/app/AuthActivity.kt"
+          USER_API="project/server-required/app_user_api.php"
           MANIFEST="project/app/src/main/AndroidManifest.xml"
           GRADLE="project/app/build.gradle"
 
-          grep -Fq 'versionName "1.9"' "$GRADLE"
-          grep -Fq 'versionCode 3700000 + runNumber' "$GRADLE"
+          grep -Fq 'versionName "2.0"' "$GRADLE"
+          grep -Fq 'versionCode 4000000 + runNumber' "$GRADLE"
           grep -Fq "androidx.documentfile:documentfile" "$GRADLE"
           grep -Fq 'minifyEnabled true' "$GRADLE"
           grep -Fq 'shrinkResources true' "$GRADLE"
@@ -75,12 +79,17 @@ jobs:
           test -f "$SERVICE"
           test -f "$DOWNLOADS"
           test -f "$LOCATION"
+          test -f "$ACCOUNT_API"
+          test -f "$ACCOUNT_SESSION"
+          test -f "$AUTH_ACTIVITY"
+          test -f "$USER_API"
           test -f project/app/src/main/res/xml/file_paths.xml
           test -f project/app/src/main/res/drawable/ic_telegram.xml
           test -f project/app/src/main/res/drawable/ic_dubbed_mic_green.xml
 
           grep -Fq 'InternalDownloadService' "$MANIFEST"
           grep -Fq 'DownloadsActivity' "$MANIFEST"
+          grep -Fq 'AuthActivity' "$MANIFEST"
           grep -Fq 'android.permission.FOREGROUND_SERVICE_DATA_SYNC' "$MANIFEST"
           grep -Fq 'androidx.core.content.FileProvider' "$MANIFEST"
 
@@ -111,6 +120,16 @@ jobs:
             echo "Old Playlist label still exists."
             exit 1
           fi
+
+          grep -Fq 'app_user_api.php?action=' "$ACCOUNT_API"
+          grep -Fq 'watchlist_sync' "$ACCOUNT_API"
+          grep -Fq 'class AuthActivity' "$AUTH_ACTIVITY"
+          grep -Fq 'AccountSession.isLoggedIn' "$MAIN"
+          grep -Fq 'accountProfileCard' "$MAIN"
+          php -l "$USER_API"
+          grep -Fq "if (\$action === 'login')" "$USER_API"
+          grep -Fq "if (\$action === 'register')" "$USER_API"
+          grep -Fq "if (\$action === 'watchlist_sync')" "$USER_API"
 
           php -l project/server-required/api5.php
           php -l project/server-required/api5_lib.php
@@ -149,9 +168,16 @@ jobs:
           grep -Fq 'ParcelFileDescriptor' "$SERVICE"
           grep -Fq 'setRequestProperty("Range", "bytes=$start-")' "$SERVICE"
           grep -Fq 'Executors.newFixedThreadPool(2)' "$SERVICE"
-          grep -Fq 'مسیر ذخیره‌سازی' "$DOWNLOADS"
+          grep -Fq 'مدیریت حرفه‌ای، توقف و ادامه واقعی' "$DOWNLOADS"
           grep -Fq 'ذخیره در:' "$DOWNLOADS"
           grep -Fq 'DownloadLocationPrefs.setTree' "$DOWNLOADS"
+          grep -Fq 'private fun updateProgressOnly' "$DOWNLOADS"
+          grep -Fq 'private fun loadPoster' "$DOWNLOADS"
+          grep -Fq 'EXTRA_POSTER' "$SERVICE"
+          test -f project/app/src/main/res/values/ids.xml
+          test -f project/app/src/main/res/anim/bm_dialog_enter.xml
+          test -f project/V24_TV_FOCUS_SMOOTH_UI_README_FA.txt
+          test -f project/V2_COMPLETE_RELEASE_README_FA.txt
 
           if grep -R -E 'bonVF|vazir\.ttf|KEY_FONT|KEY_SUB_FONT|customFontFile' project/app/src/main project/app/build.gradle; then
             echo "Custom font code or asset still exists."
@@ -182,9 +208,9 @@ jobs:
           test -f project/V20_PLAYER_CRASH_PLAYLIST_GUIDE_README_FA.txt
           test -f project/V22_SEARCH_FILTER_UI_README_FA.txt
 
-          echo "V1.9 V22 professional search filters, Archive 1/2 guide and prior fixes verified."
+          echo "V2.0 complete source, TV focus, smooth dialogs, professional downloads, account API and prior fixes verified."
 
-      - name: Fix V22 transparent background compile error
+      - name: Preserve transparent background compile fix
         shell: bash
         run: |
           set -euo pipefail
@@ -376,7 +402,7 @@ jobs:
                               readTimeout = 5000
                               instanceFollowRedirects = true
                               setRequestProperty("Accept", "application/json")
-                              setRequestProperty("User-Agent", "BankmovieAndroidNative/1.9-ArchiveFallback")
+                              setRequestProperty("User-Agent", "BankmovieAndroidNative/2.0-ArchiveFallback")
                               setRequestProperty("Cache-Control", "no-cache")
                           }
                           if (url.path.endsWith("app_api.php", true)) {
@@ -646,544 +672,6 @@ jobs:
 
           echo "Archive-independent startup and automatic failover verified."
 
-      - name: Restore slider and add remote UI controls
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          cat > /tmp/patch_slider_controls.py <<'PY'
-          from pathlib import Path
-          
-          path = Path('project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt')
-          source = path.read_text(encoding='utf-8')
-          
-          # 1) Remote control state model before API fields.
-          anchor = '    private var apiBase = "https://bankmoviee.ir/app_api.php"\n'
-          insert = '''    private data class RemoteUiState(
-                  val visible: Boolean = true,
-                  val enabled: Boolean = true,
-                  val message: String = ""
-              )
-          
-              private val remoteUiStates = mutableMapOf<String, RemoteUiState>()
-              private val remoteHiddenLabels = linkedSetOf<String>()
-              private val remoteDisabledLabels = linkedSetOf<String>()
-          
-          '''
-          if anchor not in source:
-              raise SystemExit('api field anchor not found')
-          source = source.replace(anchor, insert + anchor, 1)
-          
-          # 2) Helpers before applyAppConfig.
-          anchor = '    private fun applyAppConfig(json: JSONObject) {\n'
-          helpers = r'''    private fun remoteControlKey(value: String): String {
-                  return value.trim().lowercase(Locale.ROOT)
-                      .replace('-', '_')
-                      .replace(' ', '_')
-              }
-          
-              private fun registerRemoteUiState(id: String, value: Any?) {
-                  val key = remoteControlKey(id)
-                  if (key.isBlank()) return
-          
-                  val state = when (value) {
-                      is Boolean -> RemoteUiState(visible = value, enabled = value)
-                      is String -> {
-                          when (value.trim().lowercase(Locale.ROOT)) {
-                              "hidden", "hide", "gone", "off" -> RemoteUiState(visible = false, enabled = false)
-                              "disabled", "disable", "muted", "locked" -> RemoteUiState(visible = true, enabled = false)
-                              else -> RemoteUiState()
-                          }
-                      }
-                      is JSONObject -> {
-                          val mode = value.optString("state")
-                              .ifBlank { value.optString("mode") }
-                              .trim()
-                              .lowercase(Locale.ROOT)
-                          val defaultVisible = mode !in setOf("hidden", "hide", "gone", "off")
-                          val defaultEnabled = mode !in setOf("hidden", "hide", "gone", "off", "disabled", "disable", "muted", "locked")
-                          RemoteUiState(
-                              visible = value.optBoolean("visible", defaultVisible),
-                              enabled = value.optBoolean("enabled", defaultEnabled),
-                              message = value.optString("message")
-                                  .ifBlank { value.optString("disabled_message") }
-                                  .trim()
-                          )
-                      }
-                      else -> RemoteUiState()
-                  }
-                  remoteUiStates[key] = state
-              }
-          
-              private fun readRemoteStringSet(array: JSONArray?, output: MutableSet<String>) {
-                  if (array == null) return
-                  for (i in 0 until array.length()) {
-                      val value = array.optString(i).trim()
-                      if (value.isNotBlank()) output.add(value)
-                  }
-              }
-          
-              private fun parseRemoteUiControls(
-                  json: JSONObject,
-                  archive1Config: JSONObject?,
-                  archive2Config: JSONObject?
-              ) {
-                  remoteUiStates.clear()
-                  remoteHiddenLabels.clear()
-                  remoteDisabledLabels.clear()
-          
-                  val controls = json.optJSONObject("ui_controls")
-                      ?: json.optJSONObject("button_controls")
-                      ?: json.optJSONObject("buttons")
-          
-                  controls?.keys()?.let { keys ->
-                      while (keys.hasNext()) {
-                          val key = keys.next()
-                          if (key in setOf("hidden", "disabled", "hidden_labels", "disabled_labels")) continue
-                          registerRemoteUiState(key, controls.opt(key))
-                      }
-                  }
-          
-                  fun registerIds(array: JSONArray?, visible: Boolean, enabled: Boolean) {
-                      if (array == null) return
-                      for (i in 0 until array.length()) {
-                          val id = array.optString(i).trim()
-                          if (id.isNotBlank()) remoteUiStates[remoteControlKey(id)] = RemoteUiState(visible, enabled)
-                      }
-                  }
-          
-                  registerIds(controls?.optJSONArray("hidden"), visible = false, enabled = false)
-                  registerIds(controls?.optJSONArray("disabled"), visible = true, enabled = false)
-                  readRemoteStringSet(controls?.optJSONArray("hidden_labels"), remoteHiddenLabels)
-                  readRemoteStringSet(controls?.optJSONArray("disabled_labels"), remoteDisabledLabels)
-                  readRemoteStringSet(json.optJSONArray("hidden_button_labels"), remoteHiddenLabels)
-                  readRemoteStringSet(json.optJSONArray("disabled_button_labels"), remoteDisabledLabels)
-          
-                  archive1Config?.let { registerRemoteUiState("archive_1", it) }
-                  archive2Config?.let { registerRemoteUiState("archive_2", it) }
-          
-                  json.optJSONObject("slider")?.let { registerRemoteUiState("slider", it) }
-                  if (json.has("slider_enabled")) {
-                      val enabled = json.optBoolean("slider_enabled", true)
-                      registerRemoteUiState("slider", JSONObject().put("visible", enabled).put("enabled", enabled))
-                  }
-          
-                  val selectedId = "archive_${if (selectedArchive == 2) 2 else 1}"
-                  val otherArchive = if (selectedArchive == 2) 1 else 2
-                  if ((!remoteUiVisible(selectedId) || !remoteUiEnabled(selectedId)) && remoteArchiveUsable(otherArchive)) {
-                      selectedArchive = otherArchive
-                      appPrefs().edit().putInt("selected_archive", selectedArchive).apply()
-                  }
-              }
-          
-              private fun remoteUiState(id: String): RemoteUiState {
-                  return remoteUiStates[remoteControlKey(id)] ?: RemoteUiState()
-              }
-          
-              private fun remoteUiVisible(id: String): Boolean = remoteUiState(id).visible
-              private fun remoteUiEnabled(id: String): Boolean = remoteUiState(id).enabled
-              private fun remoteUiMessage(id: String): String = remoteUiState(id).message
-              private fun remoteArchiveUsable(archive: Int): Boolean {
-                  val id = "archive_${if (archive == 2) 2 else 1}"
-                  return remoteUiVisible(id) && remoteUiEnabled(id)
-              }
-          
-              private fun remoteDisabledMessage(id: String, fallback: String): String {
-                  return remoteUiMessage(id).ifBlank { fallback }
-              }
-          
-              private fun applyRemoteControl(view: View, id: String, label: String = "") {
-                  val state = remoteUiState(id)
-                  view.tag = "remote:${remoteControlKey(id)}"
-                  if (!state.visible) {
-                      view.visibility = View.GONE
-                      return
-                  }
-                  view.visibility = View.VISIBLE
-                  if (!state.enabled) {
-                      view.alpha = 0.30f
-                      view.isFocusable = false
-                      view.isEnabled = true
-                      view.isClickable = true
-                      view.setOnClickListener {
-                          Toast.makeText(
-                              this,
-                              state.message.ifBlank {
-                                  t(
-                                      if (label.isBlank()) "این بخش موقتاً غیرفعال است" else "$label موقتاً غیرفعال است",
-                                      if (label.isBlank()) "This section is temporarily disabled" else "$label is temporarily disabled"
-                                  )
-                              },
-                              Toast.LENGTH_LONG
-                          ).show()
-                      }
-                  }
-              }
-          
-              private fun normalizedRemoteLabel(value: String): String {
-                  return value.trim().replace("✓", "").replace(Regex("\\s+"), " ").lowercase(Locale.ROOT)
-              }
-          
-              private fun labelMatchesRemoteSet(label: String, values: Set<String>): Boolean {
-                  val normalized = normalizedRemoteLabel(label)
-                  return values.any { configured ->
-                      val candidate = normalizedRemoteLabel(configured)
-                      candidate.isNotBlank() && (normalized == candidate || normalized.contains(candidate))
-                  }
-              }
-          
-              private fun clickableRemoteTarget(start: View): View {
-                  var current: View = start
-                  var parent = current.parent
-                  repeat(5) {
-                      if (current.hasOnClickListeners()) return current
-                      if (parent !is View) return current
-                      current = parent as View
-                      parent = current.parent
-                  }
-                  return current
-              }
-          
-              private fun applyRemoteUiControls(view: View) {
-                  val tagValue = view.tag as? String
-                  if (tagValue != null && tagValue.startsWith("remote:")) {
-                      applyRemoteControl(view, tagValue.removePrefix("remote:"))
-                  }
-          
-                  if (view is TextView) {
-                      val label = view.text?.toString().orEmpty()
-                      if (labelMatchesRemoteSet(label, remoteHiddenLabels)) {
-                          clickableRemoteTarget(view).visibility = View.GONE
-                      } else if (labelMatchesRemoteSet(label, remoteDisabledLabels)) {
-                          val target = clickableRemoteTarget(view)
-                          target.alpha = 0.30f
-                          target.isFocusable = false
-                          target.isEnabled = false
-                          target.isClickable = false
-                      }
-                  }
-          
-                  if (view is ViewGroup) {
-                      for (i in 0 until view.childCount) applyRemoteUiControls(view.getChildAt(i))
-                  }
-              }
-          
-              private fun scheduleRemoteUiControls() {
-                  if (!::content.isInitialized) return
-                  listOf(0L, 180L, 750L, 1600L).forEach { delay ->
-                      uiHandler.postDelayed({
-                          if (::content.isInitialized) applyRemoteUiControls(content)
-                          if (::bottomNav.isInitialized) applyRemoteUiControls(bottomNav)
-                      }, delay)
-                  }
-              }
-          
-          '''
-          if anchor not in source:
-              raise SystemExit('applyAppConfig anchor not found')
-          source = source.replace(anchor, helpers + anchor, 1)
-          
-          # 3) Parse controls immediately after archive endpoint config.
-          anchor = '''        archive2ApiBase = normalizeApiUrl(
-                      json.optString("archive2_api_url")
-                          .ifBlank { archive2Config?.optString("api_url").orEmpty() }
-                          .ifBlank { "api5.php" },
-                      activeDomain
-                  ).ifBlank { "$activeDomain/api5.php" }
-          
-          '''
-          replacement = anchor + '''        parseRemoteUiControls(json, archive1Config, archive2Config)
-          
-          '''
-          if anchor not in source:
-              raise SystemExit('archive config anchor not found')
-          source = source.replace(anchor, replacement, 1)
-          
-          # 4) Remote-aware archive down message.
-          old = '''    private fun archiveDownMessage(archive: Int): String {
-                  val other = archiveOther(archive)
-                  return t(
-                      "${archiveLabel(archive)} موقتاً در دسترس نیست. تا زمان رفع مشکل از ${archiveLabel(other)} استفاده کنید.",
-                      "${archiveLabel(archive)} is temporarily unavailable. Please use ${archiveLabel(other)} until it is restored."
-                  )
-              }
-          '''
-          new = '''    private fun archiveDownMessage(archive: Int): String {
-                  val id = "archive_${if (archive == 2) 2 else 1}"
-                  val other = archiveOther(archive)
-                  return remoteDisabledMessage(
-                      id,
-                      t(
-                          "${archiveLabel(archive)} موقتاً در دسترس نیست. تا زمان رفع مشکل از ${archiveLabel(other)} استفاده کنید.",
-                          "${archiveLabel(archive)} is temporarily unavailable. Please use ${archiveLabel(other)} until it is restored."
-                      )
-                  )
-              }
-          '''
-          if old not in source:
-              raise SystemExit('archiveDownMessage block not found')
-          source = source.replace(old, new, 1)
-          
-          # 5) chooseArchive checks remote control first.
-          old = '''    private fun chooseArchive(archive: Int, onSelected: ((Int) -> Unit)? = null) {
-                  val safe = if (archive == 2) 2 else 1
-                  val other = archiveOther(safe)
-                  if (archiveKnownAvailable(safe) == false && archiveKnownAvailable(other) == true) {
-                      showArchiveUnavailableDialog(safe, other)
-                      return
-                  }
-          '''
-          new = '''    private fun chooseArchive(archive: Int, onSelected: ((Int) -> Unit)? = null) {
-                  val safe = if (archive == 2) 2 else 1
-                  val other = archiveOther(safe)
-                  val controlId = "archive_$safe"
-                  if (!remoteUiVisible(controlId) || !remoteUiEnabled(controlId)) {
-                      Toast.makeText(this, archiveDownMessage(safe), Toast.LENGTH_LONG).show()
-                      return
-                  }
-                  if (archiveKnownAvailable(safe) == false && archiveKnownAvailable(other) == true) {
-                      showArchiveUnavailableDialog(safe, other)
-                      return
-                  }
-          '''
-          if old not in source:
-              raise SystemExit('chooseArchive anchor not found')
-          source = source.replace(old, new, 1)
-          
-          # 6) Skip network probes for remotely disabled archives.
-          old = '''    private fun refreshArchiveAvailability() {
-                  archiveProbeRemaining = 2
-                  for (archive in 1..2) {
-                      Thread {
-                          val available = probeJsonFast(archiveProbeUrl(archive))
-                          runOnUiThread { handleArchiveProbeResult(archive, available) }
-                      }.start()
-                  }
-              }
-          '''
-          new = '''    private fun refreshArchiveAvailability() {
-                  archiveProbeRemaining = 2
-                  for (archive in 1..2) {
-                      if (!remoteArchiveUsable(archive)) {
-                          runOnUiThread { handleArchiveProbeResult(archive, false) }
-                      } else {
-                          Thread {
-                              val available = probeJsonFast(archiveProbeUrl(archive))
-                              runOnUiThread { handleArchiveProbeResult(archive, available) }
-                          }.start()
-                      }
-                  }
-              }
-          '''
-          if old not in source:
-              raise SystemExit('refreshArchiveAvailability block not found')
-          source = source.replace(old, new, 1)
-          
-          # 7) Slider fetch refreshes home and remains independent from archive probes.
-          old = '''            // Boot metadata is optional. Its failure must never block entering the app.
-                      fetch("$apiBase?action=boot") { ok, json, _ ->
-                          if (ok && json != null && json.optBoolean("ready", false)) {
-                              bootJson = json
-                              appPrefs().edit().putString("cached_boot_json_v1", json.toString()).apply()
-                          }
-                      }
-          '''
-          new = '''            // Slider metadata belongs to Bankmovie itself and is independent from both archives.
-                      fetch("$apiBase?action=boot") { ok, json, _ ->
-                          if (ok && json != null && json.optBoolean("ready", false)) {
-                              bootJson = json
-                              appPrefs().edit().putString("cached_boot_json_v1", json.toString()).apply()
-                              runOnUiThread {
-                                  if (::root.isInitialized && currentScreen == "home") showHome()
-                              }
-                          }
-                      }
-          '''
-          if old not in source:
-              raise SystemExit('boot fetch block not found')
-          source = source.replace(old, new, 1)
-          
-          # 8) Bottom nav tags and immediate controls.
-          old = '''        val box = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      gravity = Gravity.CENTER
-          '''
-          new = '''        val box = LinearLayout(this).apply {
-                      tag = "remote:nav_$key"
-                      orientation = LinearLayout.VERTICAL
-                      gravity = Gravity.CENTER
-          '''
-          # only first occurrence after navSvg; use section-specific replacement.
-          nav_pos = source.index('    private fun navSvg(')
-          box_pos = source.index(old, nav_pos)
-          source = source[:box_pos] + source[box_pos:].replace(old, new, 1)
-          
-          old = '''        bottomNav.addView(box, LinearLayout.LayoutParams(0, -1, 1f).apply {
-                      marginStart = dp(if (tv) 4 else 5)
-                      marginEnd = dp(if (tv) 4 else 5)
-                  })
-              }
-          '''
-          new = '''        applyRemoteControl(box, "nav_$key", label)
-                  bottomNav.addView(box, LinearLayout.LayoutParams(0, -1, 1f).apply {
-                      marginStart = dp(if (tv) 4 else 5)
-                      marginEnd = dp(if (tv) 4 else 5)
-                  })
-              }
-          '''
-          if old not in source:
-              raise SystemExit('navSvg end block not found')
-          source = source.replace(old, new, 1)
-          
-          # Schedule controls after bottom nav build.
-          old = '''        navSvg(t("علاقه‌مندی‌ها", "Favorites"), "favorites", R.drawable.ic_nav_heart) { showFavorites() }
-              }
-          '''
-          new = '''        navSvg(t("علاقه‌مندی‌ها", "Favorites"), "favorites", R.drawable.ic_nav_heart) { showFavorites() }
-                  scheduleRemoteUiControls()
-              }
-          '''
-          if old not in source:
-              raise SystemExit('buildBottomNav end not found')
-          source = source.replace(old, new, 1)
-          
-          # 9) Archive segment control.
-          old = '''            setOnClickListener {
-                          chooseArchive(archive, onSelected)
-                      }
-                  }
-              }
-          '''
-          new = '''            setOnClickListener {
-                          chooseArchive(archive, onSelected)
-                      }
-                      applyRemoteControl(this, "archive_$archive", archiveLabel(archive))
-                  }
-              }
-          '''
-          # unique around archive segment section
-          arch_pos = source.index('    private fun archiveSegment(')
-          idx = source.index(old, arch_pos)
-          source = source[:idx] + source[idx:].replace(old, new, 1)
-          
-          # Archive switch itself generic control.
-          old = '''            addView(archiveSegment(2, R.drawable.ic_archive_globe, onSelected), LinearLayout.LayoutParams(0, dp(50), 1f).apply { marginEnd = dp(3) })
-                  }
-              }
-          '''
-          new = '''            addView(archiveSegment(2, R.drawable.ic_archive_globe, onSelected), LinearLayout.LayoutParams(0, dp(50), 1f).apply { marginEnd = dp(3) })
-                      applyRemoteControl(this, "archive_switch", t("انتخاب آرشیو", "Archive selector"))
-                  }
-              }
-          '''
-          if old not in source:
-              raise SystemExit('archiveSwitchBar end not found')
-          source = source.replace(old, new, 1)
-          
-          # 10) Slider tag and controls, plus hide empty slider.
-          old = '''        val frame = FrameLayout(this).apply {
-                      layoutParams = LinearLayout.LayoutParams(-1, dp(485)).apply {
-          '''
-          new = '''        val frame = FrameLayout(this).apply {
-                      tag = "remote:slider"
-                      layoutParams = LinearLayout.LayoutParams(-1, dp(485)).apply {
-          '''
-          slider_pos = source.index('    private fun siteSlider(')
-          idx = source.index(old, slider_pos)
-          source = source[:idx] + source[idx:].replace(old, new, 1)
-          
-          old = '''        if (count > 0) {
-                      bind(0, false)
-          '''
-          new = '''        if (count <= 0 || !remoteUiVisible("slider")) {
-                      frame.visibility = View.GONE
-                  } else {
-                      applyRemoteControl(frame, "slider", t("اسلایدر", "Slider"))
-                      bind(0, false)
-          '''
-          if old not in source:
-              raise SystemExit('slider count block not found')
-          source = source.replace(old, new, 1)
-          
-          # 11) Quick tab ids.
-          old = '''            val v = chip(tab.first, idx == 0)
-                      v.setOnClickListener {
-          '''
-          new = '''            val v = chip(tab.first, idx == 0)
-                      val controlId = "quick_${tab.third}"
-                      v.tag = "remote:$controlId"
-                      v.setOnClickListener {
-          '''
-          if old not in source:
-              raise SystemExit('quick tab anchor not found')
-          source = source.replace(old, new, 1)
-          
-          old = '''            row.addView(v, LinearLayout.LayoutParams(-2, dp(44)).apply { marginStart = dp(6); marginEnd = dp(6) })
-          '''
-          new = '''            applyRemoteControl(v, controlId, tab.first.replace("✓ ", ""))
-                      row.addView(v, LinearLayout.LayoutParams(-2, dp(44)).apply { marginStart = dp(6); marginEnd = dp(6) })
-          '''
-          if old not in source:
-              raise SystemExit('quick tab add anchor not found')
-          source = source.replace(old, new, 1)
-          
-          # 12) Home only adds slider when configured; no giant blank block.
-          old = '''        page.addView(siteSlider(bootJson?.optJSONArray("sliders") ?: JSONArray()))
-                  page.addView(archiveSwitchBar(), LinearLayout.LayoutParams(-1, dp(62)).apply {
-          '''
-          new = '''        if (remoteUiVisible("slider")) {
-                      val sliderView = siteSlider(bootJson?.optJSONArray("sliders") ?: JSONArray())
-                      page.addView(sliderView)
-                  }
-                  page.addView(archiveSwitchBar(), LinearLayout.LayoutParams(-1, dp(62)).apply {
-          '''
-          if old not in source:
-              raise SystemExit('home slider anchor not found')
-          source = source.replace(old, new, 1)
-          
-          # 13) Schedule generic label controls whenever a page is rebuilt.
-          old = '''        if (::bottomNav.isInitialized) {
-                      bottomNav.visibility = if (currentScreen == "detail" || currentScreen == "player" || currentScreen == "search") View.GONE else View.VISIBLE
-                      bottomNav.translationY = 0f
-                      bottomNav.alpha = 1f
-                  }
-              }
-          '''
-          new = '''        if (::bottomNav.isInitialized) {
-                      bottomNav.visibility = if (currentScreen == "detail" || currentScreen == "player" || currentScreen == "search") View.GONE else View.VISIBLE
-                      bottomNav.translationY = 0f
-                      bottomNav.alpha = 1f
-                  }
-                  scheduleRemoteUiControls()
-              }
-          '''
-          if old not in source:
-              raise SystemExit('clear block not found')
-          source = source.replace(old, new, 1)
-          
-          path.write_text(source, encoding='utf-8')
-          print('slider and remote controls patch applied')
-          PY
-
-          python3 /tmp/patch_slider_controls.py
-
-          MAIN="project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
-
-          grep -Fq 'private data class RemoteUiState' "$MAIN"
-          grep -Fq 'private fun parseRemoteUiControls(' "$MAIN"
-          grep -Fq 'parseRemoteUiControls(json, archive1Config, archive2Config)' "$MAIN"
-          grep -Fq 'private fun scheduleRemoteUiControls()' "$MAIN"
-          grep -Fq 'tag = "remote:nav_$key"' "$MAIN"
-          grep -Fq 'applyRemoteControl(this, "archive_$archive", archiveLabel(archive))' "$MAIN"
-          grep -Fq 'tag = "remote:slider"' "$MAIN"
-          grep -Fq 'Slider metadata belongs to Bankmovie itself and is independent from both archives.' "$MAIN"
-          grep -Fq 'if (::root.isInitialized && currentScreen == "home") showHome()' "$MAIN"
-          grep -Fq 'if (count <= 0 || !remoteUiVisible("slider"))' "$MAIN"
-          grep -Fq 'hidden_labels' "$MAIN"
-          grep -Fq 'disabled_labels' "$MAIN"
-
-          echo "Slider refresh and remote UI controls verified."
-
       - name: Force first build to ARM64 and V7A only
         shell: bash
         run: |
@@ -1203,9 +691,9 @@ jobs:
               flags=re.MULTILINE,
           )
 
-          marker = '        versionName "1.9"\n'
+          marker = '        versionName "2.0"\n'
           replacement = (
-              '        versionName "1.9"\n'
+              '        versionName "2.0"\n'
               '        ndk {\n'
               '            abiFilters "armeabi-v7a", "arm64-v8a"\n'
               '        }\n'
@@ -1309,7 +797,7 @@ jobs:
             local signing="apk-signature-${label}.txt"
 
             "$AAPT" dump badging "$apk" > "$badging"
-            grep -Fq "versionName='1.9'" "$badging" || { echo "$label versionName is not 1.9"; grep -m1 '^package:' "$badging" || true; exit 1; }
+            grep -Fq "versionName='2.0'" "$badging" || { echo "$label versionName is not 2.0"; grep -m1 '^package:' "$badging" || true; exit 1; }
             grep -Fq "package: name='ir.bankmoviee.app'" "$badging" || { echo "$label package is wrong"; exit 1; }
             VERSION_CODE="$(sed -n "s/.*versionCode='\([0-9][0-9]*\)'.*/\1/p" "$badging" | head -n1)"
             if [ -z "$VERSION_CODE" ] || [ "$VERSION_CODE" -lt 3400001 ]; then
@@ -1369,9 +857,9 @@ jobs:
           verify_apk "$V7A" "v7a" "v7a"
           verify_apk "$LITE_UNIVERSAL" "universal-lite" "lite-universal"
 
-          cp "$ARM64" "publish/arm64/Bankmovie-v1.9-v22-slider-controls-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$V7A" "publish/v7a/Bankmovie-v1.9-v22-slider-controls-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v1.9-v22-slider-controls-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$ARM64" "publish/arm64/Bankmovie-v2.0-complete-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$V7A" "publish/v7a/Bankmovie-v2.0-complete-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v2.0-complete-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
 
           echo "========== BUILD 2: FULL UNIVERSAL 4 ABI =========="
           python3 <<'PY'
@@ -1405,7 +893,7 @@ jobs:
           FULL_UNIVERSAL="$(find "$OUT" -maxdepth 1 -type f -name '*universal*release*.apk' | head -n1)"
           [ -n "$FULL_UNIVERSAL" ] || { find "$OUT" -maxdepth 1 -type f -name '*.apk' -print || true; exit 1; }
           verify_apk "$FULL_UNIVERSAL" "universal-full" "full-universal"
-          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v1.9-v22-slider-controls-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
+          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v2.0-complete-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
 
           for dir in arm64 v7a universal-lite universal-full; do
             sha256sum "publish/$dir"/*.apk > "publish/$dir/SHA256.txt"
@@ -1423,7 +911,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V22-Slider-Controls-Build-Log-${{ github.run_number }}
+          name: Bankmovie-V2.0-Complete-Build-Log-${{ github.run_number }}
           path: project/build.log
           if-no-files-found: ignore
           retention-days: 7
@@ -1431,7 +919,7 @@ jobs:
       - name: Upload ARM64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V22-Slider-Controls-ARM64-${{ github.run_number }}
+          name: Bankmovie-V2.0-Complete-ARM64-${{ github.run_number }}
           path: project/publish/arm64/*
           if-no-files-found: error
           retention-days: 14
@@ -1439,7 +927,7 @@ jobs:
       - name: Upload V7A APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V22-Slider-Controls-V7A-${{ github.run_number }}
+          name: Bankmovie-V2.0-Complete-V7A-${{ github.run_number }}
           path: project/publish/v7a/*
           if-no-files-found: error
           retention-days: 14
@@ -1447,7 +935,7 @@ jobs:
       - name: Upload Lite Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V22-Slider-Controls-Universal-Lite-2ABI-${{ github.run_number }}
+          name: Bankmovie-V2.0-Complete-Universal-Lite-2ABI-${{ github.run_number }}
           path: project/publish/universal-lite/*
           if-no-files-found: error
           retention-days: 14
@@ -1455,7 +943,7 @@ jobs:
       - name: Upload Full Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V1.9-V22-Slider-Controls-Universal-Full-4ABI-${{ github.run_number }}
+          name: Bankmovie-V2.0-Complete-Universal-Full-4ABI-${{ github.run_number }}
           path: project/publish/universal-full/*
           if-no-files-found: error
           retention-days: 14
