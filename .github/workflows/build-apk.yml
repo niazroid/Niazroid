@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.0 Complete
+name: Build Bankmovie V2.0 Complete - Hotfix 3
 
 on:
   workflow_dispatch:
@@ -10,18 +10,22 @@ permissions:
 
 jobs:
   build:
-    name: Build V2.0 Complete
+    name: Build V2.0 Complete - Hotfix 3
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Show workflow revision
+        shell: bash
+        run: echo "WORKFLOW_REVISION=V2-HOTFIX-20260716-3"
+
       - name: Unzip exact V2.0 source
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="Bankmovie-v2.0-complete-source.zip"
+          ZIP="Bankmovie-v2.0-sourvce.zip"
           if [ ! -f "$ZIP" ]; then
             echo "==================== REAL ERROR ===================="
             echo "Missing $ZIP in repository root."
@@ -65,6 +69,7 @@ jobs:
           ACCOUNT_SESSION="project/app/src/main/java/ir/bankmoviee/app/AccountSession.kt"
           AUTH_ACTIVITY="project/app/src/main/java/ir/bankmoviee/app/AuthActivity.kt"
           USER_API="project/server-required/app_user_api.php"
+          CONTENT_API="project/server-required/app_api.php"
           MANIFEST="project/app/src/main/AndroidManifest.xml"
           GRADLE="project/app/build.gradle"
 
@@ -83,6 +88,11 @@ jobs:
           test -f "$ACCOUNT_SESSION"
           test -f "$AUTH_ACTIVITY"
           test -f "$USER_API"
+          test -f "$CONTENT_API"
+          test -f project/server-required/assets/avatars/male_01.svg
+          test -f project/server-required/assets/avatars/female_04.svg
+          test -f project/app/src/main/res/drawable/avatar_male_01.xml
+          test -f project/app/src/main/res/drawable/avatar_female_04.xml
           test -f project/app/src/main/res/xml/file_paths.xml
           test -f project/app/src/main/res/drawable/ic_telegram.xml
           test -f project/app/src/main/res/drawable/ic_dubbed_mic_green.xml
@@ -127,9 +137,21 @@ jobs:
           grep -Fq 'AccountSession.isLoggedIn' "$MAIN"
           grep -Fq 'accountProfileCard' "$MAIN"
           php -l "$USER_API"
+          php -l "$CONTENT_API"
           grep -Fq "if (\$action === 'login')" "$USER_API"
           grep -Fq "if (\$action === 'register')" "$USER_API"
           grep -Fq "if (\$action === 'watchlist_sync')" "$USER_API"
+          grep -Fq "if (\$action === 'comments_list')" "$USER_API"
+          grep -Fq "if (\$action === 'avatar_update')" "$USER_API"
+          grep -Fq 'bm_user_api_resolve_db_movie_id' "$USER_API"
+          grep -Fq 'bm_app_db_detail' "$CONTENT_API"
+          grep -Fq '$archive2ApiBase?section=' "$MAIN"
+          grep -Fq 'private fun isDatabaseBackedItem(seed: JSONObject?)' "$MAIN"
+          grep -Fq 'bm_user_api_is_database_item' "$USER_API"
+          grep -Fq "action=detail" "$MAIN"
+          grep -Fq 'archive=2' "$MAIN"
+          grep -Fq 'renderCommentsSection(page, item)' "$MAIN"
+          grep -Fq 'showAvatarPicker()' "$MAIN"
 
           php -l project/server-required/api5.php
           php -l project/server-required/api5_lib.php
@@ -210,52 +232,34 @@ jobs:
 
           echo "V2.0 complete source, TV focus, smooth dialogs, professional downloads, account API and prior fixes verified."
 
-      - name: Preserve transparent background compile fix
+      - name: Verify permanent UI and AAPT style fixes (V2-HOTFIX-20260716-3)
         shell: bash
         run: |
           set -euo pipefail
-
           MAIN="project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
-
-          python3 <<'PY'
-          from pathlib import Path
-
-          path = Path("project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt")
-          source = path.read_text(encoding="utf-8")
-
-          old = (
-              "        val wrapper = LinearLayout(this).apply {\n"
-              "            orientation = LinearLayout.VERTICAL\n"
-              "            background = Color.TRANSPARENT\n"
-              "        }"
-          )
-
-          new = (
-              "        val wrapper = LinearLayout(this).apply {\n"
-              "            orientation = LinearLayout.VERTICAL\n"
-              "            setBackgroundColor(Color.TRANSPARENT)\n"
-              "        }"
-          )
-
-          count = source.count(old)
-          if count != 1:
-              print("==================== REAL ERROR ====================")
-              print(f"Expected one broken transparent background block, found: {count}")
-              print("====================================================")
-              raise SystemExit(1)
-
-          path.write_text(source.replace(old, new, 1), encoding="utf-8")
-          print("V22 compile error fixed.")
-          PY
-
-          grep -Fq 'setBackgroundColor(Color.TRANSPARENT)' "$MAIN"
+          STYLES="project/app/src/main/res/values/styles.xml"
+          echo "WORKFLOW_REVISION=V2-HOTFIX-20260716-3"
 
           if grep -Fq 'background = Color.TRANSPARENT' "$MAIN"; then
-            echo "Broken Drawable assignment still exists."
+            echo "Invalid Android Drawable assignment remains in MainActivity.kt"
             exit 1
           fi
 
-          echo "V22 compile hotfix verified."
+          # Dotted non-theme names caused AAPT to request a missing implicit parent: @style/BankMovie.
+          if grep -Eq '<style[[:space:]]+name="BankMovie\.' "$STYLES"; then
+            echo "Legacy dotted BankMovie style remains and can recreate resource style/BankMovie not found."
+            exit 1
+          fi
+          grep -Fq '<style name="BankMovieDialogAnimation">' "$STYLES"
+          grep -Fq '<style name="BankMovieAlertDialog" parent="android:style/Theme.Material.Dialog.Alert">' "$STYLES"
+          grep -Fq '@style/BankMovieDialogAnimation' "$STYLES"
+          grep -Fq '@style/BankMovieAlertDialog' "$STYLES"
+          if grep -Fq '@style/BankMovie.' "$STYLES"; then
+            echo "Legacy dotted BankMovie style reference remains."
+            exit 1
+          fi
+
+          echo "Transparent background and AAPT style fixes verified directly in source."
 
       - name: Make startup independent from archive availability
         shell: bash
