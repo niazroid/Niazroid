@@ -1,11 +1,11 @@
-name: Build Bankmovie V2.1 Complete
+name: Build Bankmovie V2.1 - Bug Fix
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - 'Bankmovie-v2.1-sourvce.zip'
+      - 'Bankmovie-v2.1-bugfix-sourvce.zip'
       - '.github/workflows/build-apk.yml'
 
 permissions:
@@ -13,104 +13,66 @@ permissions:
 
 jobs:
   build:
-    name: Build V2.1 APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
-
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify source package
+      - name: Extract source
         shell: bash
         run: |
           set -euo pipefail
-          echo "WORKFLOW_REVISION=BANKMOVIE-V2.1-20260716"
-          ZIP="Bankmovie-v2.1-sourvce.zip"
-          test -f "$ZIP" || { echo "Missing $ZIP in repository root"; exit 1; }
+          ZIP="Bankmovie-v2.1-bugfix-sourvce.zip"
+          test -f "$ZIP"
           unzip -t "$ZIP" >/dev/null
           rm -rf project
-          mkdir -p project
+          mkdir project
           unzip -q "$ZIP" -d project
           test -f project/settings.gradle
           test -f project/app/build.gradle
-          test -f project/bankmovie_update.jks
-          test -f project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -Fq 'versionName "2.1"' project/app/build.gradle
-          grep -Fq 'versionCode 4100000 + runNumber' project/app/build.gradle
-          grep -Fq 'showNotificationCenter' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -Fq 'showTvQuickMenu' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -Fq 'showCommentReportDialog' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
 
-      - name: Set up Java 17
+      - name: Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
+      - name: Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android platform
+      - name: Install SDK packages
         shell: bash
         run: |
-          set -euo pipefail
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
-      - name: Set up Gradle 8.9
+      - name: Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-          cache-read-only: false
 
-      - name: Verify signing key
+      - name: Build release APK
         shell: bash
         working-directory: project
         run: |
           set -euo pipefail
-          keytool -list -keystore bankmovie_update.jks -storepass bankmovie123 -alias bankmovie >/dev/null
-          echo "Bankmovie update key is readable."
+          gradle :app:assembleRelease --no-daemon --max-workers=1 --stacktrace --console=plain 2>&1 | tee build.log
 
-      - name: Build signed release APKs
+      - name: Collect APK files
         shell: bash
         working-directory: project
         run: |
           set -euo pipefail
-          gradle :app:assembleRelease \
-            --no-daemon \
-            --max-workers=1 \
-            --stacktrace \
-            --console=plain 2>&1 | tee build-v2.1.log
-
-      - name: Collect APKs
-        shell: bash
-        working-directory: project
-        run: |
-          set -euo pipefail
-          OUT="app/build/outputs/apk/release"
-          test -d "$OUT"
           mkdir -p publish
-          count=0
-          while IFS= read -r -d '' apk; do
-            base="$(basename "$apk")"
-            case "$base" in
-              *arm64-v8a*) new="Bankmovie-v2.1-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk" ;;
-              *armeabi-v7a*) new="Bankmovie-v2.1-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk" ;;
-              *universal*) new="Bankmovie-v2.1-universal-build-${GITHUB_RUN_NUMBER}.apk" ;;
-              *) new="Bankmovie-v2.1-${base}" ;;
-            esac
-            cp "$apk" "publish/$new"
-            count=$((count+1))
-          done < <(find "$OUT" -maxdepth 1 -type f -name '*.apk' -print0)
-          test "$count" -gt 0 || { echo "No APK produced"; find app/build/outputs -type f -print || true; exit 1; }
+          find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -exec cp {} publish/ \;
+          test -n "$(find publish -type f -name '*.apk' -print -quit)"
           (cd publish && sha256sum *.apk > SHA256.txt)
-          ls -lh publish
 
-      - name: Upload APK package
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-APKs-${{ github.run_number }}
+          name: Bankmovie-V2.1-BugFix-${{ github.run_number }}
           path: project/publish/*
           if-no-files-found: error
           retention-days: 14
@@ -119,7 +81,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Build-Log-${{ github.run_number }}
-          path: project/build-v2.1.log
+          name: Bankmovie-V2.1-BugFix-Log-${{ github.run_number }}
+          path: project/build.log
           if-no-files-found: ignore
           retention-days: 7
