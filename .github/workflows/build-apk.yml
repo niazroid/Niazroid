@@ -1,733 +1,46 @@
-name: Build Bankmovie V2.0 Complete - Hotfix 3
+name: Build Bankmovie V2.1 Complete
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
+    paths:
+      - 'Bankmovie-v2.1-sourvce.zip'
+      - '.github/workflows/build-apk.yml'
 
 permissions:
   contents: read
 
 jobs:
   build:
-    name: Build V2.0 Complete - Hotfix 3
+    name: Build V2.1 APK
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Show workflow revision
-        shell: bash
-        run: echo "WORKFLOW_REVISION=V2-HOTFIX-20260716-3"
-
-      - name: Unzip exact V2.0 source
+      - name: Verify source package
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="Bankmovie-v2.0-sourvce.zip"
-          if [ ! -f "$ZIP" ]; then
-            echo "==================== REAL ERROR ===================="
-            echo "Missing $ZIP in repository root."
-            echo "===================================================="
-            exit 1
-          fi
+          echo "WORKFLOW_REVISION=BANKMOVIE-V2.1-20260716"
+          ZIP="Bankmovie-v2.1-sourvce.zip"
+          test -f "$ZIP" || { echo "Missing $ZIP in repository root"; exit 1; }
+          unzip -t "$ZIP" >/dev/null
           rm -rf project
-          mkdir project
+          mkdir -p project
           unzip -q "$ZIP" -d project
           test -f project/settings.gradle
           test -f project/app/build.gradle
-          test -f project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-
-      - name: Verify legacy update signing key
-        shell: bash
-        run: |
-          set -euo pipefail
           test -f project/bankmovie_update.jks
-          KEY_INFO="$(keytool -list -v -keystore project/bankmovie_update.jks -storepass bankmovie123 -alias bankmovie)"
-          printf '%s\n' "$KEY_INFO"
-          NORMALIZED="$(printf '%s\n' "$KEY_INFO" | sed -n 's/.*SHA256: //p' | head -n1 | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
-          EXPECTED="862bc358d8d239a2134a63fab979ff6019862372e7950ea49bac74780936205d"
-          if [ "$NORMALIZED" != "$EXPECTED" ]; then
-            echo "Legacy Bankmovie signing key mismatch: $NORMALIZED"
-            exit 1
-          fi
-          echo "Legacy signing key verified: $NORMALIZED"
-
-      - name: Verify V2.0 complete source
-        shell: bash
-        run: |
-          set -euo pipefail
-          MAIN="project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
-          PLAYER="project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt"
-          PREFS="project/app/src/main/java/ir/bankmoviee/app/UiPreferences.kt"
-          STORE="project/app/src/main/java/ir/bankmoviee/app/InternalDownloadStore.kt"
-          SERVICE="project/app/src/main/java/ir/bankmoviee/app/InternalDownloadService.kt"
-          DOWNLOADS="project/app/src/main/java/ir/bankmoviee/app/DownloadsActivity.kt"
-          LOCATION="project/app/src/main/java/ir/bankmoviee/app/DownloadLocationPrefs.kt"
-          ACCOUNT_API="project/app/src/main/java/ir/bankmoviee/app/AccountApi.kt"
-          ACCOUNT_SESSION="project/app/src/main/java/ir/bankmoviee/app/AccountSession.kt"
-          AUTH_ACTIVITY="project/app/src/main/java/ir/bankmoviee/app/AuthActivity.kt"
-          USER_API="project/server-required/app_user_api.php"
-          CONTENT_API="project/server-required/app_api.php"
-          MANIFEST="project/app/src/main/AndroidManifest.xml"
-          GRADLE="project/app/build.gradle"
-
-          grep -Fq 'versionName "2.0"' "$GRADLE"
-          grep -Fq 'versionCode 4000000 + runNumber' "$GRADLE"
-          grep -Fq "androidx.documentfile:documentfile" "$GRADLE"
-          grep -Fq 'minifyEnabled true' "$GRADLE"
-          grep -Fq 'shrinkResources true' "$GRADLE"
-
-          test -f "$PREFS"
-          test -f "$STORE"
-          test -f "$SERVICE"
-          test -f "$DOWNLOADS"
-          test -f "$LOCATION"
-          test -f "$ACCOUNT_API"
-          test -f "$ACCOUNT_SESSION"
-          test -f "$AUTH_ACTIVITY"
-          test -f "$USER_API"
-          test -f "$CONTENT_API"
-          test -f project/server-required/assets/avatars/male_01.svg
-          test -f project/server-required/assets/avatars/female_04.svg
-          test -f project/app/src/main/res/drawable/avatar_male_01.xml
-          test -f project/app/src/main/res/drawable/avatar_female_04.xml
-          test -f project/app/src/main/res/xml/file_paths.xml
-          test -f project/app/src/main/res/drawable/ic_telegram.xml
-          test -f project/app/src/main/res/drawable/ic_dubbed_mic_green.xml
-
-          grep -Fq 'InternalDownloadService' "$MANIFEST"
-          grep -Fq 'DownloadsActivity' "$MANIFEST"
-          grep -Fq 'AuthActivity' "$MANIFEST"
-          grep -Fq 'android.permission.FOREGROUND_SERVICE_DATA_SYNC' "$MANIFEST"
-          grep -Fq 'androidx.core.content.FileProvider' "$MANIFEST"
-
-          grep -Fq 'private val bmAppKey = "bm_android_v1_7c2f40"' "$MAIN"
-          grep -Fq 'DownloadLocationPrefs.hasChoice' "$MAIN"
-          grep -Fq 'Intent.ACTION_OPEN_DOCUMENT_TREE' "$MAIN"
-          grep -Fq 'itemHasDubbedBadge' "$MAIN"
-          grep -Fq 'ic_dubbed_mic_green' "$MAIN"
-          grep -Fq 'normalizeArchiveItem(it, archive)' "$MAIN"
-          grep -Fq 'text = "نسخه ${appVersionName()}"' "$MAIN"
-          grep -Fq 'سافت‌ساب فارسی' "$MAIN"
-          grep -Fq 'هاردساب فارسی' "$MAIN"
-          grep -Fq 'دوبله فارسی' "$MAIN"
-          grep -Fq 'صوت دوبله' "$MAIN"
-
-          grep -Fq 'private fun showAdvancedSearchResults(state: AdvancedSearchState)' "$MAIN"
-          grep -Fq 'private fun advancedSearchAccordion(' "$MAIN"
-          grep -Fq 'private fun showAdvancedFiltersDialog(' "$MAIN"
-          grep -Fq 'private fun advancedFilterCount(' "$MAIN"
-          grep -Fq 'جستجوی پیشرفته' "$MAIN"
-          grep -Fq 'اعمال فیلتر' "$MAIN"
-          grep -Fq 'هر آرشیو دیتابیس جدا دارد' "$MAIN"
-          grep -Fq 'private fun advancedSearchUrl(state: AdvancedSearchState' "$MAIN"
-          grep -Fq 'جستجوی پیشرفته' "$MAIN"
-          grep -Fq 'آرشیو ۱' "$MAIN"
-          grep -Fq 'آرشیو ۲' "$MAIN"
-          if grep -Fq 'پلی‌لیست' "$MAIN"; then
-            echo "Old Playlist label still exists."
-            exit 1
-          fi
-
-          grep -Fq 'app_user_api.php?action=' "$ACCOUNT_API"
-          grep -Fq 'watchlist_sync' "$ACCOUNT_API"
-          grep -Fq 'class AuthActivity' "$AUTH_ACTIVITY"
-          grep -Fq 'AccountSession.isLoggedIn' "$MAIN"
-          grep -Fq 'accountProfileCard' "$MAIN"
-          php -l "$USER_API"
-          php -l "$CONTENT_API"
-          grep -Fq "if (\$action === 'login')" "$USER_API"
-          grep -Fq "if (\$action === 'register')" "$USER_API"
-          grep -Fq "if (\$action === 'watchlist_sync')" "$USER_API"
-          grep -Fq "if (\$action === 'comments_list')" "$USER_API"
-          grep -Fq "if (\$action === 'avatar_update')" "$USER_API"
-          grep -Fq 'bm_user_api_resolve_db_movie_id' "$USER_API"
-          grep -Fq 'bm_app_db_detail' "$CONTENT_API"
-          grep -Fq '$archive2ApiBase?section=' "$MAIN"
-          grep -Fq 'private fun isDatabaseBackedItem(seed: JSONObject?)' "$MAIN"
-          grep -Fq 'bm_user_api_is_database_item' "$USER_API"
-          grep -Fq "action=detail" "$MAIN"
-          grep -Fq 'archive=2' "$MAIN"
-          grep -Fq 'renderCommentsSection(page, item)' "$MAIN"
-          grep -Fq 'showAvatarPicker()' "$MAIN"
-
-          php -l project/server-required/api5.php
-          php -l project/server-required/api5_lib.php
-          php -l project/server-required/archive1_live.php
-          php -l project/server-required/archive1_live_lib.php
-          grep -Fq 'serialblog_advanced_search' project/server-required/api5_lib.php
-          grep -Fq 'bma1_advanced_url' project/server-required/archive1_live_lib.php
-          grep -Fq "isset(\$_GET['advanced'])" project/server-required/api5.php
-          grep -Fq "isset(\$_GET['advanced'])" project/server-required/archive1_live.php
-
-          grep -Fq 'private fun showAudioSubtitleSettingsSheet()' "$PLAYER"
-          grep -Fq 'time.toDouble() / length.toDouble() < 0.95' "$PLAYER"
-          grep -Fq '"pink" to "صورتی"' "$PLAYER"
-          if grep -Eq 'CastContext|MediaRouteButton|CastButtonFactory|castCurrentMedia' "$PLAYER"; then
-            echo "Cast code still exists in PlayerActivity."
-            exit 1
-          fi
-          if grep -Eq 'play-services-cast-framework|androidx.mediarouter' "$GRADLE"; then
-            echo "Cast dependencies still exist."
-            exit 1
-          fi
-          if grep -Fq 'CastOptionsProvider' "$MANIFEST"; then
-            echo "Cast manifest metadata still exists."
-            exit 1
-          fi
-
-          grep -Fq 'getInt(KEY_SUB_TEXT_COLOR, Color.YELLOW)' "$PREFS"
-          grep -Fq 'getString(KEY_SUB_BG_MODE, "black")' "$PREFS"
-          grep -Fq '"pink" -> Color.rgb(236, 64, 122)' "$PREFS"
-          if grep -Fq '"glass"' "$PREFS"; then
-            echo "Broken glass subtitle mode still exists."
-            exit 1
-          fi
-
-          grep -Fq 'DocumentFile.fromTreeUri' "$SERVICE"
-          grep -Fq 'ParcelFileDescriptor' "$SERVICE"
-          grep -Fq 'setRequestProperty("Range", "bytes=$start-")' "$SERVICE"
-          grep -Fq 'Executors.newFixedThreadPool(2)' "$SERVICE"
-          grep -Fq 'مدیریت حرفه‌ای، توقف و ادامه واقعی' "$DOWNLOADS"
-          grep -Fq 'ذخیره در:' "$DOWNLOADS"
-          grep -Fq 'DownloadLocationPrefs.setTree' "$DOWNLOADS"
-          grep -Fq 'private fun updateProgressOnly' "$DOWNLOADS"
-          grep -Fq 'private fun loadPoster' "$DOWNLOADS"
-          grep -Fq 'EXTRA_POSTER' "$SERVICE"
-          test -f project/app/src/main/res/values/ids.xml
-          test -f project/app/src/main/res/anim/bm_dialog_enter.xml
-          test -f project/V24_TV_FOCUS_SMOOTH_UI_README_FA.txt
-          test -f project/V2_COMPLETE_RELEASE_README_FA.txt
-
-          if grep -R -E 'bonVF|vazir\.ttf|KEY_FONT|KEY_SUB_FONT|customFontFile' project/app/src/main project/app/build.gradle; then
-            echo "Custom font code or asset still exists."
-            exit 1
-          fi
-          if grep -Fq 'دانلود با Chrome' "$MAIN"; then
-            echo "Chrome downloader must stay removed."
-            exit 1
-          fi
-          if find project/app/src/main -type f \( -iname '*.ttf' -o -iname '*.otf' -o -iname '*.woff' -o -iname '*.woff2' \) | grep -q .; then
-            echo "A font file is still packaged."
-            exit 1
-          fi
-
-          grep -Fq 'const val EXTRA_PLAYLIST_FILE = "playlist_file"' "$PLAYER"
-          grep -Fq 'private fun launchPlayerSafely(url: String)' "$PLAYER"
-          grep -Fq 'playbackRetryCount < 2' "$PLAYER"
-          grep -Fq 'private fun cachePlayerPayload(payload: JSONObject)' "$MAIN"
-          grep -Fq 'putExtra(PlayerActivity.EXTRA_PLAYLIST_FILE, payloadPath)' "$MAIN"
-          grep -Fq 'private fun showPlaylistGuide()' "$MAIN"
-          grep -Fq 'آرشیو ۱ — همیشه به‌روز' "$MAIN"
-          grep -Fq 'آرشیو ۲ — به‌روزرسانی دیرتر' "$MAIN"
-          grep -Fq 'private fun showFavorites()' "$MAIN"
-          grep -Fq '"favorites", R.drawable.ic_nav_heart' "$MAIN"
-          grep -Fq 'currentScreen != "search"' "$MAIN"
-          grep -Fq 'archiveSwitchBar { archive ->' "$MAIN"
-          grep -Fq 'Executors.newFixedThreadPool(4)' "$MAIN"
-          test -f project/V20_PLAYER_CRASH_PLAYLIST_GUIDE_README_FA.txt
-          test -f project/V22_SEARCH_FILTER_UI_README_FA.txt
-
-          echo "V2.0 complete source, TV focus, smooth dialogs, professional downloads, account API and prior fixes verified."
-
-      - name: Verify permanent UI and AAPT style fixes (V2-HOTFIX-20260716-3)
-        shell: bash
-        run: |
-          set -euo pipefail
-          MAIN="project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
-          STYLES="project/app/src/main/res/values/styles.xml"
-          echo "WORKFLOW_REVISION=V2-HOTFIX-20260716-3"
-
-          if grep -Fq 'background = Color.TRANSPARENT' "$MAIN"; then
-            echo "Invalid Android Drawable assignment remains in MainActivity.kt"
-            exit 1
-          fi
-
-          # Dotted non-theme names caused AAPT to request a missing implicit parent: @style/BankMovie.
-          if grep -Eq '<style[[:space:]]+name="BankMovie\.' "$STYLES"; then
-            echo "Legacy dotted BankMovie style remains and can recreate resource style/BankMovie not found."
-            exit 1
-          fi
-          grep -Fq '<style name="BankMovieDialogAnimation">' "$STYLES"
-          grep -Fq '<style name="BankMovieAlertDialog" parent="android:style/Theme.Material.Dialog.Alert">' "$STYLES"
-          grep -Fq '@style/BankMovieDialogAnimation' "$STYLES"
-          grep -Fq '@style/BankMovieAlertDialog' "$STYLES"
-          if grep -Fq '@style/BankMovie.' "$STYLES"; then
-            echo "Legacy dotted BankMovie style reference remains."
-            exit 1
-          fi
-
-          echo "Transparent background and AAPT style fixes verified directly in source."
-
-      - name: Make startup independent from archive availability
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          cat > /tmp/patch_archive_fallback.py <<'PY'
-          from pathlib import Path
-          
-          path = Path('project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt')
-          source = path.read_text(encoding='utf-8')
-          
-          # Keep remote-config failure from delaying app entry for too long.
-          source = source.replace('connectTimeout = 6500', 'connectTimeout = 3500', 1)
-          source = source.replace('readTimeout = 9000', 'readTimeout = 5000', 1)
-          
-          # 1) Runtime archive state fields.
-          old = '''    private var pendingDownloadItemJson = ""
-              private var pendingDownloadLinkJson = ""
-          '''
-          new = '''    private var pendingDownloadItemJson = ""
-              private var pendingDownloadLinkJson = ""
-              private var archive1Available: Boolean? = null
-              private var archive2Available: Boolean? = null
-              private var archiveProbeRemaining = 0
-              private var archiveStatusNoticeShown = false
-          '''
-          if old not in source:
-              raise SystemExit('fields anchor not found')
-          source = source.replace(old, new, 1)
-          
-          # 2) Replace direct archive selection with availability-aware selection.
-          start = source.index('    private fun setSelectedArchive(archive: Int) {')
-          end = source.index('\n    private fun archiveSectionUrl(', start)
-          selection_code = r'''    private fun archiveKnownAvailable(archive: Int): Boolean? {
-                  return if (archive == 2) archive2Available else archive1Available
-              }
-          
-              private fun archiveOther(archive: Int): Int = if (archive == 2) 1 else 2
-          
-              private fun archiveDownMessage(archive: Int): String {
-                  val other = archiveOther(archive)
-                  return t(
-                      "${archiveLabel(archive)} موقتاً در دسترس نیست. تا زمان رفع مشکل از ${archiveLabel(other)} استفاده کنید.",
-                      "${archiveLabel(archive)} is temporarily unavailable. Please use ${archiveLabel(other)} until it is restored."
-                  )
-              }
-          
-              private fun chooseArchive(archive: Int, onSelected: ((Int) -> Unit)? = null) {
-                  val safe = if (archive == 2) 2 else 1
-                  val other = archiveOther(safe)
-                  if (archiveKnownAvailable(safe) == false && archiveKnownAvailable(other) == true) {
-                      showArchiveUnavailableDialog(safe, other)
-                      return
-                  }
-                  val changed = selectedArchive != safe
-                  selectedArchive = safe
-                  appPrefs().edit().putInt("selected_archive", safe).apply()
-                  if (onSelected != null) {
-                      onSelected(safe)
-                  } else if (changed) {
-                      navigationHistory.clear()
-                      showHome()
-                  }
-              }
-          
-              private fun setSelectedArchive(archive: Int) {
-                  chooseArchive(archive, null)
-              }
-          '''
-          source = source[:start] + selection_code + source[end:]
-          
-          # 3) Make archive switch use chooseArchive().
-          old = '''            setOnClickListener {
-                          val safe = if (archive == 2) 2 else 1
-                          val changed = selectedArchive != safe
-                          selectedArchive = safe
-                          appPrefs().edit().putInt("selected_archive", safe).apply()
-                          if (onSelected != null) {
-                              onSelected(safe)
-                          } else if (changed) {
-                              navigationHistory.clear()
-                              showHome()
-                          }
-                      }
-          '''
-          new = '''            setOnClickListener {
-                          chooseArchive(archive, onSelected)
-                      }
-          '''
-          if old not in source:
-              raise SystemExit('archive segment click block not found')
-          source = source.replace(old, new, 1)
-          
-          # 4) Add resilient archive probes, banners and fallback boot.
-          boot_start = source.index('    private fun boot() {')
-          boot_end = source.index('\n        private fun attachSmartHeader(', boot_start)
-          boot_code = r'''    private fun cachedArchiveAvailability(archive: Int): Boolean? {
-                  val prefs = appPrefs()
-                  val checkedAt = prefs.getLong("archive_${archive}_checked_at", 0L)
-                  if (checkedAt <= 0L || System.currentTimeMillis() - checkedAt > 30L * 60L * 1000L) return null
-                  return when (prefs.getInt("archive_${archive}_available", -1)) {
-                      1 -> true
-                      0 -> false
-                      else -> null
-                  }
-              }
-          
-              private fun saveArchiveAvailability(archive: Int, available: Boolean) {
-                  if (archive == 2) archive2Available = available else archive1Available = available
-                  appPrefs().edit()
-                      .putInt("archive_${archive}_available", if (available) 1 else 0)
-                      .putLong("archive_${archive}_checked_at", System.currentTimeMillis())
-                      .apply()
-              }
-          
-              private fun archiveProbeUrl(archive: Int): String {
-                  return if (archive == 2) {
-                      "$archive2ApiBase?section=movies_2025_2026&page=1&limit=1"
-                  } else {
-                      "$apiBase?action=section&archive=1&section=updated_movies&page=1&limit=1"
-                  }
-              }
-          
-              private fun probeJsonFast(rawUrl: String): Boolean {
-                  ensureDefaultServerPool()
-                  val rewritten = rewriteConfiguredUrl(rawUrl)
-                  val original = try { URL(rewritten) } catch (_: Throwable) { return false }
-                  val query = original.query?.let { "?$it" }.orEmpty()
-                  val candidates = mutableListOf<String>()
-                  if (original.path.endsWith("app_api.php", true)) {
-                      apiServers.forEach { endpoint -> candidates.add(endpoint.apiUrl.substringBefore('?') + query) }
-                  } else {
-                      candidates.add(rewritten)
-                  }
-                  if (candidates.none { it.equals(rewritten, true) }) candidates.add(0, rewritten)
-          
-                  for (candidate in candidates.distinctBy { it.lowercase(Locale.US) }) {
-                      var connection: HttpURLConnection? = null
-                      try {
-                          val url = URL(candidate)
-                          connection = (url.openConnection() as HttpURLConnection).apply {
-                              connectTimeout = 3500
-                              readTimeout = 5000
-                              instanceFollowRedirects = true
-                              setRequestProperty("Accept", "application/json")
-                              setRequestProperty("User-Agent", "BankmovieAndroidNative/2.0-ArchiveFallback")
-                              setRequestProperty("Cache-Control", "no-cache")
-                          }
-                          if (url.path.endsWith("app_api.php", true)) {
-                              val ts = (System.currentTimeMillis() / 1000L + serverClockOffsetSec).toString()
-                              val pathQuery = url.path + if (url.query.isNullOrBlank()) "" else "?${url.query}"
-                              connection.setRequestProperty("X-BM-App-Key", bmAppKey)
-                              connection.setRequestProperty("X-BM-Ts", ts)
-                              connection.setRequestProperty("X-BM-Sign", hmacSha256Hex("$ts|$pathQuery", bmAppSecret))
-                          }
-                          val code = connection.responseCode
-                          val body = (if (code in 200..299) connection.inputStream else connection.errorStream)
-                              ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
-                          if (code !in 200..299 || body.isBlank()) continue
-                          val json = JSONObject(body)
-                          val explicitFailure =
-                              (json.has("ok") && !json.optBoolean("ok", false)) ||
-                              (json.has("success") && !json.optBoolean("success", false)) ||
-                              json.optString("error").isNotBlank()
-                          val hasPayload = json.has("items") || json.has("movies") || json.has("data") ||
-                              json.optBoolean("ready", false) || json.optBoolean("ok", false) || json.optBoolean("success", false)
-                          if (!explicitFailure && hasPayload) return true
-                      } catch (_: Throwable) {
-                      } finally {
-                          try { connection?.disconnect() } catch (_: Throwable) {}
-                      }
-                  }
-                  return false
-              }
-          
-              private fun showArchiveUnavailableDialog(unavailable: Int, available: Int) {
-                  if (isFinishing) return
-                  AlertDialog.Builder(this)
-                      .setTitle(t("${archiveLabel(unavailable)} موقتاً قطع است", "${archiveLabel(unavailable)} is temporarily offline"))
-                      .setMessage(archiveDownMessage(unavailable))
-                      .setPositiveButton(t("استفاده از ${archiveLabel(available)}", "Use ${archiveLabel(available)}")) { dialog, _ ->
-                          dialog.dismiss()
-                          val changed = selectedArchive != available
-                          selectedArchive = available
-                          appPrefs().edit().putInt("selected_archive", available).apply()
-                          if (changed && ::root.isInitialized && currentScreen == "home") showHome()
-                      }
-                      .setNegativeButton(t("بعداً", "Later"), null)
-                      .show()
-              }
-          
-              private fun activateArchiveFallback(unavailable: Int, available: Int) {
-                  if (selectedArchive != unavailable || archiveKnownAvailable(available) != true) return
-                  selectedArchive = available
-                  appPrefs().edit().putInt("selected_archive", available).apply()
-                  if (::root.isInitialized && currentScreen == "home") showHome()
-                  if (!archiveStatusNoticeShown) {
-                      archiveStatusNoticeShown = true
-                      showArchiveUnavailableDialog(unavailable, available)
-                  } else {
-                      Toast.makeText(this, archiveDownMessage(unavailable), Toast.LENGTH_LONG).show()
-                  }
-              }
-          
-              private fun handleArchiveProbeResult(archive: Int, available: Boolean) {
-                  saveArchiveAvailability(archive, available)
-                  archiveProbeRemaining = (archiveProbeRemaining - 1).coerceAtLeast(0)
-                  val other = archiveOther(archive)
-          
-                  if (!available && archiveKnownAvailable(other) == true) {
-                      activateArchiveFallback(archive, other)
-                  } else if (available && selectedArchive == other && archiveKnownAvailable(other) != true) {
-                      uiHandler.postDelayed({
-                          if (selectedArchive == other && archiveKnownAvailable(other) != true && archiveKnownAvailable(archive) == true) {
-                              activateArchiveFallback(other, archive)
-                          }
-                      }, 4000L)
-                  }
-          
-                  if (archiveProbeRemaining == 0 && ::root.isInitialized && currentScreen == "home") {
-                      showHome()
-                  }
-              }
-          
-              private fun refreshArchiveAvailability() {
-                  archiveProbeRemaining = 2
-                  for (archive in 1..2) {
-                      Thread {
-                          val available = probeJsonFast(archiveProbeUrl(archive))
-                          runOnUiThread { handleArchiveProbeResult(archive, available) }
-                      }.start()
-                  }
-              }
-          
-              private fun archiveStatusBanner(): View? {
-                  val a1 = archive1Available
-                  val a2 = archive2Available
-                  val message = when {
-                      a1 == false && a2 == true -> t(
-                          "آرشیو ۱ موقتاً در دسترس نیست؛ فعلاً از آرشیو ۲ استفاده کنید.",
-                          "Archive 1 is temporarily unavailable; please use Archive 2."
-                      )
-                      a2 == false && a1 == true -> t(
-                          "آرشیو ۲ موقتاً در دسترس نیست؛ فعلاً از آرشیو ۱ استفاده کنید.",
-                          "Archive 2 is temporarily unavailable; please use Archive 1."
-                      )
-                      a1 == false && a2 == false -> t(
-                          "هر دو آرشیو موقتاً در دسترس نیستند. برنامه باز می‌ماند؛ کمی بعد دوباره تلاش کنید.",
-                          "Both archives are temporarily unavailable. The app will stay open; try again shortly."
-                      )
-                      else -> return null
-                  }
-                  val target = when {
-                      a1 == false && a2 == true -> 2
-                      a2 == false && a1 == true -> 1
-                      else -> 0
-                  }
-                  return TextView(this).apply {
-                      text = message
-                      setTextColor(if (UiPreferences.themeMode(this@MainActivity) == "light") Color.rgb(92, 45, 0) else Color.rgb(255, 219, 153))
-                      textSize = 12.3f
-                      gravity = Gravity.CENTER
-                      typeface = Typeface.DEFAULT_BOLD
-                      setPadding(dp(14), dp(11), dp(14), dp(11))
-                      background = rounded(
-                          if (UiPreferences.themeMode(this@MainActivity) == "light") Color.rgb(255, 243, 214) else Color.rgb(56, 35, 12),
-                          dp(16),
-                          Color.rgb(226, 162, 48)
-                      )
-                      if (target != 0) setOnClickListener { chooseArchive(target, null) }
-                  }
-              }
-          
-              private fun archiveUnavailableView(archive: Int, rawError: String?): View {
-                  val other = archiveOther(archive)
-                  return LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      gravity = Gravity.CENTER
-                      setPadding(dp(16), dp(14), dp(16), dp(14))
-                      background = rounded(card, dp(16), Color.argb(100, 235, 168, 53))
-                      addView(TextView(this@MainActivity).apply {
-                          text = t("${archiveLabel(archive)} لود نشد", "${archiveLabel(archive)} could not be loaded")
-                          setTextColor(white)
-                          textSize = 13.5f
-                          typeface = Typeface.DEFAULT_BOLD
-                          gravity = Gravity.CENTER
-                      })
-                      addView(TextView(this@MainActivity).apply {
-                          text = if (archiveKnownAvailable(other) != false) archiveDownMessage(archive) else friendlyError(rawError)
-                          setTextColor(muted)
-                          textSize = 11.5f
-                          gravity = Gravity.CENTER
-                          setPadding(0, dp(6), 0, 0)
-                      })
-                      if (archiveKnownAvailable(other) != false) {
-                          addView(TextView(this@MainActivity).apply {
-                              text = t("رفتن به ${archiveLabel(other)}", "Open ${archiveLabel(other)}")
-                              setTextColor(Color.WHITE)
-                              textSize = 12f
-                              typeface = Typeface.DEFAULT_BOLD
-                              gravity = Gravity.CENTER
-                              background = blueGradient(dp(14))
-                              setPadding(dp(16), dp(8), dp(16), dp(8))
-                              setOnClickListener { chooseArchive(other, null) }
-                          }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(10) })
-                      }
-                  }
-              }
-          
-              private fun boot() {
-                  loadAppConfig {
-                      if (maintenanceMode) {
-                          runOnUiThread { showNetworkError(maintenanceMessage) }
-                          return@loadAppConfig
-                      }
-                      val versionBlockReason = currentVersionBlockReason()
-                      if (versionBlockReason != null) {
-                          runOnUiThread {
-                              val apkUrl = selectedRemoteApkUrl()
-                              if (apkUrl.isNotBlank() && forceUpdateBlockedVersions) {
-                                  showUpdateDialog(
-                                      remoteUpdateTitle.ifBlank { t("این نسخه غیرفعال شده است", "This version is disabled") },
-                                      versionBlockReason,
-                                      apkUrl,
-                                      true,
-                                      remoteVersionName.ifBlank { t("نسخه جدید", "Latest version") },
-                                      appVersionName(),
-                                      remoteUpdateChanges
-                                  )
-                              } else {
-                                  showBlockedVersionScreen(versionBlockReason)
-                              }
-                          }
-                          return@loadAppConfig
-                      }
-          
-                      archive1Available = cachedArchiveAvailability(1)
-                      archive2Available = cachedArchiveAvailability(2)
-                      if (selectedArchive == 1 && archive1Available == false && archive2Available != false) selectedArchive = 2
-                      if (selectedArchive == 2 && archive2Available == false && archive1Available != false) selectedArchive = 1
-                      appPrefs().edit().putInt("selected_archive", selectedArchive).apply()
-          
-                      val cachedBoot = appPrefs().getString("cached_boot_json_v1", "").orEmpty()
-                      bootJson = try {
-                          if (cachedBoot.isNotBlank()) JSONObject(cachedBoot) else JSONObject().put("ready", true).put("sliders", JSONArray())
-                      } catch (_: Throwable) {
-                          JSONObject().put("ready", true).put("sliders", JSONArray())
-                      }
-          
-                      runOnUiThread {
-                          buildShell()
-                          showHome()
-                          showRemoteNoticeIfNeeded()
-                          showConfigUpdateIfNeeded(false)
-                          refreshArchiveAvailability()
-                      }
-          
-                      // Boot metadata is optional. Its failure must never block entering the app.
-                      fetch("$apiBase?action=boot") { ok, json, _ ->
-                          if (ok && json != null && json.optBoolean("ready", false)) {
-                              bootJson = json
-                              appPrefs().edit().putString("cached_boot_json_v1", json.toString()).apply()
-                          }
-                      }
-                  }
-              }
-          '''
-          source = source[:boot_start] + boot_code + source[boot_end:]
-          
-          # 5) Show archive status on home without blocking the UI.
-          old = '''        page.addView(playlistGuideCard(compact = true), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
-                  addQuickTabs(page)
-          '''
-          new = '''        page.addView(playlistGuideCard(compact = true), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
-                  archiveStatusBanner()?.let { banner ->
-                      page.addView(banner, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
-                  }
-                  addQuickTabs(page)
-          '''
-          if old not in source:
-              raise SystemExit('home guide anchor not found')
-          source = source.replace(old, new, 1)
-          
-          # 6) Friendly per-archive error with a direct switch button.
-          old = '                    row.addView(errorView(err ?: "خطا در دریافت اطلاعات"))\n'
-          new = '                    row.addView(archiveUnavailableView(archive, err))\n'
-          if old not in source:
-              raise SystemExit('addRail error anchor not found')
-          source = source.replace(old, new, 1)
-          
-          path.write_text(source, encoding='utf-8')
-          print('archive fallback patch applied')
-          PY
-
-          python3 /tmp/patch_archive_fallback.py
-
-          MAIN="project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
-
-          grep -Fq 'private var archive1Available: Boolean? = null' "$MAIN"
-          grep -Fq 'private var archive2Available: Boolean? = null' "$MAIN"
-          grep -Fq 'private fun probeJsonFast(rawUrl: String): Boolean' "$MAIN"
-          grep -Fq 'private fun refreshArchiveAvailability()' "$MAIN"
-          grep -Fq 'private fun archiveStatusBanner(): View?' "$MAIN"
-          grep -Fq 'private fun archiveUnavailableView(archive: Int, rawError: String?): View' "$MAIN"
-          grep -Fq 'cached_boot_json_v1' "$MAIN"
-          grep -Fq 'Boot metadata is optional. Its failure must never block entering the app.' "$MAIN"
-          grep -Fq 'آرشیو ۱ موقتاً در دسترس نیست؛ فعلاً از آرشیو ۲ استفاده کنید.' "$MAIN"
-          grep -Fq 'آرشیو ۲ موقتاً در دسترس نیست؛ فعلاً از آرشیو ۱ استفاده کنید.' "$MAIN"
-          grep -Fq 'هر دو آرشیو موقتاً در دسترس نیستند. برنامه باز می‌ماند' "$MAIN"
-          grep -Fq 'row.addView(archiveUnavailableView(archive, err))' "$MAIN"
-          grep -Fq 'connectTimeout = 3500' "$MAIN"
-          grep -Fq 'readTimeout = 5000' "$MAIN"
-
-          echo "Archive-independent startup and automatic failover verified."
-
-      - name: Force first build to ARM64 and V7A only
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 <<'PY'
-          from pathlib import Path
-          import re
-
-          path = Path("project/app/build.gradle")
-          source = path.read_text(encoding="utf-8")
-
-          source = re.sub(
-              r'\n\s*ndk\s*\{\s*abiFilters[^\n]*\n\s*\}',
-              '',
-              source,
-              count=1,
-              flags=re.MULTILINE,
-          )
-
-          marker = '        versionName "2.0"\n'
-          replacement = (
-              '        versionName "2.0"\n'
-              '        ndk {\n'
-              '            abiFilters "armeabi-v7a", "arm64-v8a"\n'
-              '        }\n'
-          )
-          if marker not in source:
-              raise SystemExit("Could not find versionName insertion point")
-          source = source.replace(marker, replacement, 1)
-
-          source, changed = re.subn(
-              r'include\s+[^\n]+',
-              'include "armeabi-v7a", "arm64-v8a"',
-              source,
-              count=1,
-          )
-          if changed != 1:
-              raise SystemExit("Could not set two-ABI split list")
-
-          source, changed = re.subn(
-              r'universalApk\s+(?:false|true)',
-              'universalApk true',
-              source,
-              count=1,
-          )
-          if changed != 1:
-              raise SystemExit("Could not enable universal APK")
-
-          path.write_text(source, encoding="utf-8")
-          PY
-          grep -Fq 'abiFilters "armeabi-v7a", "arm64-v8a"' project/app/build.gradle
-          grep -Fq 'include "armeabi-v7a", "arm64-v8a"' project/app/build.gradle
+          test -f project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -Fq 'versionName "2.1"' project/app/build.gradle
+          grep -Fq 'versionCode 4100000 + runNumber' project/app/build.gradle
+          grep -Fq 'showNotificationCenter' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -Fq 'showTvQuickMenu' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -Fq 'showCommentReportDialog' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -741,213 +54,72 @@ jobs:
       - name: Install Android platform
         shell: bash
         run: |
+          set -euo pipefail
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
-          echo "sdk.dir=$ANDROID_HOME" > project/local.properties
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
       - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+          cache-read-only: false
 
-      - name: Build and verify four APKs
-        working-directory: project
+      - name: Verify signing key
         shell: bash
+        working-directory: project
         run: |
-          set -uo pipefail
-          rm -rf app/build publish
-          mkdir -p publish/arm64 publish/v7a publish/universal-lite publish/universal-full
+          set -euo pipefail
+          keytool -list -keystore bankmovie_update.jks -storepass bankmovie123 -alias bankmovie >/dev/null
+          echo "Bankmovie update key is readable."
 
-          print_real_error() {
-            local log_file="$1"
-            local exit_code="$2"
-            echo ""
-            echo "================ KOTLIN COMPILER ERRORS ================"
-            grep -E '(^e: |^w: |\.kt:[0-9]+:[0-9]+|\.kt \([0-9]+,[0-9]+\)|Unresolved reference|Type mismatch|Overload resolution ambiguity|Cannot infer|No value passed|Too many arguments|Unsupported escape|Expecting)' "$log_file" | tail -n 260 || true
-            echo "==================== REAL ERROR ========================="
-            grep -Ei 'FAILURE:|What went wrong:|Execution failed|error:|Exception|Caused by:' "$log_file" | tail -n 200 || true
-            echo "-------------------- LAST LOG LINES ---------------------"
-            tail -n 140 "$log_file" || true
-            echo "========================================================="
-            exit "$exit_code"
-          }
+      - name: Build signed release APKs
+        shell: bash
+        working-directory: project
+        run: |
+          set -euo pipefail
+          gradle :app:assembleRelease \
+            --no-daemon \
+            --max-workers=1 \
+            --stacktrace \
+            --console=plain 2>&1 | tee build-v2.1.log
 
-          build_release() {
-            local log_file="$1"
-            local mode="$2"
-            rm -rf app/build
-            set +e
-            if [ "$mode" = "append" ]; then
-              gradle :app:assembleRelease --no-daemon --max-workers=1 --stacktrace --console=plain 2>&1 | tee -a "$log_file"
-            else
-              gradle :app:assembleRelease --no-daemon --max-workers=1 --stacktrace --console=plain 2>&1 | tee "$log_file"
-            fi
-            local status=${PIPESTATUS[0]}
-            set -e
-            if [ "$status" -ne 0 ]; then
-              print_real_error "$log_file" "$status"
-            fi
-          }
-
-          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
-          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
-          EXPECTED_SHA256="862bc358d8d239a2134a63fab979ff6019862372e7950ea49bac74780936205d"
-
-          verify_apk() {
-            local apk="$1"
-            local label="$2"
-            local expected_mode="$3"
-            local badging="apk-badging-${label}.txt"
-            local signing="apk-signature-${label}.txt"
-
-            "$AAPT" dump badging "$apk" > "$badging"
-            grep -Fq "versionName='2.0'" "$badging" || { echo "$label versionName is not 2.0"; grep -m1 '^package:' "$badging" || true; exit 1; }
-            grep -Fq "package: name='ir.bankmoviee.app'" "$badging" || { echo "$label package is wrong"; exit 1; }
-            VERSION_CODE="$(sed -n "s/.*versionCode='\([0-9][0-9]*\)'.*/\1/p" "$badging" | head -n1)"
-            if [ -z "$VERSION_CODE" ] || [ "$VERSION_CODE" -lt 3400001 ]; then
-              echo "$label versionCode is not high enough for V19 in-place update: ${VERSION_CODE:-missing}"
-              exit 1
-            fi
-
-            local native_line
-            native_line="$(grep -m1 '^native-code:' "$badging" || true)"
-            case "$expected_mode" in
-              arm64)
-                printf '%s' "$native_line" | grep -Fq "'arm64-v8a'" || { echo "ARM64 ABI missing"; exit 1; }
-                printf '%s' "$native_line" | grep -Eq "armeabi-v7a|x86" && { echo "ARM64 APK contains unwanted ABI: $native_line"; exit 1; } || true
-                ;;
-              v7a)
-                printf '%s' "$native_line" | grep -Fq "'armeabi-v7a'" || { echo "V7A ABI missing"; exit 1; }
-                printf '%s' "$native_line" | grep -Eq "arm64-v8a|x86" && { echo "V7A APK contains unwanted ABI: $native_line"; exit 1; } || true
-                ;;
-              lite-universal)
-                printf '%s' "$native_line" | grep -Fq "'arm64-v8a'" || { echo "Lite Universal arm64 missing"; exit 1; }
-                printf '%s' "$native_line" | grep -Fq "'armeabi-v7a'" || { echo "Lite Universal v7a missing"; exit 1; }
-                printf '%s' "$native_line" | grep -Eq "'x86'|'x86_64'" && { echo "Lite Universal contains x86: $native_line"; exit 1; } || true
-                ;;
-              full-universal)
-                for abi in arm64-v8a armeabi-v7a x86 x86_64; do
-                  printf '%s' "$native_line" | grep -Fq "'$abi'" || { echo "Full Universal missing $abi: $native_line"; exit 1; }
-                done
-                ;;
+      - name: Collect APKs
+        shell: bash
+        working-directory: project
+        run: |
+          set -euo pipefail
+          OUT="app/build/outputs/apk/release"
+          test -d "$OUT"
+          mkdir -p publish
+          count=0
+          while IFS= read -r -d '' apk; do
+            base="$(basename "$apk")"
+            case "$base" in
+              *arm64-v8a*) new="Bankmovie-v2.1-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk" ;;
+              *armeabi-v7a*) new="Bankmovie-v2.1-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk" ;;
+              *universal*) new="Bankmovie-v2.1-universal-build-${GITHUB_RUN_NUMBER}.apk" ;;
+              *) new="Bankmovie-v2.1-${base}" ;;
             esac
+            cp "$apk" "publish/$new"
+            count=$((count+1))
+          done < <(find "$OUT" -maxdepth 1 -type f -name '*.apk' -print0)
+          test "$count" -gt 0 || { echo "No APK produced"; find app/build/outputs -type f -print || true; exit 1; }
+          (cd publish && sha256sum *.apk > SHA256.txt)
+          ls -lh publish
 
-            set +e
-            "$APKSIGNER" verify --verbose --print-certs "$apk" > "$signing" 2>&1
-            local sign_status=$?
-            set -e
-            [ "$sign_status" -eq 0 ] || { cat "$signing"; exit "$sign_status"; }
+      - name: Upload APK package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-V2.1-APKs-${{ github.run_number }}
+          path: project/publish/*
+          if-no-files-found: error
+          retention-days: 14
 
-            local actual_sha256
-            actual_sha256="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$signing" | head -n1 | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
-            [ "$actual_sha256" = "$EXPECTED_SHA256" ] || { echo "$label signer mismatch: $actual_sha256"; exit 1; }
-
-            echo "$label verified:"
-            grep -m1 '^package:' "$badging"
-            grep -m1 '^native-code:' "$badging" || true
-            grep -E '^Signer #1 certificate (DN|SHA-256 digest):' "$signing" || true
-          }
-
-          echo "========== BUILD 1: ARM64 + V7A + LITE UNIVERSAL =========="
-          build_release "build.log" "new"
-
-          OUT="app/build/outputs/apk/release"
-          ARM64="$(find "$OUT" -maxdepth 1 -type f -name '*arm64-v8a*release*.apk' | head -n1)"
-          V7A="$(find "$OUT" -maxdepth 1 -type f -name '*armeabi-v7a*release*.apk' | head -n1)"
-          LITE_UNIVERSAL="$(find "$OUT" -maxdepth 1 -type f -name '*universal*release*.apk' | head -n1)"
-          [ -n "$ARM64" ] && [ -n "$V7A" ] && [ -n "$LITE_UNIVERSAL" ] || { find "$OUT" -maxdepth 1 -type f -name '*.apk' -print || true; exit 1; }
-
-          verify_apk "$ARM64" "arm64" "arm64"
-          verify_apk "$V7A" "v7a" "v7a"
-          verify_apk "$LITE_UNIVERSAL" "universal-lite" "lite-universal"
-
-          cp "$ARM64" "publish/arm64/Bankmovie-v2.0-complete-arm64-v8a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$V7A" "publish/v7a/Bankmovie-v2.0-complete-armeabi-v7a-build-${GITHUB_RUN_NUMBER}.apk"
-          cp "$LITE_UNIVERSAL" "publish/universal-lite/Bankmovie-v2.0-complete-universal-lite-2abi-build-${GITHUB_RUN_NUMBER}.apk"
-
-          echo "========== BUILD 2: FULL UNIVERSAL 4 ABI =========="
-          python3 <<'PY'
-          from pathlib import Path
-          import re
-
-          path = Path("app/build.gradle")
-          source = path.read_text(encoding="utf-8")
-          source, split_changed = re.subn(
-              r'include\s+"armeabi-v7a",\s*"arm64-v8a"',
-              'include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"',
-              source,
-              count=1,
-          )
-          source, filter_changed = re.subn(
-              r'abiFilters\s+"armeabi-v7a",\s*"arm64-v8a"',
-              'abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"',
-              source,
-              count=1,
-          )
-          if split_changed != 1 or filter_changed != 1:
-              raise SystemExit(f"Could not enable four ABIs: split={split_changed}, filter={filter_changed}")
-          path.write_text(source, encoding="utf-8")
-          PY
-
-          grep -Fq 'include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"' app/build.gradle
-          grep -Fq 'abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"' app/build.gradle
-          build_release "build.log" "append"
-
-          OUT="app/build/outputs/apk/release"
-          FULL_UNIVERSAL="$(find "$OUT" -maxdepth 1 -type f -name '*universal*release*.apk' | head -n1)"
-          [ -n "$FULL_UNIVERSAL" ] || { find "$OUT" -maxdepth 1 -type f -name '*.apk' -print || true; exit 1; }
-          verify_apk "$FULL_UNIVERSAL" "universal-full" "full-universal"
-          cp "$FULL_UNIVERSAL" "publish/universal-full/Bankmovie-v2.0-complete-universal-full-4abi-build-${GITHUB_RUN_NUMBER}.apk"
-
-          for dir in arm64 v7a universal-lite universal-full; do
-            sha256sum "publish/$dir"/*.apk > "publish/$dir/SHA256.txt"
-          done
-
-          echo "================ APK SIZES ================"
-          for apk in publish/*/*.apk; do
-            bytes=$(stat -c%s "$apk")
-            mib=$(awk -v b="$bytes" 'BEGIN { printf "%.1f", b/1048576 }')
-            echo "$(basename "$apk"): ${mib} MiB"
-          done
-          echo "==========================================="
-
-      - name: Upload diagnostic build log
+      - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.0-Complete-Build-Log-${{ github.run_number }}
-          path: project/build.log
+          name: Bankmovie-V2.1-Build-Log-${{ github.run_number }}
+          path: project/build-v2.1.log
           if-no-files-found: ignore
           retention-days: 7
-
-      - name: Upload ARM64 APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-V2.0-Complete-ARM64-${{ github.run_number }}
-          path: project/publish/arm64/*
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload V7A APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-V2.0-Complete-V7A-${{ github.run_number }}
-          path: project/publish/v7a/*
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload Lite Universal APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-V2.0-Complete-Universal-Lite-2ABI-${{ github.run_number }}
-          path: project/publish/universal-lite/*
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload Full Universal APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-V2.0-Complete-Universal-Full-4ABI-${{ github.run_number }}
-          path: project/publish/universal-full/*
-          if-no-files-found: error
-          retention-days: 14
