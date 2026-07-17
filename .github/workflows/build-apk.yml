@@ -1,11 +1,11 @@
-name: Build Bankmovie V2.1 - Comments Responsive BugFix
+name: Build Bankmovie V2.1 - Order Time Comments BugFix
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - 'Bankmovie-v2.1-comments-responsive-bugfix-sourvce.zip'
+      - 'Bankmovie-v2.1-order-time-comment-bugfix-sourvce.zip'
       - '.github/workflows/build-apk.yml'
 
 permissions:
@@ -23,7 +23,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="Bankmovie-v2.1-comments-responsive-bugfix-sourvce.zip"
+          ZIP="Bankmovie-v2.1-order-time-comment-bugfix-sourvce.zip"
           test -f "$ZIP"
           unzip -t "$ZIP" >/dev/null
           rm -rf project
@@ -72,7 +72,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Comments-Responsive-BugFix-${{ github.run_number }}
+          name: Bankmovie-V2.1-Order-Time-Comments-BugFix-${{ github.run_number }}
           path: project/publish/*
           if-no-files-found: error
           retention-days: 14
@@ -81,7 +81,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Comments-Responsive-BugFix-Log-${{ github.run_number }}
+          name: Bankmovie-V2.1-Order-Time-Comments-BugFix-Log-${{ github.run_number }}
           path: project/build.log
           if-no-files-found: ignore
           retention-days: 7
