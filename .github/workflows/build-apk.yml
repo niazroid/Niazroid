@@ -1,87 +1,58 @@
-name: Build Bankmovie V2.1 - Archive1 Comment Final Fix
+name: Build Bankmovie V2.1 Categories Genre Shell
 
 on:
   workflow_dispatch:
   push:
-    branches: [main]
     paths:
-      - 'Bankmovie-v2.1-archive1-comment-final-sourvce.zip'
+      - 'Bankmovie-v2.1-categories-genre-shell-sourvce.zip'
       - '.github/workflows/build-apk.yml'
-
-permissions:
-  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Extract source
-        shell: bash
-        run: |
-          set -euo pipefail
-          ZIP="Bankmovie-v2.1-archive1-comment-final-sourvce.zip"
-          test -f "$ZIP"
-          unzip -t "$ZIP" >/dev/null
-          rm -rf project
-          mkdir project
-          unzip -q "$ZIP" -d project
-          test -f project/settings.gradle
-          test -f project/app/build.gradle
-
-      - name: Java 17
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install SDK packages
-        shell: bash
-        run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
-
-      - name: Gradle 8.9
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
+
+      - name: Extract source
+        run: |
+          set -euo pipefail
+          rm -rf project
+          mkdir project
+          unzip -q Bankmovie-v2.1-categories-genre-shell-sourvce.zip -d project
 
       - name: Build release APK
-        shell: bash
         working-directory: project
         run: |
           set -euo pipefail
-          gradle :app:assembleRelease --no-daemon --max-workers=1 --stacktrace --console=plain 2>&1 | tee build.log
+          chmod +x gradlew 2>/dev/null || true
+          if [ -x ./gradlew ]; then
+            ./gradlew assembleRelease --stacktrace
+          else
+            gradle assembleRelease --stacktrace
+          fi
 
-      - name: Collect APK files
-        shell: bash
-        working-directory: project
+      - name: Collect APK
         run: |
           set -euo pipefail
-          mkdir -p publish
-          find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -exec cp {} publish/ \;
-          test -n "$(find publish -type f -name '*.apk' -print -quit)"
-          (cd publish && sha256sum *.apk > SHA256.txt)
+          mkdir -p output
+          find project/app/build/outputs/apk -type f -name '*.apk' -exec cp {} output/ \;
+          test -n "$(find output -type f -name '*.apk' -print -quit)"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Archive1-Comment-Final-${{ github.run_number }}
-          path: project/publish/*
+          name: Bankmovie-V2.1-categories-genre-shell
+          path: output/*.apk
           if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-V2.1-Archive1-Comment-Final-Log-${{ github.run_number }}
-          path: project/build.log
-          if-no-files-found: ignore
-          retention-days: 7
