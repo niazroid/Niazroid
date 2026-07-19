@@ -1,16 +1,16 @@
-name: Build Bankmovie V2.1 Categories Genre Shell
+name: Build Bankmovie V2.1 Comment System Fixed
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - 'Bankmovie-v2.1-categories-genre-shell-sourvce.zip'
+      - 'Bankmovie-v2.1-comment-system-fixed-source.zip'
       - '.github/workflows/build-apk.yml'
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
 
     steps:
       - name: Checkout
@@ -22,37 +22,57 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Gradle
+      - name: Setup Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
 
       - name: Extract source
         run: |
           set -euo pipefail
           rm -rf project
           mkdir project
-          unzip -q Bankmovie-v2.1-categories-genre-shell-sourvce.zip -d project
+          unzip -q Bankmovie-v2.1-comment-system-fixed-source.zip -d project
 
-      - name: Build release APK
+      - name: Verify original signing material
         working-directory: project
         run: |
           set -euo pipefail
-          chmod +x gradlew 2>/dev/null || true
+          test -f bankmovie_update.jks
+          echo "b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39  bankmovie_update.jks" | sha256sum -c -
+          grep -q "applicationId 'ir.bankmoviee.app'" app/build.gradle
+          grep -q "signingConfig signingConfigs.bankmovieStable" app/build.gradle
+
+      - name: Build signed release APK
+        working-directory: project
+        run: |
+          set -euo pipefail
           if [ -x ./gradlew ]; then
             ./gradlew assembleRelease --stacktrace
           else
             gradle assembleRelease --stacktrace
           fi
 
-      - name: Collect APK
+      - name: Verify APK signature
+        run: |
+          set -euo pipefail
+          APK="$(find project/app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
+          test -n "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+
+      - name: Collect APKs and checksums
         run: |
           set -euo pipefail
           mkdir -p output
-          find project/app/build/outputs/apk -type f -name '*.apk' -exec cp {} output/ \;
+          find project/app/build/outputs/apk/release -type f -name '*.apk' -exec cp {} output/ \;
           test -n "$(find output -type f -name '*.apk' -print -quit)"
+          (cd output && sha256sum *.apk > SHA256SUMS.txt)
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-categories-genre-shell
-          path: output/*.apk
+          name: Bankmovie-V2.1-comment-system-fixed-signed
+          path: output/*
           if-no-files-found: error
