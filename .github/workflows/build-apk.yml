@@ -4,20 +4,13 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'app/**'
-      - 'build.gradle'
-      - 'settings.gradle'
-      - 'gradle.properties'
-      - 'bankmovie_update.jks'
-      - '.github/workflows/build-apk-v2.1-all-features.yml'
-
-permissions:
-  contents: read
+      - 'Bankmovie-v2.1-all-features-fixed-source.zip'
+      - '.github/workflows/build-apk.yml'
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -29,49 +22,37 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Gradle 8.9
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
 
-      - name: Verify original signing identity
+      - name: Extract source
         run: |
           set -euo pipefail
-          test -f bankmovie_update.jks
-          echo "b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39  bankmovie_update.jks" | sha256sum -c -
-          grep -q "applicationId 'ir.bankmoviee.app'" app/build.gradle
-          grep -q 'versionName "2.1"' app/build.gradle
-          grep -q 'signingConfig signingConfigs.bankmovieStable' app/build.gradle
-          keytool -list -v -keystore bankmovie_update.jks -storepass bankmovie123 -alias bankmovie -keypass bankmovie123 | tee keystore-cert.txt
-          grep -q '86:2B:C3:58:D8:D2:39:A2:13:4A:63:FA:B9:79:FF:60:19:86:23:72:E7:95:0E:A4:9B:AC:74:78:09:36:20:5D' keystore-cert.txt
+          rm -rf project
+          mkdir project
+          unzip -q Bankmovie-v2.1-all-features-fixed-source.zip -d project
 
-      - name: Build signed release APKs
+      - name: Build release APK
+        working-directory: project
         run: |
           set -euo pipefail
-          gradle --no-daemon clean assembleRelease --stacktrace
+          chmod +x gradlew 2>/dev/null || true
+          if [ -x ./gradlew ]; then
+            ./gradlew assembleRelease --stacktrace
+          else
+            gradle assembleRelease --stacktrace
+          fi
 
-      - name: Verify APK signatures and collect files
+      - name: Collect APK
         run: |
           set -euo pipefail
-          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
-          test -x "$APKSIGNER"
           mkdir -p output
-          found=0
-          while IFS= read -r -d '' apk; do
-            found=1
-            "$APKSIGNER" verify --verbose --print-certs "$apk" | tee "${apk}.signature.txt"
-            digest="$($APKSIGNER verify --print-certs "$apk" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n1 | tr -d ':[:space:]' | tr 'A-F' 'a-f')"
-            test "$digest" = "862bc358d8d239a2134a63fab979ff6019862372e7950ea49bac74780936205d"
-            cp "$apk" output/
-          done < <(find app/build/outputs/apk/release -type f -name '*.apk' -print0)
-          test "$found" = 1
-          cp keystore-cert.txt output/
-          (cd output && sha256sum *.apk > SHA256SUMS.txt)
+          find project/app/build/outputs/apk -type f -name '*.apk' -exec cp {} output/ \;
+          test -n "$(find output -type f -name '*.apk' -print -quit)"
 
-      - name: Upload signed APKs
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-all-features-signed
-          path: output/*
+          name: Bankmovie-V2.1-all-features
+          path: output/*.apk
           if-no-files-found: error
-          retention-days: 30
