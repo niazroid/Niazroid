@@ -1,10 +1,10 @@
-name: Build Bankmovie V2.1 TV Focus Final
+name: Build Bankmovie V2.1 TV System Keyboard
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - 'Bankmovie-v2.1-TV-FOCUS-FINAL-source.zip'
+      - 'Bankmovie-v2.1-TV-SYSTEM-KEYBOARD-source.zip'
       - '.github/workflows/build-apk.yml'
 
 jobs:
@@ -30,7 +30,7 @@ jobs:
           set -euo pipefail
           rm -rf project
           mkdir project
-          unzip -q 'Bankmovie-v2.1-TV-FOCUS-FINAL-source.zip' -d project
+          unzip -q 'Bankmovie-v2.1-TV-SYSTEM-KEYBOARD-source.zip' -d project
 
       - name: Build release APK
         working-directory: project
