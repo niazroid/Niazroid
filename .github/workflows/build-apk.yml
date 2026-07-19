@@ -1,16 +1,16 @@
-name: Build Bankmovie V2.1 All Features
+name: Build Bankmovie V2.1 TV Restore
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - 'Bankmovie-v2.1-all-features-fixed-source.zip'
+      - 'Bankmovie-v2.1-TV-RESTORE-IRANCELL-source.zip'
       - '.github/workflows/build-apk.yml'
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
 
     steps:
       - name: Checkout
@@ -30,7 +30,7 @@ jobs:
           set -euo pipefail
           rm -rf project
           mkdir project
-          unzip -q Bankmovie-v2.1-all-features-fixed-source.zip -d project
+          unzip -q 'Bankmovie-v2.1-TV-RESTORE-IRANCELL-source.zip' -d project
 
       - name: Build release APK
         working-directory: project
@@ -43,16 +43,81 @@ jobs:
             gradle assembleRelease --stacktrace
           fi
 
-      - name: Collect APK
+      - name: Collect APKs separately
         run: |
           set -euo pipefail
+          rm -rf output
           mkdir -p output
-          find project/app/build/outputs/apk -type f -name '*.apk' -exec cp {} output/ \;
-          test -n "$(find output -type f -name '*.apk' -print -quit)"
 
-      - name: Upload APK
+          while IFS= read -r apk; do
+            normalized="$(printf '%s' "$apk" | tr '[:upper:]' '[:lower:]')"
+
+            if [[ "$normalized" == *"abi2lite"* ]]; then
+              edition="abi2-lite"
+            elif [[ "$normalized" == *"abi4full"* ]]; then
+              edition="abi4-full"
+            else
+              continue
+            fi
+
+            if [[ "$normalized" == *"universal"* ]]; then
+              abi="universal"
+            elif [[ "$normalized" == *"arm64-v8a"* ]]; then
+              abi="arm64-v8a"
+            elif [[ "$normalized" == *"armeabi-v7a"* ]]; then
+              abi="armeabi-v7a"
+            else
+              continue
+            fi
+
+            cp "$apk" "output/Bankmovie-v2.1-${edition}-${abi}.apk"
+          done < <(find project/app/build/outputs/apk -type f -name '*.apk' | sort)
+
+          test -f output/Bankmovie-v2.1-abi2-lite-universal.apk
+          test -f output/Bankmovie-v2.1-abi2-lite-arm64-v8a.apk
+          test -f output/Bankmovie-v2.1-abi2-lite-armeabi-v7a.apk
+          test -f output/Bankmovie-v2.1-abi4-full-universal.apk
+          test -f output/Bankmovie-v2.1-abi4-full-arm64-v8a.apk
+          test -f output/Bankmovie-v2.1-abi4-full-armeabi-v7a.apk
+
+      - name: Upload ABI2 Lite Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-all-features
-          path: output/*.apk
+          name: Bankmovie-V2.1-ABI2-Lite-Universal
+          path: output/Bankmovie-v2.1-abi2-lite-universal.apk
+          if-no-files-found: error
+
+      - name: Upload ABI2 Lite ARM64
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-V2.1-ABI2-Lite-arm64-v8a
+          path: output/Bankmovie-v2.1-abi2-lite-arm64-v8a.apk
+          if-no-files-found: error
+
+      - name: Upload ABI2 Lite ARMv7
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-V2.1-ABI2-Lite-armeabi-v7a
+          path: output/Bankmovie-v2.1-abi2-lite-armeabi-v7a.apk
+          if-no-files-found: error
+
+      - name: Upload ABI4 Full Universal
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-V2.1-ABI4-Full-Universal
+          path: output/Bankmovie-v2.1-abi4-full-universal.apk
+          if-no-files-found: error
+
+      - name: Upload ABI4 Full ARM64
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-V2.1-ABI4-Full-arm64-v8a
+          path: output/Bankmovie-v2.1-abi4-full-arm64-v8a.apk
+          if-no-files-found: error
+
+      - name: Upload ABI4 Full ARMv7
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-V2.1-ABI4-Full-armeabi-v7a
+          path: output/Bankmovie-v2.1-abi4-full-armeabi-v7a.apk
           if-no-files-found: error
