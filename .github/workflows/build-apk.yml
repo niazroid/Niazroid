@@ -1,10 +1,10 @@
-name: Build Bankmovie V2.1 TV Slider Download Accordion Fix
+name: Build Bankmovie V2.1 TV Slider Black Download Focus Fix
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - 'Bankmovie-v2.1-TV-SLIDER-DOWNLOAD-ACCORDION-FIX-source.zip'
+      - 'Bankmovie-v2.1-TV-SLIDER-BLACK-DOWNLOAD-FOCUS-FIX-source.zip'
       - '.github/workflows/build-apk.yml'
 
 jobs:
@@ -30,7 +30,7 @@ jobs:
           set -euo pipefail
           rm -rf project
           mkdir project
-          unzip -q 'Bankmovie-v2.1-TV-SLIDER-DOWNLOAD-ACCORDION-FIX-source.zip' -d project
+          unzip -q 'Bankmovie-v2.1-TV-SLIDER-BLACK-DOWNLOAD-FOCUS-FIX-source.zip' -d project
           test -s project/app/src/main/assets/fonts/irancell_regular.ttf
 
       - name: Verify original signing key
