@@ -1,10 +1,10 @@
-name: Build Bankmovie V2.1 TV System Keyboard
+name: Build Bankmovie V2.1 TV Emergency Restore
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - 'Bankmovie-v2.1-TV-SYSTEM-KEYBOARD-source.zip'
+      - 'Bankmovie-v2.1-TV-EMERGENCY-RESTORE-source.zip'
       - '.github/workflows/build-apk.yml'
 
 jobs:
@@ -30,7 +30,13 @@ jobs:
           set -euo pipefail
           rm -rf project
           mkdir project
-          unzip -q 'Bankmovie-v2.1-TV-SYSTEM-KEYBOARD-source.zip' -d project
+          unzip -q 'Bankmovie-v2.1-TV-EMERGENCY-RESTORE-source.zip' -d project
+
+      - name: Verify original signing key
+        working-directory: project
+        run: |
+          set -euo pipefail
+          echo 'b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39  bankmovie_update.jks' | sha256sum -c -
 
       - name: Build release APK
         working-directory: project
