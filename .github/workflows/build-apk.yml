@@ -1,10 +1,10 @@
-name: Build Bankmovie V2.1 Admin Archive Control Online Fix
+name: Build Bankmovie V2.1 First Run Setup Animation Anime Fix
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - 'Bankmovie-v2.1-ADMIN-ARCHIVE-CONTROL-ONLINE-FIX-source.zip'
+      - 'Bankmovie-v2.1-FIRST-RUN-SETUP-ANIMATION-ANIME-FIX-source.zip'
       - '.github/workflows/build-apk.yml'
 
 jobs:
@@ -30,7 +30,7 @@ jobs:
           set -euo pipefail
           rm -rf project
           mkdir project
-          unzip -q 'Bankmovie-v2.1-ADMIN-ARCHIVE-CONTROL-ONLINE-FIX-source.zip' -d project
+          unzip -q 'Bankmovie-v2.1-FIRST-RUN-SETUP-ANIMATION-ANIME-FIX-source.zip' -d project
 
       - name: Verify original signing key
         working-directory: project
