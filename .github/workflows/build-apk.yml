@@ -1,10 +1,10 @@
-name: Build Bankmovie V2.1 Modern Search Cinema Loaders
+name: Build Bankmovie V2.1 Loader Drawer Glass Controls Fix
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - 'Bankmovie-v2.1-MODERN-SEARCH-CINEMA-LOADERS-source.zip'
+      - 'Bankmovie-v2.1-LOADER-DRAWER-GLASS-CONTROLS-FIX-source.zip'
       - 'irancell*.zip'
       - '.github/workflows/build-apk.yml'
 
@@ -31,7 +31,7 @@ jobs:
           set -euo pipefail
           rm -rf project
           mkdir project
-          unzip -q 'Bankmovie-v2.1-MODERN-SEARCH-CINEMA-LOADERS-source.zip' -d project
+          unzip -q 'Bankmovie-v2.1-LOADER-DRAWER-GLASS-CONTROLS-FIX-source.zip' -d project
 
       - name: Install Irancell fonts from root ZIP
         working-directory: project
