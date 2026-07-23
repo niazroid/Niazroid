@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 Font Zip Compact Drawer Spacing Fix
+name: Build Bankmovie V2.1 Font Zip Compact Drawer Spacing Robust Fix
 
 on:
   workflow_dispatch:
@@ -38,8 +38,47 @@ jobs:
         run: |
           set -euo pipefail
           test -f '../irancell [@fontbazi].zip'
-          chmod +x prepare-irancell-font.sh
-          ./prepare-irancell-font.sh
+          python3 - <<'PY'
+          from pathlib import Path, PurePosixPath
+          from zipfile import ZipFile
+          import re
+
+          archive = Path('../irancell [@fontbazi].zip')
+          output = Path('app/src/main/assets/fonts')
+          output.mkdir(parents=True, exist_ok=True)
+
+          targets = {
+              1: 'irancell_bold.ttf',
+              2: 'irancell_regular.ttf',
+              3: 'irancell_black.ttf',
+              4: 'irancell_semibold.ttf',
+              5: 'irancell_medium.ttf',
+          }
+
+          with ZipFile(archive) as zf:
+              fonts = [i for i in zf.infolist() if not i.is_dir() and i.filename.lower().endswith('.ttf')]
+              if len(fonts) < 5:
+                  raise SystemExit(f'Expected at least 5 TTF files, found {len(fonts)}')
+
+              indexed = {}
+              for info in fonts:
+                  name = PurePosixPath(info.filename).name
+                  match = re.search(r'irancell[^0-9]*([1-5])', name, re.IGNORECASE)
+                  if match:
+                      indexed[int(match.group(1))] = info
+
+              if not all(number in indexed for number in targets):
+                  names = ', '.join(i.filename for i in fonts)
+                  raise SystemExit(f'Could not identify Irancell1..5 inside ZIP. Found: {names}')
+
+              for number, target_name in targets.items():
+                  data = zf.read(indexed[number], pwd=b'fontbazi')
+                  if len(data) < 1024:
+                      raise SystemExit(f'Extracted font {indexed[number].filename} is unexpectedly small')
+                  (output / target_name).write_bytes(data)
+                  print(f'{indexed[number].filename} -> {target_name} ({len(data)} bytes)')
+          PY
+
           test -s app/src/main/assets/fonts/irancell_regular.ttf
           test -s app/src/main/assets/fonts/irancell_medium.ttf
           test -s app/src/main/assets/fonts/irancell_semibold.ttf
