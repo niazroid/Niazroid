@@ -1,10 +1,11 @@
-name: Build Bankmovie V2.1 Pro Setup Watchlist Comments Menu Fix
+name: Build Bankmovie V2.1 Font Zip Compact Drawer Spacing Fix
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - 'Bankmovie-v2.1-PRO-SETUP-WATCHLIST-COMMENTS-MENU-FIX-source.zip'
+      - 'Bankmovie-v2.1-FONT-ZIP-COMPACT-DRAWER-SPACING-FIX-source.zip'
+      - 'irancell [@fontbazi].zip'
       - '.github/workflows/build-apk.yml'
 
 jobs:
@@ -30,14 +31,20 @@ jobs:
           set -euo pipefail
           rm -rf project
           mkdir project
-          unzip -q 'Bankmovie-v2.1-PRO-SETUP-WATCHLIST-COMMENTS-MENU-FIX-source.zip' -d project
+          unzip -q 'Bankmovie-v2.1-FONT-ZIP-COMPACT-DRAWER-SPACING-FIX-source.zip' -d project
 
-      - name: Restore embedded Irancell font when available
+      - name: Install Irancell fonts from root ZIP
         working-directory: project
         run: |
           set -euo pipefail
+          test -f '../irancell [@fontbazi].zip'
           chmod +x prepare-irancell-font.sh
           ./prepare-irancell-font.sh
+          test -s app/src/main/assets/fonts/irancell_regular.ttf
+          test -s app/src/main/assets/fonts/irancell_medium.ttf
+          test -s app/src/main/assets/fonts/irancell_semibold.ttf
+          test -s app/src/main/assets/fonts/irancell_bold.ttf
+          test -s app/src/main/assets/fonts/irancell_black.ttf
 
       - name: Verify original signing key
         working-directory: project
