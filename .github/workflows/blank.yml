@@ -152,9 +152,31 @@ jobs:
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
           test -x "$APKSIGNER"
           EXPECTED_CERT_NO_COLONS='862bc358d8d239a2134a63fab979ff6019862372e7950ea49bac74780936205d'
+          EXPECTED_PUBLIC_KEY='d692a8294236f8a5c071945be99e2cce705406cb5957ecfab02877b3d429985c'
+
           for apk in "${expected[@]}"; do
-            "$APKSIGNER" verify --verbose --print-certs "$apk" | tee /tmp/apksigner.txt
-            grep -Fi "Signer #1 certificate SHA-256 digest: $EXPECTED_CERT_NO_COLONS" /tmp/apksigner.txt
+            report="$(mktemp)"
+
+            # apksigner may label the signer as either "Signer #1" or "V2 Signer"
+            # depending on the installed Android build-tools version. Capture both
+            # stdout and stderr so warnings are visible but do not break parsing.
+            if ! "$APKSIGNER" verify --verbose --print-certs "$apk" >"$report" 2>&1; then
+              cat "$report"
+              echo "APK signature verification failed: $apk" >&2
+              exit 1
+            fi
+
+            cat "$report"
+
+            normalized="$(tr '[:upper:]' '[:lower:]' < "$report" | tr -d ':[:space:]')"
+            if [[ "$normalized" != *"certificatesha-256digest${EXPECTED_CERT_NO_COLONS}"* ]]               && [[ "$normalized" != *"publickeysha-256digest${EXPECTED_PUBLIC_KEY}"* ]]; then
+              echo "Unexpected signing identity for: $apk" >&2
+              echo "Expected certificate SHA-256: $EXPECTED_CERT_NO_COLONS" >&2
+              echo "Expected public-key SHA-256: $EXPECTED_PUBLIC_KEY" >&2
+              exit 1
+            fi
+
+            rm -f "$report"
           done
 
       - name: Upload ABI2 Lite Universal
