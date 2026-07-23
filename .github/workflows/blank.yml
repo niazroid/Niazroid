@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 Loader Drawer Glass Controls Fix
+name: Build Bankmovie V2.1 Signing UI All Fix
 
 'on':
   workflow_dispatch: {}
@@ -9,7 +9,7 @@ name: Build Bankmovie V2.1 Loader Drawer Glass Controls Fix
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -21,18 +21,25 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Gradle
+      - name: Setup Gradle 8.10.2
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
 
       - name: Extract source
+        shell: bash
         run: |
           set -euo pipefail
+          test -f 'Bankmovie-v2.1-SIGNING-UI-ALL-FIX-source.zip'
           rm -rf project
-          mkdir project
-          unzip -q 'Bankmovie-v2.1-LOADER-DRAWER-GLASS-CONTROLS-FIX-source.zip' -d project
+          mkdir -p project
+          unzip -q 'Bankmovie-v2.1-SIGNING-UI-ALL-FIX-source.zip' -d project
+          test -f project/app/build.gradle
+          test -f project/bankmovie_update.jks
 
       - name: Install Irancell fonts from root ZIP
         working-directory: project
+        shell: bash
         run: |
           set -euo pipefail
           test -f '../irancell [@fontbazi].zip'
@@ -55,9 +62,6 @@ jobs:
 
           with ZipFile(archive) as zf:
               fonts = [i for i in zf.infolist() if not i.is_dir() and i.filename.lower().endswith('.ttf')]
-              if len(fonts) < 5:
-                  raise SystemExit(f'Expected at least 5 TTF files, found {len(fonts)}')
-
               indexed = {}
               for info in fonts:
                   name = PurePosixPath(info.filename).name
@@ -65,9 +69,10 @@ jobs:
                   if match:
                       indexed[int(match.group(1))] = info
 
-              if not all(number in indexed for number in targets):
-                  names = ', '.join(i.filename for i in fonts)
-                  raise SystemExit(f'Could not identify Irancell1..5 inside ZIP. Found: {names}')
+              missing = [number for number in targets if number not in indexed]
+              if missing:
+                  found = ', '.join(i.filename for i in fonts)
+                  raise SystemExit(f'Missing Irancell font numbers {missing}. Found: {found}')
 
               for number, target_name in targets.items():
                   data = zf.read(indexed[number], pwd=b'fontbazi')
@@ -77,30 +82,34 @@ jobs:
                   print(f'{indexed[number].filename} -> {target_name} ({len(data)} bytes)')
           PY
 
-          test -s app/src/main/assets/fonts/irancell_regular.ttf
-          test -s app/src/main/assets/fonts/irancell_medium.ttf
-          test -s app/src/main/assets/fonts/irancell_semibold.ttf
-          test -s app/src/main/assets/fonts/irancell_bold.ttf
-          test -s app/src/main/assets/fonts/irancell_black.ttf
+          for font in regular medium semibold bold black; do
+            test -s "app/src/main/assets/fonts/irancell_${font}.ttf"
+          done
 
-      - name: Verify original signing key
+      - name: Verify original signing identity and update version
         working-directory: project
+        shell: bash
         run: |
           set -euo pipefail
-          echo 'b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39  bankmovie_update.jks' | sha256sum -c -
+          EXPECTED_JKS='b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39'
+          EXPECTED_CERT='86:2B:C3:58:D8:D2:39:A2:13:4A:63:FA:B9:79:FF:60:19:86:23:72:E7:95:0E:A4:9B:AC:74:78:09:36:20:5D'
+          echo "$EXPECTED_JKS  bankmovie_update.jks" | sha256sum -c -
+          keytool -list -v \
+            -keystore bankmovie_update.jks \
+            -storepass bankmovie123 \
+            -alias bankmovie | grep -F "SHA256: $EXPECTED_CERT"
+          grep -F "applicationId 'ir.bankmoviee.app'" app/build.gradle
+          grep -E 'versionCode[[:space:]]+5200000[[:space:]]*\+[[:space:]]*runNumber' app/build.gradle
 
-      - name: Build release APK
+      - name: Build release APKs
         working-directory: project
+        shell: bash
         run: |
           set -euo pipefail
-          chmod +x gradlew 2>/dev/null || true
-          if [ -x ./gradlew ]; then
-            ./gradlew assembleRelease --stacktrace
-          else
-            gradle assembleRelease --stacktrace
-          fi
+          gradle --no-daemon --stacktrace assembleRelease
 
-      - name: Collect APKs separately
+      - name: Collect and verify six signed APKs
+        shell: bash
         run: |
           set -euo pipefail
           rm -rf output
@@ -110,19 +119,19 @@ jobs:
             normalized="$(printf '%s' "$apk" | tr '[:upper:]' '[:lower:]')"
 
             if [[ "$normalized" == *"abi2lite"* ]]; then
-              edition="abi2-lite"
+              edition='abi2-lite'
             elif [[ "$normalized" == *"abi4full"* ]]; then
-              edition="abi4-full"
+              edition='abi4-full'
             else
               continue
             fi
 
             if [[ "$normalized" == *"universal"* ]]; then
-              abi="universal"
+              abi='universal'
             elif [[ "$normalized" == *"arm64-v8a"* ]]; then
-              abi="arm64-v8a"
+              abi='arm64-v8a'
             elif [[ "$normalized" == *"armeabi-v7a"* ]]; then
-              abi="armeabi-v7a"
+              abi='armeabi-v7a'
             else
               continue
             fi
@@ -130,12 +139,23 @@ jobs:
             cp "$apk" "output/Bankmovie-v2.1-${edition}-${abi}.apk"
           done < <(find project/app/build/outputs/apk -type f -name '*.apk' | sort)
 
-          test -f output/Bankmovie-v2.1-abi2-lite-universal.apk
-          test -f output/Bankmovie-v2.1-abi2-lite-arm64-v8a.apk
-          test -f output/Bankmovie-v2.1-abi2-lite-armeabi-v7a.apk
-          test -f output/Bankmovie-v2.1-abi4-full-universal.apk
-          test -f output/Bankmovie-v2.1-abi4-full-arm64-v8a.apk
-          test -f output/Bankmovie-v2.1-abi4-full-armeabi-v7a.apk
+          expected=(
+            output/Bankmovie-v2.1-abi2-lite-universal.apk
+            output/Bankmovie-v2.1-abi2-lite-arm64-v8a.apk
+            output/Bankmovie-v2.1-abi2-lite-armeabi-v7a.apk
+            output/Bankmovie-v2.1-abi4-full-universal.apk
+            output/Bankmovie-v2.1-abi4-full-arm64-v8a.apk
+            output/Bankmovie-v2.1-abi4-full-armeabi-v7a.apk
+          )
+          for apk in "${expected[@]}"; do test -s "$apk"; done
+
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$APKSIGNER"
+          EXPECTED_CERT_NO_COLONS='862bc358d8d239a2134a63fab979ff6019862372e7950ea49bac74780936205d'
+          for apk in "${expected[@]}"; do
+            "$APKSIGNER" verify --verbose --print-certs "$apk" | tee /tmp/apksigner.txt
+            grep -Fi "Signer #1 certificate SHA-256 digest: $EXPECTED_CERT_NO_COLONS" /tmp/apksigner.txt
+          done
 
       - name: Upload ABI2 Lite Universal
         uses: actions/upload-artifact@v4
