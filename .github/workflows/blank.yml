@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 TV Detail NoScroll Fix
+name: Build Bankmovie V2.1 TV Quick Setup Halo Fix
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       - main
 
 concurrency:
-  group: bankmovie-v2.1-tv-detail-noscroll-fix-${{ github.ref }}
+  group: bankmovie-v2.1-tv-quick-setup-halo-fix-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
         run: |
           set -euo pipefail
           required=(
-            'Bankmovie-v2.1-TV-DETAIL-NOSCROLL-FIX-source.zip'
+            'Bankmovie-v2.1-TV-QUICK-SETUP-HALO-FIX-source.zip'
             'irancell [@fontbazi].zip'
             'Cinema.otf'
             'Diako Hima Regular-@Fontsplua.ttf'
@@ -64,7 +64,7 @@ jobs:
           set -euo pipefail
           rm -rf project
           mkdir -p project
-          unzip -q 'Bankmovie-v2.1-TV-DETAIL-NOSCROLL-FIX-source.zip' -d project
+          unzip -q 'Bankmovie-v2.1-TV-QUICK-SETUP-HALO-FIX-source.zip' -d project
           test -s project/app/build.gradle
           test -s project/settings.gradle
           test -s project/bankmovie_update.jks
