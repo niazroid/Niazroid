@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 Help Actor Comment Fluid Slider Fix
+name: Build Bankmovie V2.1 Final IRANSans API6 ABI2 Fix
 
 on:
   workflow_dispatch:
@@ -7,13 +7,13 @@ on:
       - main
 
 concurrency:
-  group: bankmovie-v2.1-${{ github.ref }}
+  group: bankmovie-v2.1-final-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 55
 
     steps:
       - name: Checkout repository
@@ -24,20 +24,27 @@ jobs:
         run: |
           set -euo pipefail
           required=(
-            'Bankmovie-v2.1-HELP-ACTOR-COMMENT-FLUID-SLIDER-FIX-source.zip'
+            'Bankmovie-v2.1-FINAL-IRANSANS-API6-ABI2-FIX-source.zip'
             'irancell [@fontbazi].zip'
             'Cinema.otf'
             'Diako Hima Regular-@Fontsplua.ttf'
             'Nic [@fontbazi].ttf'
           )
-
           for file in "${required[@]}"; do
             if [[ ! -s "$file" ]]; then
               echo "Missing or empty required root file: $file" >&2
-              echo 'Current repository root files:' >&2
               find . -maxdepth 1 -type f -printf '%f\n' | sort >&2
               exit 1
             fi
+          done
+
+          for weight in regular medium bold; do
+            match="$(find . -maxdepth 1 -type f -iname "IRANSansXFaNum-${weight}*.woff2" -print -quit)"
+            if [[ -z "$match" || ! -s "$match" ]]; then
+              echo "Missing IRANSansX WOFF2 weight: $weight" >&2
+              exit 1
+            fi
+            echo "$weight -> $match"
           done
 
       - name: Setup Java 17
@@ -57,8 +64,7 @@ jobs:
           set -euo pipefail
           rm -rf project
           mkdir -p project
-          unzip -q 'Bankmovie-v2.1-HELP-ACTOR-COMMENT-FLUID-SLIDER-FIX-source.zip' -d project
-
+          unzip -q 'Bankmovie-v2.1-FINAL-IRANSANS-API6-ABI2-FIX-source.zip' -d project
           test -s project/app/build.gradle
           test -s project/settings.gradle
           test -s project/bankmovie_update.jks
@@ -77,7 +83,6 @@ jobs:
           archive = Path('../irancell [@fontbazi].zip')
           output = Path('app/src/main/assets/fonts')
           output.mkdir(parents=True, exist_ok=True)
-
           targets = {
               1: 'irancell_bold.ttf',
               2: 'irancell_regular.ttf',
@@ -85,88 +90,105 @@ jobs:
               4: 'irancell_semibold.ttf',
               5: 'irancell_medium.ttf',
           }
-
           with ZipFile(archive) as zf:
-              font_entries = [
-                  item for item in zf.infolist()
-                  if not item.is_dir() and item.filename.lower().endswith('.ttf')
-              ]
-
+              entries = [item for item in zf.infolist() if not item.is_dir() and item.filename.lower().endswith('.ttf')]
               indexed = {}
-              for item in font_entries:
-                  basename = PurePosixPath(item.filename).name
-                  match = re.search(r'irancell[^0-9]*([1-5])', basename, re.IGNORECASE)
+              for item in entries:
+                  name = PurePosixPath(item.filename).name
+                  match = re.search(r'irancell[^0-9]*([1-5])', name, re.IGNORECASE)
                   if match:
                       indexed[int(match.group(1))] = item
-
               missing = [number for number in targets if number not in indexed]
               if missing:
-                  found = ', '.join(item.filename for item in font_entries) or '(none)'
-                  raise SystemExit(
-                      f'Missing Irancell font numbers {missing}. TTF files found in ZIP: {found}'
-                  )
-
-              for number, target_name in targets.items():
-                  source = indexed[number]
-                  data = zf.read(source, pwd=b'fontbazi')
+                  raise SystemExit(f'Missing Irancell weights: {missing}')
+              for number, target in targets.items():
+                  data = zf.read(indexed[number], pwd=b'fontbazi')
                   if len(data) < 1024:
-                      raise SystemExit(f'Extracted font is unexpectedly small: {source.filename}')
-                  destination = output / target_name
-                  destination.write_bytes(data)
-                  print(f'{source.filename} -> {destination} ({len(data)} bytes)')
+                      raise SystemExit(f'Invalid Irancell font: {indexed[number].filename}')
+                  (output / target).write_bytes(data)
+                  print(f'{indexed[number].filename} -> {target}')
           PY
 
-          for font in regular medium semibold bold black; do
-            test -s "app/src/main/assets/fonts/irancell_${font}.ttf"
-          done
-
-      - name: Install additional fonts from repository root
+      - name: Install additional root fonts
         working-directory: project
         shell: bash
         run: |
           set -euo pipefail
           install -d app/src/main/assets/fonts
+          install -m 0644 '../Cinema.otf' app/src/main/assets/fonts/cinema.otf
+          install -m 0644 '../Diako Hima Regular-@Fontsplua.ttf' app/src/main/assets/fonts/diako_hima.ttf
+          install -m 0644 '../Nic [@fontbazi].ttf' app/src/main/assets/fonts/nic.ttf
 
-          install -m 0644 '../Cinema.otf' \
-            app/src/main/assets/fonts/cinema.otf
-          install -m 0644 '../Diako Hima Regular-@Fontsplua.ttf' \
-            app/src/main/assets/fonts/diako_hima.ttf
-          install -m 0644 '../Nic [@fontbazi].ttf' \
-            app/src/main/assets/fonts/nic.ttf
+      - name: Convert and install IRANSansX fonts
+        working-directory: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --no-cache-dir 'fonttools[woff]>=4.50,<5'
+          python3 - <<'PY'
+          from pathlib import Path
+          from fontTools.ttLib import TTFont
 
-          test -s app/src/main/assets/fonts/cinema.otf
-          test -s app/src/main/assets/fonts/diako_hima.ttf
-          test -s app/src/main/assets/fonts/nic.ttf
+          root = Path('..')
+          output = Path('app/src/main/assets/fonts')
+          output.mkdir(parents=True, exist_ok=True)
+          targets = {
+              'regular': 'iransansx_regular.ttf',
+              'medium': 'iransansx_medium.ttf',
+              'bold': 'iransansx_bold.ttf',
+          }
+          for weight, target in targets.items():
+              matches = sorted(root.glob(f'IRANSansXFaNum-{weight}*.woff2'))
+              if not matches:
+                  raise SystemExit(f'Missing IRANSansX {weight} WOFF2')
+              source = matches[0]
+              font = TTFont(source)
+              font.flavor = None
+              destination = output / target
+              font.save(destination)
+              if destination.stat().st_size < 1024:
+                  raise SystemExit(f'Converted font is too small: {destination}')
+              print(f'{source.name} -> {destination} ({destination.stat().st_size} bytes)')
+          PY
 
-          file app/src/main/assets/fonts/cinema.otf
-          file app/src/main/assets/fonts/diako_hima.ttf
-          file app/src/main/assets/fonts/nic.ttf
+          for font in \
+            irancell_regular.ttf irancell_medium.ttf irancell_semibold.ttf irancell_bold.ttf irancell_black.ttf \
+            cinema.otf diako_hima.ttf nic.ttf \
+            iransansx_regular.ttf iransansx_medium.ttf iransansx_bold.ttf; do
+            test -s "app/src/main/assets/fonts/$font"
+          done
 
-      - name: Verify package version and original signing identity
+      - name: Verify package version and signing identity
         working-directory: project
         shell: bash
         run: |
           set -euo pipefail
           EXPECTED_JKS='b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39'
           EXPECTED_CERT='86:2B:C3:58:D8:D2:39:A2:13:4A:63:FA:B9:79:FF:60:19:86:23:72:E7:95:0E:A4:9B:AC:74:78:09:36:20:5D'
-
           echo "$EXPECTED_JKS  bankmovie_update.jks" | sha256sum -c -
-
-          keytool -list -v \
-            -keystore bankmovie_update.jks \
-            -storepass bankmovie123 \
-            -alias bankmovie | grep -F "SHA256: $EXPECTED_CERT"
-
+          keytool -list -v -keystore bankmovie_update.jks -storepass bankmovie123 -alias bankmovie | grep -F "SHA256: $EXPECTED_CERT"
           grep -F "applicationId 'ir.bankmoviee.app'" app/build.gradle
           grep -F 'versionName "2.1"' app/build.gradle
           grep -E 'versionCode[[:space:]]+5200000[[:space:]]*\+[[:space:]]*runNumber' app/build.gradle
+          grep -F 'include(*bankmovieAbis)' app/build.gradle
 
-      - name: Build six signed release APKs
+      - name: Build real ABI2 Lite releases
         working-directory: project
         shell: bash
+        env:
+          BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a
         run: |
           set -euo pipefail
-          gradle --no-daemon --stacktrace assembleRelease
+          gradle --no-daemon --stacktrace assembleAbi2LiteRelease
+
+      - name: Build ABI4 Full releases
+        working-directory: project
+        shell: bash
+        env:
+          BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a,x86,x86_64
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace assembleAbi4FullRelease
 
       - name: Collect and verify APKs
         shell: bash
@@ -177,7 +199,6 @@ jobs:
 
           while IFS= read -r apk; do
             normalized="$(printf '%s' "$apk" | tr '[:upper:]' '[:lower:]')"
-
             if [[ "$normalized" == *'abi2lite'* ]]; then
               edition='abi2-lite'
             elif [[ "$normalized" == *'abi4full'* ]]; then
@@ -195,10 +216,7 @@ jobs:
             else
               continue
             fi
-
-            destination="output/Bankmovie-v2.1-${edition}-${abi}.apk"
-            cp "$apk" "$destination"
-            echo "$apk -> $destination"
+            cp "$apk" "output/Bankmovie-v2.1-${edition}-${abi}.apk"
           done < <(find project/app/build/outputs/apk -type f -name '*.apk' | sort)
 
           expected=(
@@ -209,35 +227,39 @@ jobs:
             output/Bankmovie-v2.1-abi4-full-arm64-v8a.apk
             output/Bankmovie-v2.1-abi4-full-armeabi-v7a.apk
           )
+          for apk in "${expected[@]}"; do test -s "$apk"; done
 
-          for apk in "${expected[@]}"; do
-            test -s "$apk"
+          ABI2=output/Bankmovie-v2.1-abi2-lite-universal.apk
+          unzip -l "$ABI2" | grep -q 'lib/armeabi-v7a/'
+          unzip -l "$ABI2" | grep -q 'lib/arm64-v8a/'
+          if unzip -l "$ABI2" | grep -Eq 'lib/(x86|x86_64)/'; then
+            echo 'ABI2 Universal unexpectedly contains x86 libraries' >&2
+            exit 1
+          fi
+
+          ABI4=output/Bankmovie-v2.1-abi4-full-universal.apk
+          for abi in armeabi-v7a arm64-v8a x86 x86_64; do
+            unzip -l "$ABI4" | grep -q "lib/$abi/"
           done
 
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
           test -x "$APKSIGNER"
-
           EXPECTED_CERT_NO_COLONS='862bc358d8d239a2134a63fab979ff6019862372e7950ea49bac74780936205d'
           EXPECTED_PUBLIC_KEY='d692a8294236f8a5c071945be99e2cce705406cb5957ecfab02877b3d429985c'
 
           for apk in "${expected[@]}"; do
             report="$(mktemp)"
-
             "$APKSIGNER" verify --verbose --print-certs "$apk" >"$report" 2>&1 || {
               cat "$report"
-              echo "APK signature verification failed: $apk" >&2
               exit 1
             }
-
-            cat "$report"
             normalized_report="$(tr '[:upper:]' '[:lower:]' <"$report" | tr -d ':[:space:]')"
-
             if [[ "$normalized_report" != *"certificatesha-256digest${EXPECTED_CERT_NO_COLONS}"* ]] \
               && [[ "$normalized_report" != *"publickeysha-256digest${EXPECTED_PUBLIC_KEY}"* ]]; then
+              cat "$report"
               echo "Unexpected signing identity: $apk" >&2
               exit 1
             fi
-
             rm -f "$report"
           done
 
@@ -246,7 +268,7 @@ jobs:
       - name: Upload ABI2 Lite Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-ABI2-Lite-Universal
+          name: Bankmovie-V2.1-ABI2-Lite-Universal-ARMv7-ARM64
           path: output/Bankmovie-v2.1-abi2-lite-universal.apk
           if-no-files-found: error
 
@@ -285,7 +307,7 @@ jobs:
           path: output/Bankmovie-v2.1-abi4-full-armeabi-v7a.apk
           if-no-files-found: error
 
-      - name: Upload APK checksums
+      - name: Upload checksums
         uses: actions/upload-artifact@v4
         with:
           name: Bankmovie-V2.1-SHA256
