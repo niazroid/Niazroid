@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 Fonts Fast Drawer Actions Fix
+name: Build Bankmovie V2.1 Help Actor Comment Fluid Slider Fix
 
 on:
   workflow_dispatch:
@@ -24,7 +24,7 @@ jobs:
         run: |
           set -euo pipefail
           required=(
-            'Bankmovie-v2.1-FONTS-FAST-DRAWER-ACTIONS-FIX-source.zip'
+            'Bankmovie-v2.1-HELP-ACTOR-COMMENT-FLUID-SLIDER-FIX-source.zip'
             'irancell [@fontbazi].zip'
             'Cinema.otf'
             'Diako Hima Regular-@Fontsplua.ttf'
@@ -57,7 +57,7 @@ jobs:
           set -euo pipefail
           rm -rf project
           mkdir -p project
-          unzip -q 'Bankmovie-v2.1-FONTS-FAST-DRAWER-ACTIONS-FIX-source.zip' -d project
+          unzip -q 'Bankmovie-v2.1-HELP-ACTOR-COMMENT-FLUID-SLIDER-FIX-source.zip' -d project
 
           test -s project/app/build.gradle
           test -s project/settings.gradle
