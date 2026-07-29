@@ -1,0 +1,119 @@
+name: Build BankMovie Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'src/**'
+      - 'installer/**'
+      - '.github/workflows/build-windows.yml'
+      - 'BankMovie.Windows.sln'
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      PROJECT: src/BankMovie.Windows/BankMovie.Windows.csproj
+      PUBLISH_DIR: ${{ github.workspace }}\artifacts\publish
+      OUTPUT_DIR: ${{ github.workspace }}\artifacts\output
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $version = "1.0.${{ github.run_number }}"
+          if ("${{ github.event_name }}" -eq "release") {
+            $tag = "${{ github.event.release.tag_name }}".TrimStart('v')
+            if ($tag -match '^\d+\.\d+\.\d+(\.\d+)?$') { $version = $tag }
+          }
+          "value=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Restore
+        run: dotnet restore $env:PROJECT -r win-x64
+
+      - name: Publish self-contained x64
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:PUBLISH_DIR | Out-Null
+          dotnet publish $env:PROJECT `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            --no-restore `
+            -o $env:PUBLISH_DIR `
+            -p:Version=${{ steps.version.outputs.value }} `
+            -p:FileVersion=${{ steps.version.outputs.value }} `
+            -p:PublishSingleFile=false `
+            -p:PublishTrimmed=false
+
+      - name: Validate player runtime
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:PUBLISH_DIR 'BankMovie.exe'
+          if (!(Test-Path $exe)) { throw "BankMovie.exe was not created" }
+          $libvlc = Get-ChildItem $env:PUBLISH_DIR -Recurse -Filter 'libvlc.dll' | Select-Object -First 1
+          if (!$libvlc) { throw "libvlc.dll is missing from publish output" }
+          Write-Host "libVLC found at $($libvlc.FullName)"
+
+      - name: Create portable package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:OUTPUT_DIR | Out-Null
+          Compress-Archive -Path "$env:PUBLISH_DIR\*" -DestinationPath "$env:OUTPUT_DIR\BankMovie-Portable-x64.zip" -Force
+
+      - name: Download official WebView2 bootstrapper
+        shell: pwsh
+        run: |
+          $target = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
+          Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $target
+          if ((Get-Item $target).Length -lt 500000) { throw "Invalid WebView2 bootstrapper" }
+          "WEBVIEW_BOOTSTRAPPER=$target" >> $env:GITHUB_ENV
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build Setup EXE
+        shell: pwsh
+        run: |
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (!(Test-Path $iscc)) { throw "Inno Setup compiler not found" }
+          & $iscc `
+            "/DMyAppVersion=${{ steps.version.outputs.value }}" `
+            "/DSourceDir=$env:PUBLISH_DIR" `
+            "/DWebView2Bootstrapper=$env:WEBVIEW_BOOTSTRAPPER" `
+            "/O$env:OUTPUT_DIR" `
+            'installer\BankMovie.iss'
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
+
+      - name: Create checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem $env:OUTPUT_DIR -File | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)" | Out-File -FilePath "$env:OUTPUT_DIR\SHA256SUMS.txt" -Append -Encoding ascii
+          }
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: BankMovie-Windows-${{ steps.version.outputs.value }}
+          path: artifacts/output/*
+          if-no-files-found: error
+          retention-days: 30
