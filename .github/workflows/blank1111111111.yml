@@ -1,11 +1,11 @@
-name: Build BankMovie Windows Current
+name: Build BankMovie Windows v1.3 Exact
 
 on:
   workflow_dispatch:
   push:
     branches: [main, master]
     paths:
-      - 'BankMovie-Windows-CURRENT-source.zip'
+      - 'BankMovie-Windows-v1.3-IO-WINDOWSTATE-FIX-source.zip'
       - '.github/workflows/build-windows.yml'
   release:
     types: [published]
@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-windows-current-${{ github.ref }}
+  group: bankmovie-windows-v13-exact-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -23,7 +23,10 @@ jobs:
     timeout-minutes: 60
 
     env:
-      SOURCE_ARCHIVE: ${{ github.workspace }}\BankMovie-Windows-CURRENT-source.zip
+      SOURCE_ARCHIVE: ${{ github.workspace }}\BankMovie-Windows-v1.3-IO-WINDOWSTATE-FIX-source.zip
+      SOURCE_ROOT: ${{ runner.temp }}\BankMovie-Windows-v1.3-Exact
+      PROJECT: ${{ runner.temp }}\BankMovie-Windows-v1.3-Exact\src\BankMovie.Windows\BankMovie.Windows.csproj
+      INSTALLER_SCRIPT: ${{ runner.temp }}\BankMovie-Windows-v1.3-Exact\installer\BankMovie.iss
       PUBLISH_DIR: ${{ github.workspace }}\artifacts\publish
       OUTPUT_DIR: ${{ github.workspace }}\artifacts\output
 
@@ -31,75 +34,68 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract exact current source
+      - name: Extract exact v1.3 source
         shell: pwsh
         run: |
           if (!(Test-Path -LiteralPath $env:SOURCE_ARCHIVE)) {
             Write-Host 'Repository root files:'
             Get-ChildItem $env:GITHUB_WORKSPACE -File | ForEach-Object { Write-Host " - $($_.Name)" }
-            throw 'BankMovie-Windows-CURRENT-source.zip is missing from repository root.'
+            throw 'Exact source file is missing: BankMovie-Windows-v1.3-IO-WINDOWSTATE-FIX-source.zip'
           }
 
-          $archiveHash = (Get-FileHash -LiteralPath $env:SOURCE_ARCHIVE -Algorithm SHA256).Hash.ToLowerInvariant()
+          if (Test-Path -LiteralPath $env:SOURCE_ROOT) {
+            Remove-Item -LiteralPath $env:SOURCE_ROOT -Recurse -Force
+          }
+          New-Item -ItemType Directory -Force -Path $env:SOURCE_ROOT | Out-Null
+          Expand-Archive -LiteralPath $env:SOURCE_ARCHIVE -DestinationPath $env:SOURCE_ROOT -Force
+
           Write-Host "Selected exact source: $env:SOURCE_ARCHIVE"
-          Write-Host "Source SHA256: $archiveHash"
+          Write-Host "Source SHA256: $((Get-FileHash -LiteralPath $env:SOURCE_ARCHIVE -Algorithm SHA256).Hash.ToLowerInvariant())"
 
-          $extractDir = Join-Path $env:RUNNER_TEMP 'BankMovie-Windows-CURRENT'
-          if (Test-Path $extractDir) { Remove-Item $extractDir -Recurse -Force }
-          New-Item -ItemType Directory -Force -Path $extractDir | Out-Null
-          Expand-Archive -LiteralPath $env:SOURCE_ARCHIVE -DestinationPath $extractDir -Force
-          "SOURCE_ROOT=$extractDir" >> $env:GITHUB_ENV
-
-      - name: Locate and defensively fix WPF source
+      - name: Validate exact project and compile fixes
         shell: pwsh
         run: |
-          $projects = @(Get-ChildItem $env:SOURCE_ROOT -Recurse -File -Filter 'BankMovie.Windows.csproj')
-          if ($projects.Count -ne 1) { throw "Expected exactly one csproj, found $($projects.Count)." }
-          $installers = @(Get-ChildItem $env:SOURCE_ROOT -Recurse -File -Filter 'BankMovie.iss')
-          if ($installers.Count -ne 1) { throw "Expected exactly one BankMovie.iss, found $($installers.Count)." }
+          if (!(Test-Path -LiteralPath $env:PROJECT)) {
+            throw "Project not found at exact path: $env:PROJECT"
+          }
+          if (!(Test-Path -LiteralPath $env:INSTALLER_SCRIPT)) {
+            throw "Installer not found at exact path: $env:INSTALLER_SCRIPT"
+          }
 
-          $project = $projects[0].FullName
-          $projectDir = Split-Path $project -Parent
-          $appFile = Join-Path $projectDir 'App.xaml.cs'
+          $projectDir = Split-Path -LiteralPath $env:PROJECT -Parent
+          $historyFile = Join-Path $projectDir 'Services\PlaybackHistoryStore.cs'
+          $configFile = Join-Path $projectDir 'Services\ConfigService.cs'
+          $mainFile = Join-Path $projectDir 'MainWindow.xaml.cs'
           $playerFile = Join-Path $projectDir 'PlayerWindow.xaml.cs'
 
-          if (!(Test-Path $appFile)) { throw 'App.xaml.cs was not found.' }
-          if (!(Test-Path $playerFile)) { throw 'PlayerWindow.xaml.cs was not found.' }
+          foreach ($file in @($historyFile, $configFile, $mainFile, $playerFile)) {
+            if (!(Test-Path -LiteralPath $file)) { throw "Required source file missing: $file" }
+          }
 
-          # Defensive patch: this also protects the build if an older source was accidentally renamed CURRENT.
-          $app = Get-Content -LiteralPath $appFile -Raw
-          $app = $app.Replace('public partial class App : Application', 'public partial class App : System.Windows.Application')
-          Set-Content -LiteralPath $appFile -Value $app -Encoding utf8
-
+          $history = Get-Content -LiteralPath $historyFile -Raw
+          $config = Get-Content -LiteralPath $configFile -Raw
+          $main = Get-Content -LiteralPath $mainFile -Raw
           $player = Get-Content -LiteralPath $playerFile -Raw
-          $player = $player.Replace('private void Window_KeyDown(object sender, KeyEventArgs e)', 'private void Window_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)')
-          $player = $player.Replace('private void InteractionLayer_MouseMove(object sender, MouseEventArgs e)', 'private void InteractionLayer_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)')
-          Set-Content -LiteralPath $playerFile -Value $player -Encoding utf8
 
-          $csproj = Get-Content -LiteralPath $project -Raw
-          $csproj = $csproj -replace '<UseWindowsForms>\s*true\s*</UseWindowsForms>', ''
-          Set-Content -LiteralPath $project -Value $csproj -Encoding utf8
-
-          $appCheck = Get-Content -LiteralPath $appFile -Raw
-          $playerCheck = Get-Content -LiteralPath $playerFile -Raw
-          if ($appCheck -notmatch 'App\s*:\s*System\.Windows\.Application') {
-            throw 'WPF Application qualification is missing after patch.'
+          if ($history -notmatch 'System\.IO\.Path\.Combine' -or $history -notmatch 'System\.IO\.File\.') {
+            throw 'PlaybackHistoryStore.cs does not contain the v1.3 System.IO fixes.'
           }
-          if ($playerCheck -notmatch 'System\.Windows\.Input\.KeyEventArgs') {
-            throw 'WPF KeyEventArgs qualification is missing after patch.'
+          if ($config -notmatch 'System\.IO\.Path\.Combine' -or $config -notmatch 'System\.IO\.File\.') {
+            throw 'ConfigService.cs does not contain the v1.3 System.IO fixes.'
           }
-          if ($playerCheck -notmatch 'System\.Windows\.Input\.MouseEventArgs') {
-            throw 'WPF MouseEventArgs qualification is missing after patch.'
+          if ($main -notmatch 'System\.IO\.Path\.Combine' -or $main -notmatch 'System\.IO\.Directory\.CreateDirectory') {
+            throw 'MainWindow.xaml.cs does not contain the v1.3 System.IO fixes.'
+          }
+          if ($player -notmatch 'WindowState\s*==\s*WindowState\.Maximized\s*\?') {
+            throw 'PlayerWindow.xaml.cs does not contain the corrected WindowState comparison.'
+          }
+          if ($player -match 'WindowState\s*=\s*WindowState\.Maximized\s*\?') {
+            throw 'The invalid WindowState boolean expression is still present.'
           }
 
-          Write-Host 'Verified source lines:'
-          Select-String -Path $appFile -Pattern 'partial class App' | ForEach-Object { Write-Host $_.Line.Trim() }
-          Select-String -Path $playerFile -Pattern 'Window_KeyDown|InteractionLayer_MouseMove' | ForEach-Object { Write-Host $_.Line.Trim() }
-
-          "PROJECT=$project" >> $env:GITHUB_ENV
-          "INSTALLER_SCRIPT=$($installers[0].FullName)" >> $env:GITHUB_ENV
-          Write-Host "Project found: $project"
-          Write-Host "Installer found: $($installers[0].FullName)"
+          Write-Host "Project exact path: $env:PROJECT"
+          Write-Host "Installer exact path: $env:INSTALLER_SCRIPT"
+          Write-Host 'v1.3 compile fixes verified.'
 
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
@@ -141,8 +137,8 @@ jobs:
         shell: pwsh
         run: |
           $exe = Join-Path $env:PUBLISH_DIR 'BankMovie.exe'
-          if (!(Test-Path $exe)) { throw 'BankMovie.exe was not created.' }
-          $libvlc = Get-ChildItem $env:PUBLISH_DIR -Recurse -Filter 'libvlc.dll' | Select-Object -First 1
+          if (!(Test-Path -LiteralPath $exe)) { throw 'BankMovie.exe was not created.' }
+          $libvlc = Get-ChildItem $env:PUBLISH_DIR -Recurse -File -Filter 'libvlc.dll' | Select-Object -First 1
           if (!$libvlc) { throw 'libvlc.dll is missing from publish output.' }
           Write-Host "BankMovie executable: $exe"
           Write-Host "LibVLC runtime: $($libvlc.FullName)"
@@ -169,7 +165,7 @@ jobs:
         shell: pwsh
         run: |
           $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
-          if (!(Test-Path $iscc)) { throw 'Inno Setup compiler was not found.' }
+          if (!(Test-Path -LiteralPath $iscc)) { throw 'Inno Setup compiler was not found.' }
           & $iscc `
             "/DMyAppVersion=${{ steps.version.outputs.value }}" `
             "/DSourceDir=$env:PUBLISH_DIR" `
@@ -182,7 +178,7 @@ jobs:
         shell: pwsh
         run: |
           $checksumFile = Join-Path $env:OUTPUT_DIR 'SHA256SUMS.txt'
-          if (Test-Path $checksumFile) { Remove-Item $checksumFile -Force }
+          if (Test-Path -LiteralPath $checksumFile) { Remove-Item -LiteralPath $checksumFile -Force }
           Get-ChildItem $env:OUTPUT_DIR -File | ForEach-Object {
             $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$hash  $($_.Name)" | Out-File -FilePath $checksumFile -Append -Encoding ascii
