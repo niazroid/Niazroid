@@ -3,12 +3,15 @@ name: Build BankMovie Windows
 on:
   workflow_dispatch:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
     paths:
-      - 'src/**'
-      - 'installer/**'
-      - '.github/workflows/build-windows.yml'
-      - 'BankMovie.Windows.sln'
+      - '**/*.cs'
+      - '**/*.xaml'
+      - '**/*.csproj'
+      - '**/*.sln'
+      - '**/*.json'
+      - '**/*.iss'
+      - '.github/workflows/**'
   release:
     types: [published]
 
@@ -20,7 +23,6 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 45
     env:
-      PROJECT: src/BankMovie.Windows/BankMovie.Windows.csproj
       PUBLISH_DIR: ${{ github.workspace }}\artifacts\publish
       OUTPUT_DIR: ${{ github.workspace }}\artifacts\output
 
@@ -33,30 +35,63 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Locate project files
+        shell: pwsh
+        run: |
+          $projects = @(Get-ChildItem -Path $env:GITHUB_WORKSPACE -Recurse -File -Filter 'BankMovie.Windows.csproj')
+          if ($projects.Count -eq 0) {
+            Write-Host 'Repository files:'
+            Get-ChildItem -Path $env:GITHUB_WORKSPACE -Recurse -File | ForEach-Object { Write-Host $_.FullName }
+            throw 'BankMovie.Windows.csproj was not found anywhere in the repository.'
+          }
+          if ($projects.Count -gt 1) {
+            $projects | ForEach-Object { Write-Host "Duplicate project: $($_.FullName)" }
+            throw 'More than one BankMovie.Windows.csproj was found. Keep only one project copy.'
+          }
+
+          $installers = @(Get-ChildItem -Path $env:GITHUB_WORKSPACE -Recurse -File -Filter 'BankMovie.iss')
+          if ($installers.Count -eq 0) {
+            throw 'BankMovie.iss was not found anywhere in the repository.'
+          }
+          if ($installers.Count -gt 1) {
+            $installers | ForEach-Object { Write-Host "Duplicate installer: $($_.FullName)" }
+            throw 'More than one BankMovie.iss was found. Keep only one installer copy.'
+          }
+
+          $project = $projects[0].FullName
+          $installer = $installers[0].FullName
+          "PROJECT=$project" >> $env:GITHUB_ENV
+          "INSTALLER_SCRIPT=$installer" >> $env:GITHUB_ENV
+
+          Write-Host "Project found: $project"
+          Write-Host "Installer found: $installer"
+
       - name: Resolve version
         id: version
         shell: pwsh
         run: |
-          $version = "1.0.${{ github.run_number }}"
+          $version = "1.1.${{ github.run_number }}"
           if ("${{ github.event_name }}" -eq "release") {
             $tag = "${{ github.event.release.tag_name }}".TrimStart('v')
             if ($tag -match '^\d+\.\d+\.\d+(\.\d+)?$') { $version = $tag }
           }
           "value=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Build version: $version"
 
       - name: Restore
-        run: dotnet restore $env:PROJECT -r win-x64
+        shell: pwsh
+        run: dotnet restore "$env:PROJECT" -r win-x64
 
       - name: Publish self-contained x64
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path $env:PUBLISH_DIR | Out-Null
-          dotnet publish $env:PROJECT `
+          dotnet publish "$env:PROJECT" `
             -c Release `
             -r win-x64 `
             --self-contained true `
             --no-restore `
-            -o $env:PUBLISH_DIR `
+            -o "$env:PUBLISH_DIR" `
             -p:Version=${{ steps.version.outputs.value }} `
             -p:FileVersion=${{ steps.version.outputs.value }} `
             -p:PublishSingleFile=false `
@@ -66,10 +101,11 @@ jobs:
         shell: pwsh
         run: |
           $exe = Join-Path $env:PUBLISH_DIR 'BankMovie.exe'
-          if (!(Test-Path $exe)) { throw "BankMovie.exe was not created" }
+          if (!(Test-Path $exe)) { throw 'BankMovie.exe was not created.' }
           $libvlc = Get-ChildItem $env:PUBLISH_DIR -Recurse -Filter 'libvlc.dll' | Select-Object -First 1
-          if (!$libvlc) { throw "libvlc.dll is missing from publish output" }
-          Write-Host "libVLC found at $($libvlc.FullName)"
+          if (!$libvlc) { throw 'libvlc.dll is missing from publish output.' }
+          Write-Host "BankMovie.exe found: $exe"
+          Write-Host "libVLC found: $($libvlc.FullName)"
 
       - name: Create portable package
         shell: pwsh
@@ -82,7 +118,7 @@ jobs:
         run: |
           $target = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
           Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $target
-          if ((Get-Item $target).Length -lt 500000) { throw "Invalid WebView2 bootstrapper" }
+          if ((Get-Item $target).Length -lt 500000) { throw 'Invalid WebView2 bootstrapper.' }
           "WEBVIEW_BOOTSTRAPPER=$target" >> $env:GITHUB_ENV
 
       - name: Install Inno Setup
@@ -93,21 +129,23 @@ jobs:
         shell: pwsh
         run: |
           $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
-          if (!(Test-Path $iscc)) { throw "Inno Setup compiler not found" }
+          if (!(Test-Path $iscc)) { throw 'Inno Setup compiler was not found.' }
           & $iscc `
             "/DMyAppVersion=${{ steps.version.outputs.value }}" `
             "/DSourceDir=$env:PUBLISH_DIR" `
             "/DWebView2Bootstrapper=$env:WEBVIEW_BOOTSTRAPPER" `
             "/O$env:OUTPUT_DIR" `
-            'installer\BankMovie.iss'
-          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
+            "$env:INSTALLER_SCRIPT"
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE." }
 
       - name: Create checksums
         shell: pwsh
         run: |
+          $checksumFile = Join-Path $env:OUTPUT_DIR 'SHA256SUMS.txt'
+          if (Test-Path $checksumFile) { Remove-Item $checksumFile -Force }
           Get-ChildItem $env:OUTPUT_DIR -File | ForEach-Object {
             $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-            "$hash  $($_.Name)" | Out-File -FilePath "$env:OUTPUT_DIR\SHA256SUMS.txt" -Append -Encoding ascii
+            "$hash  $($_.Name)" | Out-File -FilePath $checksumFile -Append -Encoding ascii
           }
 
       - name: Upload Windows artifacts
