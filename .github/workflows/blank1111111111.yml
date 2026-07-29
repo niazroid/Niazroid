@@ -3,12 +3,9 @@ name: Build BankMovie Windows v1.3 Exact
 on:
   workflow_dispatch:
   push:
-    branches: [main, master]
-    paths:
-      - 'BankMovie-Windows-v1.3-IO-WINDOWSTATE-FIX-source.zip'
-      - '.github/workflows/build-windows.yml'
-  release:
-    types: [published]
+    branches:
+      - main
+      - master
 
 permissions:
   contents: read
@@ -23,16 +20,33 @@ jobs:
     timeout-minutes: 60
 
     env:
-      SOURCE_ARCHIVE: ${{ github.workspace }}\BankMovie-Windows-v1.3-IO-WINDOWSTATE-FIX-source.zip
-      SOURCE_ROOT: ${{ runner.temp }}\BankMovie-Windows-v1.3-Exact
-      PROJECT: ${{ runner.temp }}\BankMovie-Windows-v1.3-Exact\src\BankMovie.Windows\BankMovie.Windows.csproj
-      INSTALLER_SCRIPT: ${{ runner.temp }}\BankMovie-Windows-v1.3-Exact\installer\BankMovie.iss
-      PUBLISH_DIR: ${{ github.workspace }}\artifacts\publish
-      OUTPUT_DIR: ${{ github.workspace }}\artifacts\output
+      SOURCE_ARCHIVE_NAME: BankMovie-Windows-v1.3-IO-WINDOWSTATE-FIX-source.zip
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Initialize exact paths
+        shell: pwsh
+        run: |
+          $sourceArchive = Join-Path $env:GITHUB_WORKSPACE $env:SOURCE_ARCHIVE_NAME
+          $sourceRoot = Join-Path $env:RUNNER_TEMP 'BankMovie-Windows-v1.3-Exact'
+          $project = Join-Path $sourceRoot 'src\BankMovie.Windows\BankMovie.Windows.csproj'
+          $installer = Join-Path $sourceRoot 'installer\BankMovie.iss'
+          $publishDir = Join-Path $env:GITHUB_WORKSPACE 'artifacts\publish'
+          $outputDir = Join-Path $env:GITHUB_WORKSPACE 'artifacts\output'
+
+          "SOURCE_ARCHIVE=$sourceArchive" >> $env:GITHUB_ENV
+          "SOURCE_ROOT=$sourceRoot" >> $env:GITHUB_ENV
+          "PROJECT=$project" >> $env:GITHUB_ENV
+          "INSTALLER_SCRIPT=$installer" >> $env:GITHUB_ENV
+          "PUBLISH_DIR=$publishDir" >> $env:GITHUB_ENV
+          "OUTPUT_DIR=$outputDir" >> $env:GITHUB_ENV
+
+          Write-Host "Exact source archive: $sourceArchive"
+          Write-Host "Temporary source root: $sourceRoot"
+          Write-Host "Project path: $project"
+          Write-Host "Installer path: $installer"
 
       - name: Extract exact v1.3 source
         shell: pwsh
@@ -40,12 +54,13 @@ jobs:
           if (!(Test-Path -LiteralPath $env:SOURCE_ARCHIVE)) {
             Write-Host 'Repository root files:'
             Get-ChildItem $env:GITHUB_WORKSPACE -File | ForEach-Object { Write-Host " - $($_.Name)" }
-            throw 'Exact source file is missing: BankMovie-Windows-v1.3-IO-WINDOWSTATE-FIX-source.zip'
+            throw "Exact source file is missing: $env:SOURCE_ARCHIVE_NAME"
           }
 
           if (Test-Path -LiteralPath $env:SOURCE_ROOT) {
             Remove-Item -LiteralPath $env:SOURCE_ROOT -Recurse -Force
           }
+
           New-Item -ItemType Directory -Force -Path $env:SOURCE_ROOT | Out-Null
           Expand-Archive -LiteralPath $env:SOURCE_ARCHIVE -DestinationPath $env:SOURCE_ROOT -Force
 
@@ -56,8 +71,11 @@ jobs:
         shell: pwsh
         run: |
           if (!(Test-Path -LiteralPath $env:PROJECT)) {
+            Write-Host 'Extracted files:'
+            Get-ChildItem -Path $env:SOURCE_ROOT -Recurse -File | ForEach-Object { Write-Host $_.FullName }
             throw "Project not found at exact path: $env:PROJECT"
           }
+
           if (!(Test-Path -LiteralPath $env:INSTALLER_SCRIPT)) {
             throw "Installer not found at exact path: $env:INSTALLER_SCRIPT"
           }
@@ -69,7 +87,9 @@ jobs:
           $playerFile = Join-Path $projectDir 'PlayerWindow.xaml.cs'
 
           foreach ($file in @($historyFile, $configFile, $mainFile, $playerFile)) {
-            if (!(Test-Path -LiteralPath $file)) { throw "Required source file missing: $file" }
+            if (!(Test-Path -LiteralPath $file)) {
+              throw "Required source file missing: $file"
+            }
           }
 
           $history = Get-Content -LiteralPath $historyFile -Raw
@@ -109,7 +129,9 @@ jobs:
           $version = "1.3.${{ github.run_number }}"
           if ("${{ github.event_name }}" -eq 'release') {
             $tag = "${{ github.event.release.tag_name }}".TrimStart('v')
-            if ($tag -match '^\d+\.\d+\.\d+(\.\d+)?$') { $version = $tag }
+            if ($tag -match '^\d+\.\d+\.\d+(\.\d+)?$') {
+              $version = $tag
+            }
           }
           "value=$version" >> $env:GITHUB_OUTPUT
           Write-Host "Build version: $version"
@@ -137,9 +159,15 @@ jobs:
         shell: pwsh
         run: |
           $exe = Join-Path $env:PUBLISH_DIR 'BankMovie.exe'
-          if (!(Test-Path -LiteralPath $exe)) { throw 'BankMovie.exe was not created.' }
+          if (!(Test-Path -LiteralPath $exe)) {
+            throw 'BankMovie.exe was not created.'
+          }
+
           $libvlc = Get-ChildItem $env:PUBLISH_DIR -Recurse -File -Filter 'libvlc.dll' | Select-Object -First 1
-          if (!$libvlc) { throw 'libvlc.dll is missing from publish output.' }
+          if (!$libvlc) {
+            throw 'libvlc.dll is missing from publish output.'
+          }
+
           Write-Host "BankMovie executable: $exe"
           Write-Host "LibVLC runtime: $($libvlc.FullName)"
 
@@ -154,7 +182,9 @@ jobs:
         run: |
           $target = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
           Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $target
-          if ((Get-Item $target).Length -lt 500000) { throw 'The downloaded WebView2 bootstrapper is invalid.' }
+          if ((Get-Item $target).Length -lt 500000) {
+            throw 'The downloaded WebView2 bootstrapper is invalid.'
+          }
           "WEBVIEW_BOOTSTRAPPER=$target" >> $env:GITHUB_ENV
 
       - name: Install Inno Setup
@@ -165,20 +195,29 @@ jobs:
         shell: pwsh
         run: |
           $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
-          if (!(Test-Path -LiteralPath $iscc)) { throw 'Inno Setup compiler was not found.' }
+          if (!(Test-Path -LiteralPath $iscc)) {
+            throw 'Inno Setup compiler was not found.'
+          }
+
           & $iscc `
             "/DMyAppVersion=${{ steps.version.outputs.value }}" `
             "/DSourceDir=$env:PUBLISH_DIR" `
             "/DWebView2Bootstrapper=$env:WEBVIEW_BOOTSTRAPPER" `
             "/O$env:OUTPUT_DIR" `
             "$env:INSTALLER_SCRIPT"
-          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE." }
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Inno Setup failed with exit code $LASTEXITCODE."
+          }
 
       - name: Create SHA-256 checksums
         shell: pwsh
         run: |
           $checksumFile = Join-Path $env:OUTPUT_DIR 'SHA256SUMS.txt'
-          if (Test-Path -LiteralPath $checksumFile) { Remove-Item -LiteralPath $checksumFile -Force }
+          if (Test-Path -LiteralPath $checksumFile) {
+            Remove-Item -LiteralPath $checksumFile -Force
+          }
+
           Get-ChildItem $env:OUTPUT_DIR -File | ForEach-Object {
             $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$hash  $($_.Name)" | Out-File -FilePath $checksumFile -Append -Encoding ascii
