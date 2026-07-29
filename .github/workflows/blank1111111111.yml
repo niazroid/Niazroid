@@ -1,11 +1,11 @@
-name: Build BankMovie Windows v1.2 Exact
+name: Build BankMovie Windows Current
 
 on:
   workflow_dispatch:
   push:
     branches: [main, master]
     paths:
-      - 'BankMovie-Windows-v1.2-WPF-COMPILE-FIX-source.zip'
+      - 'BankMovie-Windows-CURRENT-source.zip'
       - '.github/workflows/build-windows.yml'
   release:
     types: [published]
@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-windows-v12-exact-${{ github.ref }}
+  group: bankmovie-windows-current-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 60
 
     env:
-      SOURCE_ARCHIVE: ${{ github.workspace }}\BankMovie-Windows-v1.2-WPF-COMPILE-FIX-source.zip
+      SOURCE_ARCHIVE: ${{ github.workspace }}\BankMovie-Windows-CURRENT-source.zip
       PUBLISH_DIR: ${{ github.workspace }}\artifacts\publish
       OUTPUT_DIR: ${{ github.workspace }}\artifacts\output
 
@@ -37,14 +37,14 @@ jobs:
           if (!(Test-Path -LiteralPath $env:SOURCE_ARCHIVE)) {
             Write-Host 'Repository root files:'
             Get-ChildItem $env:GITHUB_WORKSPACE -File | ForEach-Object { Write-Host " - $($_.Name)" }
-            throw 'BankMovie-Windows-v1.2-WPF-COMPILE-FIX-source.zip is missing from repository root.'
+            throw 'BankMovie-Windows-CURRENT-source.zip is missing from repository root.'
           }
 
           $archiveHash = (Get-FileHash -LiteralPath $env:SOURCE_ARCHIVE -Algorithm SHA256).Hash.ToLowerInvariant()
           Write-Host "Selected exact source: $env:SOURCE_ARCHIVE"
           Write-Host "Source SHA256: $archiveHash"
 
-          $extractDir = Join-Path $env:RUNNER_TEMP 'BankMovie-Windows-v1.2-Exact'
+          $extractDir = Join-Path $env:RUNNER_TEMP 'BankMovie-Windows-CURRENT'
           if (Test-Path $extractDir) { Remove-Item $extractDir -Recurse -Force }
           New-Item -ItemType Directory -Force -Path $extractDir | Out-Null
           Expand-Archive -LiteralPath $env:SOURCE_ARCHIVE -DestinationPath $extractDir -Force
