@@ -1,12 +1,12 @@
-name: Build BankMovie Windows
+name: Build BankMovie Windows v1.2 Exact
 
 on:
   workflow_dispatch:
   push:
     branches: [main, master]
     paths:
-      - 'BankMovie-Windows*-source.zip'
-      - '.github/workflows/**'
+      - 'BankMovie-Windows-v1.2-WPF-COMPILE-FIX-source.zip'
+      - '.github/workflows/build-windows.yml'
   release:
     types: [published]
 
@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-windows-${{ github.ref }}
+  group: bankmovie-windows-v12-exact-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -23,6 +23,7 @@ jobs:
     timeout-minutes: 60
 
     env:
+      SOURCE_ARCHIVE: ${{ github.workspace }}\BankMovie-Windows-v1.2-WPF-COMPILE-FIX-source.zip
       PUBLISH_DIR: ${{ github.workspace }}\artifacts\publish
       OUTPUT_DIR: ${{ github.workspace }}\artifacts\output
 
@@ -30,99 +31,75 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract BankMovie Windows source ZIP
+      - name: Extract exact current source
         shell: pwsh
         run: |
-          $workspace = $env:GITHUB_WORKSPACE
-          $extractDir = Join-Path $env:RUNNER_TEMP 'BankMovie-Windows-Source'
-
-          # If expanded source already exists in the repository, use it directly.
-          $expandedProjects = @(
-            Get-ChildItem -Path $workspace -Recurse -File -Filter 'BankMovie.Windows.csproj' -ErrorAction SilentlyContinue
-          )
-
-          if ($expandedProjects.Count -gt 0) {
-            Write-Host 'Expanded Windows source already exists in the repository.'
-            "SOURCE_ROOT=$workspace" >> $env:GITHUB_ENV
-            exit 0
+          if (!(Test-Path -LiteralPath $env:SOURCE_ARCHIVE)) {
+            Write-Host 'Repository root files:'
+            Get-ChildItem $env:GITHUB_WORKSPACE -File | ForEach-Object { Write-Host " - $($_.Name)" }
+            throw 'BankMovie-Windows-v1.2-WPF-COMPILE-FIX-source.zip is missing from repository root.'
           }
 
-          # Otherwise find the Windows source archive. Android source ZIPs are ignored.
-          $archives = @(
-            Get-ChildItem -Path $workspace -File -ErrorAction SilentlyContinue |
-              Where-Object {
-                $_.Name -like 'BankMovie-Windows*-source.zip' -and
-                $_.Name -notlike 'Bankmovie-v2.1-*'
-              } |
-              Sort-Object Name -Descending
-          )
+          $archiveHash = (Get-FileHash -LiteralPath $env:SOURCE_ARCHIVE -Algorithm SHA256).Hash.ToLowerInvariant()
+          Write-Host "Selected exact source: $env:SOURCE_ARCHIVE"
+          Write-Host "Source SHA256: $archiveHash"
 
-          if ($archives.Count -eq 0) {
-            Write-Host 'Files found in repository root:'
-            Get-ChildItem -Path $workspace -File | ForEach-Object { Write-Host " - $($_.Name)" }
-            throw 'No BankMovie-Windows*-source.zip file was found in the repository root.'
-          }
-
-          if ($archives.Count -gt 1) {
-            Write-Host 'More than one Windows source archive exists. The highest version/name will be used:'
-            $archives | ForEach-Object { Write-Host " - $($_.Name)" }
-          }
-
-          $archive = $archives[0]
-          Write-Host "Selected source archive: $($archive.FullName)"
-
-          if (Test-Path $extractDir) {
-            Remove-Item $extractDir -Recurse -Force
-          }
+          $extractDir = Join-Path $env:RUNNER_TEMP 'BankMovie-Windows-v1.2-Exact'
+          if (Test-Path $extractDir) { Remove-Item $extractDir -Recurse -Force }
           New-Item -ItemType Directory -Force -Path $extractDir | Out-Null
-
-          Expand-Archive -LiteralPath $archive.FullName -DestinationPath $extractDir -Force
-
-          $projectAfterExtract = @(
-            Get-ChildItem -Path $extractDir -Recurse -File -Filter 'BankMovie.Windows.csproj' -ErrorAction SilentlyContinue
-          )
-          if ($projectAfterExtract.Count -eq 0) {
-            Write-Host 'Extracted files:'
-            Get-ChildItem -Path $extractDir -Recurse -File | ForEach-Object { Write-Host $_.FullName }
-            throw 'The ZIP was extracted, but BankMovie.Windows.csproj is not inside it.'
-          }
-
+          Expand-Archive -LiteralPath $env:SOURCE_ARCHIVE -DestinationPath $extractDir -Force
           "SOURCE_ROOT=$extractDir" >> $env:GITHUB_ENV
-          Write-Host "Source extracted to: $extractDir"
 
-      - name: Locate project and installer
+      - name: Locate and defensively fix WPF source
         shell: pwsh
         run: |
-          $projects = @(
-            Get-ChildItem -Path $env:SOURCE_ROOT -Recurse -File -Filter 'BankMovie.Windows.csproj' -ErrorAction SilentlyContinue
-          )
-          if ($projects.Count -eq 0) {
-            throw 'BankMovie.Windows.csproj was not found after source extraction.'
-          }
-          if ($projects.Count -gt 1) {
-            $projects | ForEach-Object { Write-Host "Duplicate project: $($_.FullName)" }
-            throw 'More than one BankMovie.Windows.csproj was found in the selected source.'
-          }
-
-          $installers = @(
-            Get-ChildItem -Path $env:SOURCE_ROOT -Recurse -File -Filter 'BankMovie.iss' -ErrorAction SilentlyContinue
-          )
-          if ($installers.Count -eq 0) {
-            throw 'BankMovie.iss was not found after source extraction.'
-          }
-          if ($installers.Count -gt 1) {
-            $installers | ForEach-Object { Write-Host "Duplicate installer: $($_.FullName)" }
-            throw 'More than one BankMovie.iss was found in the selected source.'
-          }
+          $projects = @(Get-ChildItem $env:SOURCE_ROOT -Recurse -File -Filter 'BankMovie.Windows.csproj')
+          if ($projects.Count -ne 1) { throw "Expected exactly one csproj, found $($projects.Count)." }
+          $installers = @(Get-ChildItem $env:SOURCE_ROOT -Recurse -File -Filter 'BankMovie.iss')
+          if ($installers.Count -ne 1) { throw "Expected exactly one BankMovie.iss, found $($installers.Count)." }
 
           $project = $projects[0].FullName
-          $installer = $installers[0].FullName
+          $projectDir = Split-Path $project -Parent
+          $appFile = Join-Path $projectDir 'App.xaml.cs'
+          $playerFile = Join-Path $projectDir 'PlayerWindow.xaml.cs'
+
+          if (!(Test-Path $appFile)) { throw 'App.xaml.cs was not found.' }
+          if (!(Test-Path $playerFile)) { throw 'PlayerWindow.xaml.cs was not found.' }
+
+          # Defensive patch: this also protects the build if an older source was accidentally renamed CURRENT.
+          $app = Get-Content -LiteralPath $appFile -Raw
+          $app = $app.Replace('public partial class App : Application', 'public partial class App : System.Windows.Application')
+          Set-Content -LiteralPath $appFile -Value $app -Encoding utf8
+
+          $player = Get-Content -LiteralPath $playerFile -Raw
+          $player = $player.Replace('private void Window_KeyDown(object sender, KeyEventArgs e)', 'private void Window_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)')
+          $player = $player.Replace('private void InteractionLayer_MouseMove(object sender, MouseEventArgs e)', 'private void InteractionLayer_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)')
+          Set-Content -LiteralPath $playerFile -Value $player -Encoding utf8
+
+          $csproj = Get-Content -LiteralPath $project -Raw
+          $csproj = $csproj -replace '<UseWindowsForms>\s*true\s*</UseWindowsForms>', ''
+          Set-Content -LiteralPath $project -Value $csproj -Encoding utf8
+
+          $appCheck = Get-Content -LiteralPath $appFile -Raw
+          $playerCheck = Get-Content -LiteralPath $playerFile -Raw
+          if ($appCheck -notmatch 'App\s*:\s*System\.Windows\.Application') {
+            throw 'WPF Application qualification is missing after patch.'
+          }
+          if ($playerCheck -notmatch 'System\.Windows\.Input\.KeyEventArgs') {
+            throw 'WPF KeyEventArgs qualification is missing after patch.'
+          }
+          if ($playerCheck -notmatch 'System\.Windows\.Input\.MouseEventArgs') {
+            throw 'WPF MouseEventArgs qualification is missing after patch.'
+          }
+
+          Write-Host 'Verified source lines:'
+          Select-String -Path $appFile -Pattern 'partial class App' | ForEach-Object { Write-Host $_.Line.Trim() }
+          Select-String -Path $playerFile -Pattern 'Window_KeyDown|InteractionLayer_MouseMove' | ForEach-Object { Write-Host $_.Line.Trim() }
 
           "PROJECT=$project" >> $env:GITHUB_ENV
-          "INSTALLER_SCRIPT=$installer" >> $env:GITHUB_ENV
-
+          "INSTALLER_SCRIPT=$($installers[0].FullName)" >> $env:GITHUB_ENV
           Write-Host "Project found: $project"
-          Write-Host "Installer found: $installer"
+          Write-Host "Installer found: $($installers[0].FullName)"
 
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
@@ -133,12 +110,10 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          $version = "1.2.${{ github.run_number }}"
+          $version = "1.3.${{ github.run_number }}"
           if ("${{ github.event_name }}" -eq 'release') {
             $tag = "${{ github.event.release.tag_name }}".TrimStart('v')
-            if ($tag -match '^\d+\.\d+\.\d+(\.\d+)?$') {
-              $version = $tag
-            }
+            if ($tag -match '^\d+\.\d+\.\d+(\.\d+)?$') { $version = $tag }
           }
           "value=$version" >> $env:GITHUB_OUTPUT
           Write-Host "Build version: $version"
@@ -151,7 +126,6 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path $env:PUBLISH_DIR | Out-Null
-
           dotnet publish "$env:PROJECT" `
             -c Release `
             -r win-x64 `
@@ -167,15 +141,9 @@ jobs:
         shell: pwsh
         run: |
           $exe = Join-Path $env:PUBLISH_DIR 'BankMovie.exe'
-          if (!(Test-Path $exe)) {
-            throw 'BankMovie.exe was not created.'
-          }
-
+          if (!(Test-Path $exe)) { throw 'BankMovie.exe was not created.' }
           $libvlc = Get-ChildItem $env:PUBLISH_DIR -Recurse -Filter 'libvlc.dll' | Select-Object -First 1
-          if (!$libvlc) {
-            throw 'libvlc.dll is missing from publish output.'
-          }
-
+          if (!$libvlc) { throw 'libvlc.dll is missing from publish output.' }
           Write-Host "BankMovie executable: $exe"
           Write-Host "LibVLC runtime: $($libvlc.FullName)"
 
@@ -183,22 +151,14 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path $env:OUTPUT_DIR | Out-Null
-          Compress-Archive `
-            -Path "$env:PUBLISH_DIR\*" `
-            -DestinationPath "$env:OUTPUT_DIR\BankMovie-Portable-x64.zip" `
-            -Force
+          Compress-Archive -Path "$env:PUBLISH_DIR\*" -DestinationPath "$env:OUTPUT_DIR\BankMovie-Portable-x64.zip" -Force
 
       - name: Download WebView2 bootstrapper
         shell: pwsh
         run: |
           $target = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
-          Invoke-WebRequest `
-            -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' `
-            -OutFile $target
-
-          if ((Get-Item $target).Length -lt 500000) {
-            throw 'The downloaded WebView2 bootstrapper is invalid.'
-          }
+          Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $target
+          if ((Get-Item $target).Length -lt 500000) { throw 'The downloaded WebView2 bootstrapper is invalid.' }
           "WEBVIEW_BOOTSTRAPPER=$target" >> $env:GITHUB_ENV
 
       - name: Install Inno Setup
@@ -209,29 +169,20 @@ jobs:
         shell: pwsh
         run: |
           $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
-          if (!(Test-Path $iscc)) {
-            throw 'Inno Setup compiler was not found.'
-          }
-
+          if (!(Test-Path $iscc)) { throw 'Inno Setup compiler was not found.' }
           & $iscc `
             "/DMyAppVersion=${{ steps.version.outputs.value }}" `
             "/DSourceDir=$env:PUBLISH_DIR" `
             "/DWebView2Bootstrapper=$env:WEBVIEW_BOOTSTRAPPER" `
             "/O$env:OUTPUT_DIR" `
             "$env:INSTALLER_SCRIPT"
-
-          if ($LASTEXITCODE -ne 0) {
-            throw "Inno Setup failed with exit code $LASTEXITCODE."
-          }
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE." }
 
       - name: Create SHA-256 checksums
         shell: pwsh
         run: |
           $checksumFile = Join-Path $env:OUTPUT_DIR 'SHA256SUMS.txt'
-          if (Test-Path $checksumFile) {
-            Remove-Item $checksumFile -Force
-          }
-
+          if (Test-Path $checksumFile) { Remove-Item $checksumFile -Force }
           Get-ChildItem $env:OUTPUT_DIR -File | ForEach-Object {
             $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$hash  $($_.Name)" | Out-File -FilePath $checksumFile -Append -Encoding ascii
