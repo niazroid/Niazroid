@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 Phase1 Cache Weekly Slider BulkCopy
+name: Build Bankmovie V2.1 Phase2 Scroll Weekly Downloader
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       - main
 
 concurrency:
-  group: bankmovie-v2.1-phase1-cache-weekly-slider-bulkcopy-${{ github.ref }}
+  group: bankmovie-v2.1-phase2-scroll-weekly-downloader-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
         run: |
           set -euo pipefail
           required=(
-            'Bankmovie-v2.1-PHASE1-FULL-ANDROID-SOURCE.zip'
+            'Bankmovie-v2.1-PHASE2-SCROLL-WEEKLY-DOWNLOADER-FULL-SOURCE.zip'
             'irancell [@fontbazi].zip'
             'Cinema.otf'
             'Diako Hima Regular-@Fontsplua.ttf'
@@ -64,7 +64,7 @@ jobs:
           set -euo pipefail
           rm -rf project
           mkdir -p project
-          unzip -q 'Bankmovie-v2.1-PHASE1-FULL-ANDROID-SOURCE.zip' -d project
+          unzip -q 'Bankmovie-v2.1-PHASE2-SCROLL-WEEKLY-DOWNLOADER-FULL-SOURCE.zip' -d project
           test -s project/app/build.gradle
           test -s project/settings.gradle
           test -s project/bankmovie_update.jks
@@ -74,6 +74,14 @@ jobs:
           grep -F 'detailCacheTtlMs = 60L * 60L * 1000L' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -F 'app_home_feed.php?limit=12' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -F 'seriesBulkCopyButton' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'readDetailScrollPosition' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'restoreBackScrollPosition' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'جدول پخش هفتگی' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'enqueueSeriesBulkInternal' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          test -s project/app/src/main/java/ir/bankmoviee/app/DownloadScheduleManager.kt
+          grep -F 'STATUS_SCHEDULED' project/app/src/main/java/ir/bankmoviee/app/InternalDownloadStore.kt
+          grep -F 'showBulkImportDialog' project/app/src/main/java/ir/bankmoviee/app/DownloadsActivity.kt
+          grep -F 'SCHEDULE_EXACT_ALARM' project/app/src/main/AndroidManifest.xml
 
       - name: Install Irancell fonts from root ZIP
         working-directory: project
