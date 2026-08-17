@@ -24,7 +24,7 @@ jobs:
         run: |
           set -euo pipefail
           required=(
-            'Bankmovie-v2.1-PHASE1-CACHE-WEEKLY-SLIDER-BULKCOPY-source.zip'
+            'Bankmovie-v2.1-PHASE1-FULL-ANDROID-SOURCE.zip'
             'irancell [@fontbazi].zip'
             'Cinema.otf'
             'Diako Hima Regular-@Fontsplua.ttf'
@@ -64,7 +64,7 @@ jobs:
           set -euo pipefail
           rm -rf project
           mkdir -p project
-          unzip -q 'Bankmovie-v2.1-PHASE1-CACHE-WEEKLY-SLIDER-BULKCOPY-source.zip' -d project
+          unzip -q 'Bankmovie-v2.1-PHASE1-FULL-ANDROID-SOURCE.zip' -d project
           test -s project/app/build.gradle
           test -s project/settings.gradle
           test -s project/bankmovie_update.jks
