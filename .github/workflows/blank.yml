@@ -1,119 +1,320 @@
-name: Build BankMovie Windows
+name: Build Bankmovie V2.1 Phase1 Cache Weekly Slider BulkCopy
 
 on:
   workflow_dispatch:
   push:
-    branches: [ main, master ]
-    paths:
-      - 'src/**'
-      - 'installer/**'
-      - '.github/workflows/build-windows.yml'
-      - 'BankMovie.Windows.sln'
-  release:
-    types: [published]
+    branches:
+      - main
 
-permissions:
-  contents: read
+concurrency:
+  group: bankmovie-v2.1-phase1-cache-weekly-slider-bulkcopy-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
-    runs-on: windows-latest
-    timeout-minutes: 45
-    env:
-      PROJECT: src/BankMovie.Windows/BankMovie.Windows.csproj
-      PUBLISH_DIR: ${{ github.workspace }}\artifacts\publish
-      OUTPUT_DIR: ${{ github.workspace }}\artifacts\output
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
 
     steps:
-      - name: Checkout source
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup .NET 8
-        uses: actions/setup-dotnet@v4
+      - name: Verify required root files
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            'Bankmovie-v2.1-PHASE1-CACHE-WEEKLY-SLIDER-BULKCOPY-source.zip'
+            'irancell [@fontbazi].zip'
+            'Cinema.otf'
+            'Diako Hima Regular-@Fontsplua.ttf'
+            'Nic [@fontbazi].ttf'
+          )
+          for file in "${required[@]}"; do
+            if [[ ! -s "$file" ]]; then
+              echo "Missing or empty required root file: $file" >&2
+              find . -maxdepth 1 -type f -printf '%f\n' | sort >&2
+              exit 1
+            fi
+          done
+
+          for weight in regular medium bold; do
+            match="$(find . -maxdepth 1 -type f -iname "IRANSansXFaNum-${weight}*.woff2" -print -quit)"
+            if [[ -z "$match" || ! -s "$match" ]]; then
+              echo "Missing IRANSansX WOFF2 weight: $weight" >&2
+              exit 1
+            fi
+            echo "$weight -> $match"
+          done
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
         with:
-          dotnet-version: '8.0.x'
+          distribution: temurin
+          java-version: '17'
 
-      - name: Resolve version
-        id: version
-        shell: pwsh
+      - name: Setup Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Extract Android source
+        shell: bash
         run: |
-          $version = "1.0.${{ github.run_number }}"
-          if ("${{ github.event_name }}" -eq "release") {
-            $tag = "${{ github.event.release.tag_name }}".TrimStart('v')
-            if ($tag -match '^\d+\.\d+\.\d+(\.\d+)?$') { $version = $tag }
+          set -euo pipefail
+          rm -rf project
+          mkdir -p project
+          unzip -q 'Bankmovie-v2.1-PHASE1-CACHE-WEEKLY-SLIDER-BULKCOPY-source.zip' -d project
+          test -s project/app/build.gradle
+          test -s project/settings.gradle
+          test -s project/bankmovie_update.jks
+          test -d project/app/src/main
+          test -s project/server-required/app_home_feed.php
+          test -s project/app/src/main/res/drawable/ic_copy_link.xml
+          grep -F 'detailCacheTtlMs = 60L * 60L * 1000L' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'app_home_feed.php?limit=12' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'seriesBulkCopyButton' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+
+      - name: Install Irancell fonts from root ZIP
+        working-directory: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path, PurePosixPath
+          from zipfile import ZipFile
+          import re
+
+          archive = Path('../irancell [@fontbazi].zip')
+          output = Path('app/src/main/assets/fonts')
+          output.mkdir(parents=True, exist_ok=True)
+          targets = {
+              1: 'irancell_bold.ttf',
+              2: 'irancell_regular.ttf',
+              3: 'irancell_black.ttf',
+              4: 'irancell_semibold.ttf',
+              5: 'irancell_medium.ttf',
           }
-          "value=$version" >> $env:GITHUB_OUTPUT
+          with ZipFile(archive) as zf:
+              entries = [item for item in zf.infolist() if not item.is_dir() and item.filename.lower().endswith('.ttf')]
+              indexed = {}
+              for item in entries:
+                  name = PurePosixPath(item.filename).name
+                  match = re.search(r'irancell[^0-9]*([1-5])', name, re.IGNORECASE)
+                  if match:
+                      indexed[int(match.group(1))] = item
+              missing = [number for number in targets if number not in indexed]
+              if missing:
+                  raise SystemExit(f'Missing Irancell weights: {missing}')
+              for number, target in targets.items():
+                  data = zf.read(indexed[number], pwd=b'fontbazi')
+                  if len(data) < 1024:
+                      raise SystemExit(f'Invalid Irancell font: {indexed[number].filename}')
+                  (output / target).write_bytes(data)
+                  print(f'{indexed[number].filename} -> {target}')
+          PY
 
-      - name: Restore
-        run: dotnet restore $env:PROJECT -r win-x64
-
-      - name: Publish self-contained x64
-        shell: pwsh
+      - name: Install additional root fonts
+        working-directory: project
+        shell: bash
         run: |
-          New-Item -ItemType Directory -Force -Path $env:PUBLISH_DIR | Out-Null
-          dotnet publish $env:PROJECT `
-            -c Release `
-            -r win-x64 `
-            --self-contained true `
-            --no-restore `
-            -o $env:PUBLISH_DIR `
-            -p:Version=${{ steps.version.outputs.value }} `
-            -p:FileVersion=${{ steps.version.outputs.value }} `
-            -p:PublishSingleFile=false `
-            -p:PublishTrimmed=false
+          set -euo pipefail
+          install -d app/src/main/assets/fonts
+          install -m 0644 '../Cinema.otf' app/src/main/assets/fonts/cinema.otf
+          install -m 0644 '../Diako Hima Regular-@Fontsplua.ttf' app/src/main/assets/fonts/diako_hima.ttf
+          install -m 0644 '../Nic [@fontbazi].ttf' app/src/main/assets/fonts/nic.ttf
 
-      - name: Validate player runtime
-        shell: pwsh
+      - name: Convert and install IRANSansX fonts
+        working-directory: project
+        shell: bash
         run: |
-          $exe = Join-Path $env:PUBLISH_DIR 'BankMovie.exe'
-          if (!(Test-Path $exe)) { throw "BankMovie.exe was not created" }
-          $libvlc = Get-ChildItem $env:PUBLISH_DIR -Recurse -Filter 'libvlc.dll' | Select-Object -First 1
-          if (!$libvlc) { throw "libvlc.dll is missing from publish output" }
-          Write-Host "libVLC found at $($libvlc.FullName)"
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --no-cache-dir 'fonttools[woff]>=4.50,<5'
+          python3 - <<'PY'
+          from pathlib import Path
+          from fontTools.ttLib import TTFont
 
-      - name: Create portable package
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path $env:OUTPUT_DIR | Out-Null
-          Compress-Archive -Path "$env:PUBLISH_DIR\*" -DestinationPath "$env:OUTPUT_DIR\BankMovie-Portable-x64.zip" -Force
-
-      - name: Download official WebView2 bootstrapper
-        shell: pwsh
-        run: |
-          $target = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
-          Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $target
-          if ((Get-Item $target).Length -lt 500000) { throw "Invalid WebView2 bootstrapper" }
-          "WEBVIEW_BOOTSTRAPPER=$target" >> $env:GITHUB_ENV
-
-      - name: Install Inno Setup
-        shell: pwsh
-        run: choco install innosetup --no-progress -y
-
-      - name: Build Setup EXE
-        shell: pwsh
-        run: |
-          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
-          if (!(Test-Path $iscc)) { throw "Inno Setup compiler not found" }
-          & $iscc `
-            "/DMyAppVersion=${{ steps.version.outputs.value }}" `
-            "/DSourceDir=$env:PUBLISH_DIR" `
-            "/DWebView2Bootstrapper=$env:WEBVIEW_BOOTSTRAPPER" `
-            "/O$env:OUTPUT_DIR" `
-            'installer\BankMovie.iss'
-          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
-
-      - name: Create checksums
-        shell: pwsh
-        run: |
-          Get-ChildItem $env:OUTPUT_DIR -File | ForEach-Object {
-            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-            "$hash  $($_.Name)" | Out-File -FilePath "$env:OUTPUT_DIR\SHA256SUMS.txt" -Append -Encoding ascii
+          root = Path('..')
+          output = Path('app/src/main/assets/fonts')
+          output.mkdir(parents=True, exist_ok=True)
+          targets = {
+              'regular': 'iransansx_regular.ttf',
+              'medium': 'iransansx_medium.ttf',
+              'bold': 'iransansx_bold.ttf',
           }
+          for weight, target in targets.items():
+              matches = sorted(root.glob(f'IRANSansXFaNum-{weight}*.woff2'))
+              if not matches:
+                  raise SystemExit(f'Missing IRANSansX {weight} WOFF2')
+              source = matches[0]
+              font = TTFont(source)
+              font.flavor = None
+              destination = output / target
+              font.save(destination)
+              if destination.stat().st_size < 1024:
+                  raise SystemExit(f'Converted font is too small: {destination}')
+              print(f'{source.name} -> {destination} ({destination.stat().st_size} bytes)')
+          PY
 
-      - name: Upload Windows artifacts
+          for font in \
+            irancell_regular.ttf irancell_medium.ttf irancell_semibold.ttf irancell_bold.ttf irancell_black.ttf \
+            cinema.otf diako_hima.ttf nic.ttf \
+            iransansx_regular.ttf iransansx_medium.ttf iransansx_bold.ttf; do
+            test -s "app/src/main/assets/fonts/$font"
+          done
+
+      - name: Verify package version and signing identity
+        working-directory: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_JKS='b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39'
+          EXPECTED_CERT='86:2B:C3:58:D8:D2:39:A2:13:4A:63:FA:B9:79:FF:60:19:86:23:72:E7:95:0E:A4:9B:AC:74:78:09:36:20:5D'
+          echo "$EXPECTED_JKS  bankmovie_update.jks" | sha256sum -c -
+          keytool -list -v -keystore bankmovie_update.jks -storepass bankmovie123 -alias bankmovie | grep -F "SHA256: $EXPECTED_CERT"
+          grep -F "applicationId 'ir.bankmoviee.app'" app/build.gradle
+          grep -F 'versionName "2.1"' app/build.gradle
+          grep -E 'versionCode[[:space:]]+5200000[[:space:]]*\+[[:space:]]*runNumber' app/build.gradle
+          grep -F 'include(*bankmovieAbis)' app/build.gradle
+
+      - name: Build real ABI2 Lite releases
+        working-directory: project
+        shell: bash
+        env:
+          BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace assembleAbi2LiteRelease
+
+      - name: Build ABI4 Full releases
+        working-directory: project
+        shell: bash
+        env:
+          BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a,x86,x86_64
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace assembleAbi4FullRelease
+
+      - name: Collect and verify APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf output
+          mkdir -p output
+
+          while IFS= read -r apk; do
+            normalized="$(printf '%s' "$apk" | tr '[:upper:]' '[:lower:]')"
+            if [[ "$normalized" == *'abi2lite'* ]]; then
+              edition='abi2-lite'
+            elif [[ "$normalized" == *'abi4full'* ]]; then
+              edition='abi4-full'
+            else
+              continue
+            fi
+
+            if [[ "$normalized" == *'universal'* ]]; then
+              abi='universal'
+            elif [[ "$normalized" == *'arm64-v8a'* ]]; then
+              abi='arm64-v8a'
+            elif [[ "$normalized" == *'armeabi-v7a'* ]]; then
+              abi='armeabi-v7a'
+            else
+              continue
+            fi
+            cp "$apk" "output/Bankmovie-v2.1-${edition}-${abi}.apk"
+          done < <(find project/app/build/outputs/apk -type f -name '*.apk' | sort)
+
+          expected=(
+            output/Bankmovie-v2.1-abi2-lite-universal.apk
+            output/Bankmovie-v2.1-abi2-lite-arm64-v8a.apk
+            output/Bankmovie-v2.1-abi2-lite-armeabi-v7a.apk
+            output/Bankmovie-v2.1-abi4-full-universal.apk
+            output/Bankmovie-v2.1-abi4-full-arm64-v8a.apk
+            output/Bankmovie-v2.1-abi4-full-armeabi-v7a.apk
+          )
+          for apk in "${expected[@]}"; do test -s "$apk"; done
+
+          ABI2=output/Bankmovie-v2.1-abi2-lite-universal.apk
+          unzip -l "$ABI2" | grep -q 'lib/armeabi-v7a/'
+          unzip -l "$ABI2" | grep -q 'lib/arm64-v8a/'
+          if unzip -l "$ABI2" | grep -Eq 'lib/(x86|x86_64)/'; then
+            echo 'ABI2 Universal unexpectedly contains x86 libraries' >&2
+            exit 1
+          fi
+
+          ABI4=output/Bankmovie-v2.1-abi4-full-universal.apk
+          for abi in armeabi-v7a arm64-v8a x86 x86_64; do
+            unzip -l "$ABI4" | grep -q "lib/$abi/"
+          done
+
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$APKSIGNER"
+          EXPECTED_CERT_NO_COLONS='862bc358d8d239a2134a63fab979ff6019862372e7950ea49bac74780936205d'
+          EXPECTED_PUBLIC_KEY='d692a8294236f8a5c071945be99e2cce705406cb5957ecfab02877b3d429985c'
+
+          for apk in "${expected[@]}"; do
+            report="$(mktemp)"
+            "$APKSIGNER" verify --verbose --print-certs "$apk" >"$report" 2>&1 || {
+              cat "$report"
+              exit 1
+            }
+            normalized_report="$(tr '[:upper:]' '[:lower:]' <"$report" | tr -d ':[:space:]')"
+            if [[ "$normalized_report" != *"certificatesha-256digest${EXPECTED_CERT_NO_COLONS}"* ]] \
+              && [[ "$normalized_report" != *"publickeysha-256digest${EXPECTED_PUBLIC_KEY}"* ]]; then
+              cat "$report"
+              echo "Unexpected signing identity: $apk" >&2
+              exit 1
+            fi
+            rm -f "$report"
+          done
+
+          sha256sum "${expected[@]}" | tee output/SHA256SUMS.txt
+
+      - name: Upload ABI2 Lite Universal
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-${{ steps.version.outputs.value }}
-          path: artifacts/output/*
+          name: Bankmovie-V2.1-ABI2-Lite-Universal-ARMv7-ARM64
+          path: output/Bankmovie-v2.1-abi2-lite-universal.apk
           if-no-files-found: error
-          retention-days: 30
+
+      - name: Upload ABI2 Lite ARM64
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-V2.1-ABI2-Lite-arm64-v8a
+          path: output/Bankmovie-v2.1-abi2-lite-arm64-v8a.apk
+          if-no-files-found: error
+
+      - name: Upload ABI2 Lite ARMv7
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-V2.1-ABI2-Lite-armeabi-v7a
+          path: output/Bankmovie-v2.1-abi2-lite-armeabi-v7a.apk
+          if-no-files-found: error
+
+      - name: Upload ABI4 Full Universal
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-V2.1-ABI4-Full-Universal
+          path: output/Bankmovie-v2.1-abi4-full-universal.apk
+          if-no-files-found: error
+
+      - name: Upload ABI4 Full ARM64
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-V2.1-ABI4-Full-arm64-v8a
+          path: output/Bankmovie-v2.1-abi4-full-arm64-v8a.apk
+          if-no-files-found: error
+
+      - name: Upload ABI4 Full ARMv7
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-V2.1-ABI4-Full-armeabi-v7a
+          path: output/Bankmovie-v2.1-abi4-full-armeabi-v7a.apk
+          if-no-files-found: error
+
+      - name: Upload checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-V2.1-SHA256
+          path: output/SHA256SUMS.txt
+          if-no-files-found: error
