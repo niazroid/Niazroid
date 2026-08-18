@@ -1,201 +1,333 @@
-name: Build BankMovie Native Windows v2.0.2
+name: Build Bankmovie V2.1 Phase3 Dynamic Palette iOS Detail
 
 on:
   workflow_dispatch:
   push:
-    branches: [main, master]
+    branches:
+      - main
 
-permissions:
-  contents: read
+concurrency:
+  group: bankmovie-v2.1-phase3-dynamic-palette-ios-detail-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
-    runs-on: windows-latest
-    timeout-minutes: 50
-    env:
-      SOURCE_ZIP: BankMovie-Windows-NATIVE-v2.0.2-HTTPCLIENT-FIX-source.zip
-      PROJECT_REL: src/BankMovie.Windows/BankMovie.Windows.csproj
-      INSTALLER_REL: installer/BankMovie.iss
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup .NET 8
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
-
-      - name: Extract exact native source
-        shell: pwsh
+      - name: Verify required root files
+        shell: bash
         run: |
-          $zip = Join-Path $env:GITHUB_WORKSPACE $env:SOURCE_ZIP
-          if (!(Test-Path -LiteralPath $zip)) {
-            throw "Exact source file was not found: $env:SOURCE_ZIP"
-          }
-
-          $sourceRoot = Join-Path $env:RUNNER_TEMP 'BankMovie-Native-v2.0.2'
-          if (Test-Path -LiteralPath $sourceRoot) {
-            Remove-Item -LiteralPath $sourceRoot -Recurse -Force
-          }
-          New-Item -ItemType Directory -Path $sourceRoot -Force | Out-Null
-          Expand-Archive -LiteralPath $zip -DestinationPath $sourceRoot -Force
-
-          $project = Join-Path $sourceRoot $env:PROJECT_REL
-          $installer = Join-Path $sourceRoot $env:INSTALLER_REL
-          if (!(Test-Path -LiteralPath $project)) { throw "Project not found inside exact source: $project" }
-          if (!(Test-Path -LiteralPath $installer)) { throw "Installer script not found: $installer" }
-
-          "SOURCE_ROOT=$sourceRoot" >> $env:GITHUB_ENV
-          "PROJECT=$project" >> $env:GITHUB_ENV
-          "INSTALLER_SCRIPT=$installer" >> $env:GITHUB_ENV
-          "PUBLISH_DIR=$(Join-Path $env:RUNNER_TEMP 'BankMovie-Native-Publish')" >> $env:GITHUB_ENV
-          "OUTPUT_DIR=$(Join-Path $env:GITHUB_WORKSPACE 'artifacts')" >> $env:GITHUB_ENV
-
-          Write-Host "Exact source: $zip"
-          Write-Host "Project: $project"
-
-      - name: Verify HttpClient compile fix
-        shell: pwsh
-        run: |
-          $apiClient = Join-Path $env:SOURCE_ROOT 'src/BankMovie.Windows/Services/Api6Client.cs'
-          $content = Get-Content -LiteralPath $apiClient -Raw
-          if ($content -notmatch 'using System\.Net\.Http;') {
-            throw 'Api6Client.cs does not contain the required System.Net.Http using directive.'
-          }
-          Write-Host 'Verified: using System.Net.Http;'
-
-      - name: Restore and publish native app
-        shell: pwsh
-        run: |
-          if (Test-Path -LiteralPath $env:PUBLISH_DIR) {
-            Remove-Item -LiteralPath $env:PUBLISH_DIR -Recurse -Force
-          }
-          New-Item -ItemType Directory -Path $env:PUBLISH_DIR -Force | Out-Null
-
-          dotnet restore $env:PROJECT -r win-x64
-          if ($LASTEXITCODE -ne 0) { throw 'dotnet restore failed.' }
-
-          dotnet publish $env:PROJECT `
-            -c Release `
-            -r win-x64 `
-            --self-contained true `
-            --no-restore `
-            -p:PublishSingleFile=false `
-            -p:PublishTrimmed=false `
-            -o $env:PUBLISH_DIR
-          if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed.' }
-
-          $exe = Join-Path $env:PUBLISH_DIR 'BankMovie.exe'
-          if (!(Test-Path -LiteralPath $exe)) { throw 'BankMovie.exe was not produced.' }
-
-      - name: Download compact mpv engine
-        shell: pwsh
-        run: |
-          $headers = @{ 'User-Agent' = 'BankMovie-Windows-Build' }
-          $repositories = @(
-            'shinchiro/mpv-winbuild-cmake',
-            'zhongfly/mpv-winbuild'
+          set -euo pipefail
+          required=(
+            'Bankmovie-v2.1-PHASE3-DYNAMIC-PALETTE-IOS-DETAIL-FULL-SOURCE.zip'
+            'irancell [@fontbazi].zip'
+            'Cinema.otf'
+            'Diako Hima Regular-@Fontsplua.ttf'
+            'Nic [@fontbazi].ttf'
           )
-          $asset = $null
+          for file in "${required[@]}"; do
+            if [[ ! -s "$file" ]]; then
+              echo "Missing or empty required root file: $file" >&2
+              find . -maxdepth 1 -type f -printf '%f\n' | sort >&2
+              exit 1
+            fi
+          done
 
-          foreach ($repository in $repositories) {
-            try {
-              $releases = @(Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/$repository/releases?per_page=6")
-              foreach ($release in $releases) {
-                $candidates = @($release.assets | Where-Object {
-                  $_.name -match '(?i)(mpv).*(x86_64|win64).*(\.7z|\.zip)$' -and
-                  $_.name -notmatch '(?i)(arm|aarch64|i686|x86-|sdk|dev|debug|v3)'
-                })
-                if ($candidates.Count -gt 0) {
-                  $asset = $candidates | Sort-Object name -Descending | Select-Object -First 1
-                  break
-                }
-              }
-            } catch {
-              Write-Warning "Could not read releases from $repository"
+          for weight in regular medium bold; do
+            match="$(find . -maxdepth 1 -type f -iname "IRANSansXFaNum-${weight}*.woff2" -print -quit)"
+            if [[ -z "$match" || ! -s "$match" ]]; then
+              echo "Missing IRANSansX WOFF2 weight: $weight" >&2
+              exit 1
+            fi
+            echo "$weight -> $match"
+          done
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Extract Android source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf project
+          mkdir -p project
+          unzip -q 'Bankmovie-v2.1-PHASE3-DYNAMIC-PALETTE-IOS-DETAIL-FULL-SOURCE.zip' -d project
+          test -s project/app/build.gradle
+          test -s project/settings.gradle
+          test -s project/bankmovie_update.jks
+          test -d project/app/src/main
+          test -s project/server-required/app_home_feed.php
+          test -s project/app/src/main/res/drawable/ic_copy_link.xml
+          grep -F 'detailCacheTtlMs = 60L * 60L * 1000L' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'app_home_feed.php?limit=12' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'seriesBulkCopyButton' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'readDetailScrollPosition' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'restoreBackScrollPosition' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'جدول پخش هفتگی' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'enqueueSeriesBulkInternal' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          test -s project/app/src/main/java/ir/bankmoviee/app/DownloadScheduleManager.kt
+          grep -F 'STATUS_SCHEDULED' project/app/src/main/java/ir/bankmoviee/app/InternalDownloadStore.kt
+          grep -F 'showBulkImportDialog' project/app/src/main/java/ir/bankmoviee/app/DownloadsActivity.kt
+          grep -F 'SCHEDULE_EXACT_ALARM' project/app/src/main/AndroidManifest.xml
+          test -s project/PHASE3_DYNAMIC_PALETTE_IOS_BUTTONS_FA.md
+          grep -F 'DetailVisualPalette' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'extractDetailVisualPalette' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'detailPremiumPlayButton' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'commentVoteGroup' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+
+      - name: Install Irancell fonts from root ZIP
+        working-directory: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path, PurePosixPath
+          from zipfile import ZipFile
+          import re
+
+          archive = Path('../irancell [@fontbazi].zip')
+          output = Path('app/src/main/assets/fonts')
+          output.mkdir(parents=True, exist_ok=True)
+          targets = {
+              1: 'irancell_bold.ttf',
+              2: 'irancell_regular.ttf',
+              3: 'irancell_black.ttf',
+              4: 'irancell_semibold.ttf',
+              5: 'irancell_medium.ttf',
+          }
+          with ZipFile(archive) as zf:
+              entries = [item for item in zf.infolist() if not item.is_dir() and item.filename.lower().endswith('.ttf')]
+              indexed = {}
+              for item in entries:
+                  name = PurePosixPath(item.filename).name
+                  match = re.search(r'irancell[^0-9]*([1-5])', name, re.IGNORECASE)
+                  if match:
+                      indexed[int(match.group(1))] = item
+              missing = [number for number in targets if number not in indexed]
+              if missing:
+                  raise SystemExit(f'Missing Irancell weights: {missing}')
+              for number, target in targets.items():
+                  data = zf.read(indexed[number], pwd=b'fontbazi')
+                  if len(data) < 1024:
+                      raise SystemExit(f'Invalid Irancell font: {indexed[number].filename}')
+                  (output / target).write_bytes(data)
+                  print(f'{indexed[number].filename} -> {target}')
+          PY
+
+      - name: Install additional root fonts
+        working-directory: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d app/src/main/assets/fonts
+          install -m 0644 '../Cinema.otf' app/src/main/assets/fonts/cinema.otf
+          install -m 0644 '../Diako Hima Regular-@Fontsplua.ttf' app/src/main/assets/fonts/diako_hima.ttf
+          install -m 0644 '../Nic [@fontbazi].ttf' app/src/main/assets/fonts/nic.ttf
+
+      - name: Convert and install IRANSansX fonts
+        working-directory: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --no-cache-dir 'fonttools[woff]>=4.50,<5'
+          python3 - <<'PY'
+          from pathlib import Path
+          from fontTools.ttLib import TTFont
+
+          root = Path('..')
+          output = Path('app/src/main/assets/fonts')
+          output.mkdir(parents=True, exist_ok=True)
+          targets = {
+              'regular': 'iransansx_regular.ttf',
+              'medium': 'iransansx_medium.ttf',
+              'bold': 'iransansx_bold.ttf',
+          }
+          for weight, target in targets.items():
+              matches = sorted(root.glob(f'IRANSansXFaNum-{weight}*.woff2'))
+              if not matches:
+                  raise SystemExit(f'Missing IRANSansX {weight} WOFF2')
+              source = matches[0]
+              font = TTFont(source)
+              font.flavor = None
+              destination = output / target
+              font.save(destination)
+              if destination.stat().st_size < 1024:
+                  raise SystemExit(f'Converted font is too small: {destination}')
+              print(f'{source.name} -> {destination} ({destination.stat().st_size} bytes)')
+          PY
+
+          for font in \
+            irancell_regular.ttf irancell_medium.ttf irancell_semibold.ttf irancell_bold.ttf irancell_black.ttf \
+            cinema.otf diako_hima.ttf nic.ttf \
+            iransansx_regular.ttf iransansx_medium.ttf iransansx_bold.ttf; do
+            test -s "app/src/main/assets/fonts/$font"
+          done
+
+      - name: Verify package version and signing identity
+        working-directory: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_JKS='b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39'
+          EXPECTED_CERT='86:2B:C3:58:D8:D2:39:A2:13:4A:63:FA:B9:79:FF:60:19:86:23:72:E7:95:0E:A4:9B:AC:74:78:09:36:20:5D'
+          echo "$EXPECTED_JKS  bankmovie_update.jks" | sha256sum -c -
+          keytool -list -v -keystore bankmovie_update.jks -storepass bankmovie123 -alias bankmovie | grep -F "SHA256: $EXPECTED_CERT"
+          grep -F "applicationId 'ir.bankmoviee.app'" app/build.gradle
+          grep -F 'versionName "2.1"' app/build.gradle
+          grep -E 'versionCode[[:space:]]+5200000[[:space:]]*\+[[:space:]]*runNumber' app/build.gradle
+          grep -F 'include(*bankmovieAbis)' app/build.gradle
+
+      - name: Build real ABI2 Lite releases
+        working-directory: project
+        shell: bash
+        env:
+          BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace assembleAbi2LiteRelease
+
+      - name: Build ABI4 Full releases
+        working-directory: project
+        shell: bash
+        env:
+          BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a,x86,x86_64
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace assembleAbi4FullRelease
+
+      - name: Collect and verify APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf output
+          mkdir -p output
+
+          while IFS= read -r apk; do
+            normalized="$(printf '%s' "$apk" | tr '[:upper:]' '[:lower:]')"
+            if [[ "$normalized" == *'abi2lite'* ]]; then
+              edition='abi2-lite'
+            elif [[ "$normalized" == *'abi4full'* ]]; then
+              edition='abi4-full'
+            else
+              continue
+            fi
+
+            if [[ "$normalized" == *'universal'* ]]; then
+              abi='universal'
+            elif [[ "$normalized" == *'arm64-v8a'* ]]; then
+              abi='arm64-v8a'
+            elif [[ "$normalized" == *'armeabi-v7a'* ]]; then
+              abi='armeabi-v7a'
+            else
+              continue
+            fi
+            cp "$apk" "output/Bankmovie-v2.1-${edition}-${abi}.apk"
+          done < <(find project/app/build/outputs/apk -type f -name '*.apk' | sort)
+
+          expected=(
+            output/Bankmovie-v2.1-abi2-lite-universal.apk
+            output/Bankmovie-v2.1-abi2-lite-arm64-v8a.apk
+            output/Bankmovie-v2.1-abi2-lite-armeabi-v7a.apk
+            output/Bankmovie-v2.1-abi4-full-universal.apk
+            output/Bankmovie-v2.1-abi4-full-arm64-v8a.apk
+            output/Bankmovie-v2.1-abi4-full-armeabi-v7a.apk
+          )
+          for apk in "${expected[@]}"; do test -s "$apk"; done
+
+          ABI2=output/Bankmovie-v2.1-abi2-lite-universal.apk
+          unzip -l "$ABI2" | grep -q 'lib/armeabi-v7a/'
+          unzip -l "$ABI2" | grep -q 'lib/arm64-v8a/'
+          if unzip -l "$ABI2" | grep -Eq 'lib/(x86|x86_64)/'; then
+            echo 'ABI2 Universal unexpectedly contains x86 libraries' >&2
+            exit 1
+          fi
+
+          ABI4=output/Bankmovie-v2.1-abi4-full-universal.apk
+          for abi in armeabi-v7a arm64-v8a x86 x86_64; do
+            unzip -l "$ABI4" | grep -q "lib/$abi/"
+          done
+
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$APKSIGNER"
+          EXPECTED_CERT_NO_COLONS='862bc358d8d239a2134a63fab979ff6019862372e7950ea49bac74780936205d'
+          EXPECTED_PUBLIC_KEY='d692a8294236f8a5c071945be99e2cce705406cb5957ecfab02877b3d429985c'
+
+          for apk in "${expected[@]}"; do
+            report="$(mktemp)"
+            "$APKSIGNER" verify --verbose --print-certs "$apk" >"$report" 2>&1 || {
+              cat "$report"
+              exit 1
             }
-            if ($null -ne $asset) { break }
-          }
+            normalized_report="$(tr '[:upper:]' '[:lower:]' <"$report" | tr -d ':[:space:]')"
+            if [[ "$normalized_report" != *"certificatesha-256digest${EXPECTED_CERT_NO_COLONS}"* ]] \
+              && [[ "$normalized_report" != *"publickeysha-256digest${EXPECTED_PUBLIC_KEY}"* ]]; then
+              cat "$report"
+              echo "Unexpected signing identity: $apk" >&2
+              exit 1
+            fi
+            rm -f "$report"
+          done
 
-          if ($null -eq $asset) {
-            throw 'A compatible x64 mpv release asset could not be found.'
-          }
+          sha256sum "${expected[@]}" | tee output/SHA256SUMS.txt
 
-          $downloadPath = Join-Path $env:RUNNER_TEMP $asset.name
-          $extractPath = Join-Path $env:RUNNER_TEMP 'mpv-extracted'
-          if (Test-Path -LiteralPath $extractPath) { Remove-Item -LiteralPath $extractPath -Recurse -Force }
-          New-Item -ItemType Directory -Path $extractPath -Force | Out-Null
-
-          Write-Host "Downloading mpv asset: $($asset.name)"
-          Invoke-WebRequest -Headers $headers -Uri $asset.browser_download_url -OutFile $downloadPath
-          if ($downloadPath.EndsWith('.zip', [System.StringComparison]::OrdinalIgnoreCase)) {
-            Expand-Archive -LiteralPath $downloadPath -DestinationPath $extractPath -Force
-          } else {
-            & 7z x $downloadPath "-o$extractPath" -y | Out-Host
-            if ($LASTEXITCODE -ne 0) { throw '7-Zip extraction of mpv failed.' }
-          }
-
-          $mpvExe = Get-ChildItem -LiteralPath $extractPath -Recurse -File -Filter 'mpv.exe' |
-            Where-Object { $_.FullName -notmatch '(?i)(sdk|dev|debug)' } |
-            Select-Object -First 1
-          if ($null -eq $mpvExe) { throw 'mpv.exe was not found after extraction.' }
-
-          $mpvTarget = Join-Path $env:PUBLISH_DIR 'mpv'
-          New-Item -ItemType Directory -Path $mpvTarget -Force | Out-Null
-          Copy-Item -Path (Join-Path $mpvExe.Directory.FullName '*') -Destination $mpvTarget -Recurse -Force
-
-          if (!(Test-Path -LiteralPath (Join-Path $mpvTarget 'mpv.exe'))) {
-            throw 'mpv.exe was not copied to the application output.'
-          }
-
-      - name: Validate native-only output
-        shell: pwsh
-        run: |
-          if (Get-ChildItem -LiteralPath $env:PUBLISH_DIR -Recurse -File | Where-Object { $_.Name -match '(?i)(WebView2|libvlc)' }) {
-            throw 'Forbidden WebView2 or LibVLC file was found in native output.'
-          }
-          if (!(Test-Path -LiteralPath (Join-Path $env:PUBLISH_DIR 'mpv\mpv.exe'))) {
-            throw 'Embedded mpv engine is missing.'
-          }
-          $size = (Get-ChildItem -LiteralPath $env:PUBLISH_DIR -Recurse -File | Measure-Object Length -Sum).Sum
-          Write-Host ('Published size: {0:N1} MB' -f ($size / 1MB))
-
-      - name: Install Inno Setup
-        shell: pwsh
-        run: choco install innosetup --yes --no-progress
-
-      - name: Build installer only
-        shell: pwsh
-        run: |
-          if (Test-Path -LiteralPath $env:OUTPUT_DIR) {
-            Remove-Item -LiteralPath $env:OUTPUT_DIR -Recurse -Force
-          }
-          New-Item -ItemType Directory -Path $env:OUTPUT_DIR -Force | Out-Null
-
-          [xml]$projectXml = Get-Content -LiteralPath $env:PROJECT
-          $version = [string]$projectXml.Project.PropertyGroup.Version
-          if ([string]::IsNullOrWhiteSpace($version)) { $version = '2.0.0' }
-
-          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
-          if (!(Test-Path -LiteralPath $iscc)) { throw 'ISCC.exe was not found.' }
-
-          & $iscc "/DMyAppVersion=$version" "/DSourceDir=$env:PUBLISH_DIR" "/O$env:OUTPUT_DIR" $env:INSTALLER_SCRIPT | Out-Host
-          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup build failed.' }
-
-          $setup = Join-Path $env:OUTPUT_DIR 'BankMovie-Native-Setup-x64.exe'
-          if (!(Test-Path -LiteralPath $setup)) { throw 'Native setup executable was not produced.' }
-          Get-FileHash -Algorithm SHA256 -LiteralPath $setup |
-            ForEach-Object { "$($_.Hash)  $([System.IO.Path]::GetFileName($_.Path))" } |
-            Set-Content -LiteralPath (Join-Path $env:OUTPUT_DIR 'SHA256SUMS.txt') -Encoding ascii
-
-      - name: Upload native setup
+      - name: Upload ABI2 Lite Universal
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Native-Windows-v2.0.2
-          path: |
-            artifacts/BankMovie-Native-Setup-x64.exe
-            artifacts/SHA256SUMS.txt
+          name: Bankmovie-V2.1-ABI2-Lite-Universal-ARMv7-ARM64
+          path: output/Bankmovie-v2.1-abi2-lite-universal.apk
           if-no-files-found: error
-          compression-level: 0
-          retention-days: 14
+
+      - name: Upload ABI2 Lite ARM64
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-V2.1-ABI2-Lite-arm64-v8a
+          path: output/Bankmovie-v2.1-abi2-lite-arm64-v8a.apk
+          if-no-files-found: error
+
+      - name: Upload ABI2 Lite ARMv7
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-V2.1-ABI2-Lite-armeabi-v7a
+          path: output/Bankmovie-v2.1-abi2-lite-armeabi-v7a.apk
+          if-no-files-found: error
+
+      - name: Upload ABI4 Full Universal
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-V2.1-ABI4-Full-Universal
+          path: output/Bankmovie-v2.1-abi4-full-universal.apk
+          if-no-files-found: error
+
+      - name: Upload ABI4 Full ARM64
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-V2.1-ABI4-Full-arm64-v8a
+          path: output/Bankmovie-v2.1-abi4-full-arm64-v8a.apk
+          if-no-files-found: error
+
+      - name: Upload ABI4 Full ARMv7
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-V2.1-ABI4-Full-armeabi-v7a
+          path: output/Bankmovie-v2.1-abi4-full-armeabi-v7a.apk
+          if-no-files-found: error
+
+      - name: Upload checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-V2.1-SHA256
+          path: output/SHA256SUMS.txt
+          if-no-files-found: error
