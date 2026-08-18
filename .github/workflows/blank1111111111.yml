@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 Phase6 Archive2 DB Smooth Player
+name: Build Bankmovie V2.1 Phase6.1 Kotlin Type Fix
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       - main
 
 concurrency:
-  group: bankmovie-v2.1-phase6-archive2-db-smooth-player-${{ github.ref }}
+  group: bankmovie-v2.1-phase6-1-kotlin-type-fix-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
         run: |
           set -euo pipefail
           required=(
-            'Bankmovie-v2.1-PHASE6-ARCHIVE2-DB-SMOOTH-PLAYER-FULL-SOURCE.zip'
+            'Bankmovie-v2.1-PHASE6-1-ARCHIVE2-DB-SMOOTH-PLAYER-FULL-SOURCE.zip'
             'irancell [@fontbazi].zip'
             'Cinema.otf'
             'Diako Hima Regular-@Fontsplua.ttf'
@@ -64,7 +64,7 @@ jobs:
           set -euo pipefail
           rm -rf project
           mkdir -p project
-          unzip -q 'Bankmovie-v2.1-PHASE6-ARCHIVE2-DB-SMOOTH-PLAYER-FULL-SOURCE.zip' -d project
+          unzip -q 'Bankmovie-v2.1-PHASE6-1-ARCHIVE2-DB-SMOOTH-PLAYER-FULL-SOURCE.zip' -d project
           test -s project/app/build.gradle
           test -s project/settings.gradle
           test -s project/bankmovie_update.jks
@@ -102,6 +102,9 @@ jobs:
           ! grep -R -F 'api5.php' project/app/src/main/java/ir/bankmoviee/app
           ! grep -R -F 'ARCHIVE2_API_URL' project/app/src/main/java/ir/bankmoviee/app
           grep -F 'Social-feed style skeleton' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'setBackgroundColor(Color.BLACK)' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          ! grep -F 'background = Color.BLACK' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          test -s project/PHASE6_1_KOTLIN_TYPE_FIX_FA.md
           grep -F 'footerHiddenForScroll' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -F 'toggleLock()' project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
           grep -F 'unlockOverlay.visibility = if (controlsLocked)' project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
