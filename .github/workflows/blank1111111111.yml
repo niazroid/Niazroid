@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 Phase5 Stable Detail Clean Player
+name: Build Bankmovie V2.1 Phase5.1 Stable Detail Clean Player
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       - main
 
 concurrency:
-  group: bankmovie-v2.1-phase5-stable-detail-clean-player-${{ github.ref }}
+  group: bankmovie-v2.1-phase5-1-stable-detail-clean-player-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
         run: |
           set -euo pipefail
           required=(
-            'Bankmovie-v2.1-PHASE5-STABLE-DETAIL-CLEAN-PLAYER-FULL-SOURCE.zip'
+            'Bankmovie-v2.1-PHASE5-1-STABLE-DETAIL-CLEAN-PLAYER-FULL-SOURCE.zip'
             'irancell [@fontbazi].zip'
             'Cinema.otf'
             'Diako Hima Regular-@Fontsplua.ttf'
@@ -64,7 +64,7 @@ jobs:
           set -euo pipefail
           rm -rf project
           mkdir -p project
-          unzip -q 'Bankmovie-v2.1-PHASE5-STABLE-DETAIL-CLEAN-PLAYER-FULL-SOURCE.zip' -d project
+          unzip -q 'Bankmovie-v2.1-PHASE5-1-STABLE-DETAIL-CLEAN-PLAYER-FULL-SOURCE.zip' -d project
           test -s project/app/build.gradle
           test -s project/settings.gradle
           test -s project/bankmovie_update.jks
@@ -84,11 +84,12 @@ jobs:
           grep -F 'SCHEDULE_EXACT_ALARM' project/app/src/main/AndroidManifest.xml
           test -s project/PHASE3_DYNAMIC_PALETTE_IOS_BUTTONS_FA.md
           test -s project/PHASE5_STABLE_DETAIL_CLEAN_PLAYER_FA.md
-          grep -F 'DetailVisualPalette' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'PHASE 4 mobile hero' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'detailPalettePanelGradient' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'PHASE 5.1: poster-derived dynamic palette was removed completely.' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          ! grep -F 'DetailVisualPalette' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'PHASE 5 mobile hero' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          ! grep -F 'detailPalettePanelGradient' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -F 'Weekly schedule must be above the Telegram channel' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'extractDetailVisualPalette' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          ! grep -F 'extractDetailVisualPalette' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -F 'detailPremiumPlayButton' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -F 'commentVoteGroup' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
 
