@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 Phase5.1 Stable Detail Clean Player
+name: Build Bankmovie V2.1 Phase6 Archive2 DB Smooth Player
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       - main
 
 concurrency:
-  group: bankmovie-v2.1-phase5-1-stable-detail-clean-player-${{ github.ref }}
+  group: bankmovie-v2.1-phase6-archive2-db-smooth-player-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
         run: |
           set -euo pipefail
           required=(
-            'Bankmovie-v2.1-PHASE5-1-STABLE-DETAIL-CLEAN-PLAYER-FULL-SOURCE.zip'
+            'Bankmovie-v2.1-PHASE6-ARCHIVE2-DB-SMOOTH-PLAYER-FULL-SOURCE.zip'
             'irancell [@fontbazi].zip'
             'Cinema.otf'
             'Diako Hima Regular-@Fontsplua.ttf'
@@ -64,7 +64,7 @@ jobs:
           set -euo pipefail
           rm -rf project
           mkdir -p project
-          unzip -q 'Bankmovie-v2.1-PHASE5-1-STABLE-DETAIL-CLEAN-PLAYER-FULL-SOURCE.zip' -d project
+          unzip -q 'Bankmovie-v2.1-PHASE6-ARCHIVE2-DB-SMOOTH-PLAYER-FULL-SOURCE.zip' -d project
           test -s project/app/build.gradle
           test -s project/settings.gradle
           test -s project/bankmovie_update.jks
@@ -92,6 +92,25 @@ jobs:
           ! grep -F 'extractDetailVisualPalette' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -F 'detailPremiumPlayButton' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -F 'commentVoteGroup' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          # Phase 6: Archive 2 uses the signed site database API only in the new APK.
+          test -s project/PHASE6_ARCHIVE2_DB_SMOOTH_PLAYER_SKELETON_FA.md
+          test -s project/app/src/main/java/ir/bankmoviee/app/BankmovieSmoothScrollView.kt
+          grep -F 'Archive 2 is database-backed through the signed app_api.php' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'action=section&archive=2' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'insideDownloadNode' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'future download subdomains' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          ! grep -R -F 'api5.php' project/app/src/main/java/ir/bankmoviee/app
+          ! grep -R -F 'ARCHIVE2_API_URL' project/app/src/main/java/ir/bankmoviee/app
+          grep -F 'Social-feed style skeleton' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'footerHiddenForScroll' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'toggleLock()' project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
+          grep -F 'unlockOverlay.visibility = if (controlsLocked)' project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
+          grep -F 'database-authoritative for new APKs' project/server-required/app_api.php
+          grep -F "'url_host' => \$urlHost" project/server-required/app_api.php
+          grep -F 'bm_app_db_section' project/server-required/app_api.php
+          php -l project/server-required/app_api.php
+          # Legacy endpoint remains byte-identical for old installed APKs.
+          echo '6ef23c64a58ffeb0f60d431f5ccfb7fcdbd75295e1a125b2ce075e0ea0c680e0  project/server-required/api5.php' | sha256sum -c -
 
       - name: Install Irancell fonts from root ZIP
         working-directory: project
