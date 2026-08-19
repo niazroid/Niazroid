@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 Phase10 Status PiP Motion
+name: Build Bankmovie V2.1 Phase11 Update Cast CC Collection
 
 on:
   workflow_dispatch:
@@ -7,11 +7,11 @@ on:
       - main
 
 concurrency:
-  group: bankmovie-v2.1-phase10-status-pip-motion-${{ github.ref }}
+  group: bankmovie-v2.1-phase11-update-cast-cc-collection-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.1-PHASE10-STATUS-PIP-MOTION-ACTOR-COLLECTION-FIX-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.1-PHASE11-UPDATE-CAST-CC-COLLECTION-SLIDER-FIX-SOURCE.zip
 
 jobs:
   build:
@@ -74,7 +74,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Extract Phase 10 Android source
+      - name: Extract Phase 11 Android source
         shell: bash
         run: |
           set -euo pipefail
@@ -86,12 +86,12 @@ jobs:
           test -s project/build.gradle
           test -s project/settings.gradle
           test -s project/bankmovie_update.jks
-          test -s project/verify_phase10.sh
+          test -s project/verify_phase11.sh
           test -d project/app/src/main
           test -s project/server-required/app_api.php
           test -s project/server-required/app_user_api.php
 
-      - name: Verify Phase 10 source fixes
+      - name: Verify Phase 11 source fixes
         working-directory: project
         shell: bash
         run: |
@@ -102,10 +102,10 @@ jobs:
             sudo apt-get install -y php-cli
           fi
 
-          chmod +x verify_phase10.sh
-          ./verify_phase10.sh
+          chmod +x verify_phase11.sh
+          ./verify_phase11.sh
 
-          # Phase 10 + inherited compile regression guards
+          # Phase 11 + inherited compile regression guards
           grep -F 'setBackgroundColor(Color.TRANSPARENT)' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -F 'android.view.ViewGroup.LayoutParams.WRAP_CONTENT' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           ! grep -F 'scroll.addView(grid, ScrollView.LayoutParams(-1, -2))' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
@@ -285,25 +285,25 @@ jobs:
               continue
             fi
 
-            destination="output/Bankmovie-v2.1-phase10-${edition}-${abi}.apk"
+            destination="output/Bankmovie-v2.1-phase11-${edition}-${abi}.apk"
             cp "$apk" "$destination"
             echo "$apk -> $destination"
           done < <(find project/app/build/outputs/apk -type f -name '*.apk' | sort)
 
           expected=(
-            output/Bankmovie-v2.1-phase10-abi2-lite-universal.apk
-            output/Bankmovie-v2.1-phase10-abi2-lite-arm64-v8a.apk
-            output/Bankmovie-v2.1-phase10-abi2-lite-armeabi-v7a.apk
-            output/Bankmovie-v2.1-phase10-abi4-full-universal.apk
-            output/Bankmovie-v2.1-phase10-abi4-full-arm64-v8a.apk
-            output/Bankmovie-v2.1-phase10-abi4-full-armeabi-v7a.apk
+            output/Bankmovie-v2.1-phase11-abi2-lite-universal.apk
+            output/Bankmovie-v2.1-phase11-abi2-lite-arm64-v8a.apk
+            output/Bankmovie-v2.1-phase11-abi2-lite-armeabi-v7a.apk
+            output/Bankmovie-v2.1-phase11-abi4-full-universal.apk
+            output/Bankmovie-v2.1-phase11-abi4-full-arm64-v8a.apk
+            output/Bankmovie-v2.1-phase11-abi4-full-armeabi-v7a.apk
           )
 
           for apk in "${expected[@]}"; do
             test -s "$apk"
           done
 
-          ABI2='output/Bankmovie-v2.1-phase10-abi2-lite-universal.apk'
+          ABI2='output/Bankmovie-v2.1-phase11-abi2-lite-universal.apk'
           unzip -l "$ABI2" | grep -q 'lib/armeabi-v7a/'
           unzip -l "$ABI2" | grep -q 'lib/arm64-v8a/'
           if unzip -l "$ABI2" | grep -Eq 'lib/(x86|x86_64)/'; then
@@ -311,7 +311,7 @@ jobs:
             exit 1
           fi
 
-          ABI4='output/Bankmovie-v2.1-phase10-abi4-full-universal.apk'
+          ABI4='output/Bankmovie-v2.1-phase11-abi4-full-universal.apk'
           for abi in armeabi-v7a arm64-v8a x86 x86_64; do
             unzip -l "$ABI4" | grep -q "lib/$abi/"
           done
@@ -344,55 +344,55 @@ jobs:
       - name: Upload ABI2 Lite Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Phase10-ABI2-Lite-Universal-ARMv7-ARM64
-          path: output/Bankmovie-v2.1-phase10-abi2-lite-universal.apk
+          name: Bankmovie-V2.1-Phase11-ABI2-Lite-Universal-ARMv7-ARM64
+          path: output/Bankmovie-v2.1-phase11-abi2-lite-universal.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI2 Lite ARM64
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Phase10-ABI2-Lite-arm64-v8a
-          path: output/Bankmovie-v2.1-phase10-abi2-lite-arm64-v8a.apk
+          name: Bankmovie-V2.1-Phase11-ABI2-Lite-arm64-v8a
+          path: output/Bankmovie-v2.1-phase11-abi2-lite-arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI2 Lite ARMv7
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Phase10-ABI2-Lite-armeabi-v7a
-          path: output/Bankmovie-v2.1-phase10-abi2-lite-armeabi-v7a.apk
+          name: Bankmovie-V2.1-Phase11-ABI2-Lite-armeabi-v7a
+          path: output/Bankmovie-v2.1-phase11-abi2-lite-armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Phase10-ABI4-Full-Universal
-          path: output/Bankmovie-v2.1-phase10-abi4-full-universal.apk
+          name: Bankmovie-V2.1-Phase11-ABI4-Full-Universal
+          path: output/Bankmovie-v2.1-phase11-abi4-full-universal.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full ARM64
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Phase10-ABI4-Full-arm64-v8a
-          path: output/Bankmovie-v2.1-phase10-abi4-full-arm64-v8a.apk
+          name: Bankmovie-V2.1-Phase11-ABI4-Full-arm64-v8a
+          path: output/Bankmovie-v2.1-phase11-abi4-full-arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full ARMv7
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Phase10-ABI4-Full-armeabi-v7a
-          path: output/Bankmovie-v2.1-phase10-abi4-full-armeabi-v7a.apk
+          name: Bankmovie-V2.1-Phase11-ABI4-Full-armeabi-v7a
+          path: output/Bankmovie-v2.1-phase11-abi4-full-armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload SHA256 checksums
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Phase10-SHA256
+          name: Bankmovie-V2.1-Phase11-SHA256
           path: output/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
