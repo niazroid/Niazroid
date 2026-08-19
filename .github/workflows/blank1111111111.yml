@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 Phase8 Fixed
+name: Build Bankmovie V2.1 Phase9 UI Avatar Fixed
 
 on:
   workflow_dispatch:
@@ -7,11 +7,11 @@ on:
       - main
 
 concurrency:
-  group: bankmovie-v2.1-phase8-fixed-${{ github.ref }}
+  group: bankmovie-v2.1-phase9-ui-avatar-fixed-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.1-PHASE8-ARCHIVE2-BOXOFFICE-GIF-SCHEDULE-FIXED-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.1-PHASE9-GIF-DRAWER-AVATAR-CATEGORY-UI-FIX-SOURCE.zip
 
 jobs:
   build:
@@ -74,7 +74,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Extract Phase 8 Android source
+      - name: Extract Phase 9 Android source
         shell: bash
         run: |
           set -euo pipefail
@@ -86,12 +86,12 @@ jobs:
           test -s project/build.gradle
           test -s project/settings.gradle
           test -s project/bankmovie_update.jks
-          test -s project/verify_phase8.sh
+          test -s project/verify_phase9.sh
           test -d project/app/src/main
           test -s project/server-required/app_api.php
           test -s project/server-required/app_user_api.php
 
-      - name: Verify Phase 8 source fixes
+      - name: Verify Phase 9 source fixes
         working-directory: project
         shell: bash
         run: |
@@ -102,8 +102,8 @@ jobs:
             sudo apt-get install -y php-cli
           fi
 
-          chmod +x verify_phase8.sh
-          ./verify_phase8.sh
+          chmod +x verify_phase9.sh
+          ./verify_phase9.sh
 
           grep -F "applicationId 'ir.bankmoviee.app'" app/build.gradle
           grep -F 'versionName "2.1"' app/build.gradle
