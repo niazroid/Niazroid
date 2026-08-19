@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 Phase7 Real Archive2 Categories Modal2
+name: Build Bankmovie V2.1 Phase8 Fixed
 
 on:
   workflow_dispatch:
@@ -7,13 +7,16 @@ on:
       - main
 
 concurrency:
-  group: bankmovie-v2.1-phase7-real-archive2-categories-modal2-${{ github.ref }}
+  group: bankmovie-v2.1-phase8-fixed-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  SOURCE_ZIP: Bankmovie-v2.1-PHASE8-ARCHIVE2-BOXOFFICE-GIF-SCHEDULE-FIXED-SOURCE.zip
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
@@ -23,16 +26,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           required=(
-            'Bankmovie-v2.1-PHASE7-REAL-ARCHIVE2-CATEGORIES-MODAL2-FULL-SOURCE.zip'
+            "$SOURCE_ZIP"
             'irancell [@fontbazi].zip'
             'Cinema.otf'
             'Diako Hima Regular-@Fontsplua.ttf'
             'Nic [@fontbazi].ttf'
           )
+
           for file in "${required[@]}"; do
             if [[ ! -s "$file" ]]; then
               echo "Missing or empty required root file: $file" >&2
+              echo "Files in repository root:" >&2
               find . -maxdepth 1 -type f -printf '%f\n' | sort >&2
               exit 1
             fi
@@ -53,110 +59,58 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 35
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
       - name: Setup Gradle 8.10.2
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
 
-      - name: Extract Android source
+      - name: Extract Phase 8 Android source
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf project
-          mkdir -p project
-          unzip -q 'Bankmovie-v2.1-PHASE7-REAL-ARCHIVE2-CATEGORIES-MODAL2-FULL-SOURCE.zip' -d project
+          rm -rf project output
+          mkdir -p project output
+          unzip -q "$SOURCE_ZIP" -d project
+
           test -s project/app/build.gradle
+          test -s project/build.gradle
           test -s project/settings.gradle
           test -s project/bankmovie_update.jks
+          test -s project/verify_phase8.sh
           test -d project/app/src/main
-          test -s project/server-required/app_home_feed.php
-          test -s project/app/src/main/res/drawable/ic_copy_link.xml
-          grep -F 'detailCacheTtlMs = 60L * 60L * 1000L' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'app_home_feed.php?limit=12' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'seriesBulkCopyButton' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'readDetailScrollPosition' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'restoreBackScrollPosition' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'جدول پخش هفتگی' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'enqueueSeriesBulkInternal' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          test -s project/app/src/main/java/ir/bankmoviee/app/DownloadScheduleManager.kt
-          grep -F 'STATUS_SCHEDULED' project/app/src/main/java/ir/bankmoviee/app/InternalDownloadStore.kt
-          grep -F 'showBulkImportDialog' project/app/src/main/java/ir/bankmoviee/app/DownloadsActivity.kt
-          grep -F 'SCHEDULE_EXACT_ALARM' project/app/src/main/AndroidManifest.xml
-          test -s project/PHASE3_DYNAMIC_PALETTE_IOS_BUTTONS_FA.md
-          test -s project/PHASE5_STABLE_DETAIL_CLEAN_PLAYER_FA.md
-          grep -F 'PHASE 5.1: poster-derived dynamic palette was removed completely.' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          ! grep -F 'DetailVisualPalette' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'PHASE 5 mobile hero' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          ! grep -F 'detailPalettePanelGradient' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'Weekly schedule must be above the Telegram channel' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          ! grep -F 'extractDetailVisualPalette' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'detailPremiumPlayButton' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'commentVoteGroup' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          # Phase 6: Archive 2 uses the signed site database API only in the new APK.
-          test -s project/PHASE6_ARCHIVE2_DB_SMOOTH_PLAYER_SKELETON_FA.md
-          test -s project/app/src/main/java/ir/bankmoviee/app/BankmovieSmoothScrollView.kt
-          grep -F 'Archive 2 is database-backed through the signed app_api.php' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'action=section&archive=2' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'insideDownloadNode' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'future download subdomains' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          ! grep -R -F 'api5.php' project/app/src/main/java/ir/bankmoviee/app
-          ! grep -R -F 'ARCHIVE2_API_URL' project/app/src/main/java/ir/bankmoviee/app
-          grep -F 'Social-feed style skeleton' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'setBackgroundColor(Color.BLACK)' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          ! grep -F 'background = Color.BLACK' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          test -s project/PHASE6_1_KOTLIN_TYPE_FIX_FA.md
-          grep -F 'footerHiddenForScroll' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'toggleLock()' project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
-          grep -F 'unlockOverlay.visibility = if (controlsLocked)' project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
-          grep -F 'database-authoritative for new APKs' project/server-required/app_api.php
-          grep -F "'url_host' => \$urlHost" project/server-required/app_api.php
-          grep -F 'bm_app_db_section' project/server-required/app_api.php
-          php -l project/server-required/app_api.php
-          # Legacy endpoint remains byte-identical for old installed APKs.
-          echo '6ef23c64a58ffeb0f60d431f5ccfb7fcdbd75295e1a125b2ce075e0ea0c680e0  project/server-required/api5.php' | sha256sum -c -
-          # Phase 7: strict Archive 2 DB source + new UI/category/copy flow.
-          test -s project/PHASE7_REAL_ARCHIVE2_CATEGORIES_MODAL2_FA.md
-          grep -F 'cached_remote_config_v4' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'canonicalBankmovieAssetUrl' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'categoryHubCard' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'imdbCompactBadge' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'کیفیت و نوع نسخه را انتخاب کن' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'Archive 2 follows the real site DB update order' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          python3 - <<'PY'
-          import re
-          from pathlib import Path
-          main = Path('project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt').read_text(encoding='utf-8')
-          # addQuickTabs may remain as a dormant compatibility helper, but must not be called anywhere.
-          if len(re.findall(r'\baddQuickTabs\s*\(', main)) != 1:
-              raise SystemExit('Old quick tabs are still invoked')
-          vault = Path('project/app/src/main/java/ir/bankmoviee/app/RuntimeVault.kt').read_text(encoding='utf-8')
-          def decode(name):
-              m = re.search(rf'private val {name}Data = intArrayOf\(([^)]*)\).*?private const val {name}Seed = (\d+)', vault, re.S)
-              if not m: raise SystemExit(f'Missing vault field {name}')
-              data = [int(x.strip()) for x in m.group(1).split(',') if x.strip()]
-              seed = int(m.group(2))
-              return ''.join(chr(v ^ ((seed + i*31 + ((i*i*7)&0xff)) & 0xffff)) for i,v in enumerate(data))
-          expected = {
-              'BASE_URL': 'https://bankmovie.top/',
-              'BASE_DOMAIN': 'https://bankmovie.top',
-              'APP_API_URL': 'https://bankmovie.top/app_api.php',
-              'CONFIG_URL_PRIMARY': 'https://bankmovie.top/app_config.php',
-              'HOST_PRIMARY': 'bankmovie.top',
-          }
-          for key, value in expected.items():
-              actual = decode(key)
-              if actual != value: raise SystemExit(f'{key}: {actual!r} != {value!r}')
-          print('PHASE7_DEFAULT_DOMAIN_OK')
-          PY
-          grep -F "'vietop_bankmovie'" project/server-required/app_api.php
-          grep -F "Archive 2 is intentionally strict" project/server-required/app_api.php
-          grep -F "EXISTS (SELECT 1 FROM dubbed_links" project/server-required/app_api.php
-          grep -F "EXISTS (SELECT 1 FROM softsub_links" project/server-required/app_api.php
-          grep -F 'bm_app_collection_fallback_cover' project/server-required/app_api.php
-          grep -F "return 'https://bankmovie.top';" project/server-required/app_api.php
-          ! grep -F "require_once __DIR__ . '/api5_lib.php'" project/server-required/app_api.php
-          grep -F 'https://bankmovie.top/app_api.php' project/server-required/bankmovie_remote_config.json.sample
-          php -l project/server-required/app_api.php
+          test -s project/server-required/app_api.php
+          test -s project/server-required/app_user_api.php
+
+      - name: Verify Phase 8 source fixes
+        working-directory: project
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! command -v php >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y php-cli
+          fi
+
+          chmod +x verify_phase8.sh
+          ./verify_phase8.sh
+
+          grep -F "applicationId 'ir.bankmoviee.app'" app/build.gradle
+          grep -F 'versionName "2.1"' app/build.gradle
+          grep -F "compileSdk 35" app/build.gradle
+          grep -F "targetSdk 35" app/build.gradle
+          grep -F "id 'com.android.application' version '8.7.3'" build.gradle
+          grep -F "id 'org.jetbrains.kotlin.android' version '2.0.21'" build.gradle
 
       - name: Install Irancell fonts from root ZIP
         working-directory: project
@@ -171,6 +125,7 @@ jobs:
           archive = Path('../irancell [@fontbazi].zip')
           output = Path('app/src/main/assets/fonts')
           output.mkdir(parents=True, exist_ok=True)
+
           targets = {
               1: 'irancell_bold.ttf',
               2: 'irancell_regular.ttf',
@@ -178,23 +133,30 @@ jobs:
               4: 'irancell_semibold.ttf',
               5: 'irancell_medium.ttf',
           }
+
           with ZipFile(archive) as zf:
-              entries = [item for item in zf.infolist() if not item.is_dir() and item.filename.lower().endswith('.ttf')]
+              entries = [
+                  item for item in zf.infolist()
+                  if not item.is_dir() and item.filename.lower().endswith('.ttf')
+              ]
               indexed = {}
               for item in entries:
                   name = PurePosixPath(item.filename).name
                   match = re.search(r'irancell[^0-9]*([1-5])', name, re.IGNORECASE)
                   if match:
                       indexed[int(match.group(1))] = item
+
               missing = [number for number in targets if number not in indexed]
               if missing:
                   raise SystemExit(f'Missing Irancell weights: {missing}')
+
               for number, target in targets.items():
                   data = zf.read(indexed[number], pwd=b'fontbazi')
                   if len(data) < 1024:
                       raise SystemExit(f'Invalid Irancell font: {indexed[number].filename}')
-                  (output / target).write_bytes(data)
-                  print(f'{indexed[number].filename} -> {target}')
+                  destination = output / target
+                  destination.write_bytes(data)
+                  print(f'{indexed[number].filename} -> {destination}')
           PY
 
       - name: Install additional root fonts
@@ -213,6 +175,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m pip install --disable-pip-version-check --no-cache-dir 'fonttools[woff]>=4.50,<5'
+
           python3 - <<'PY'
           from pathlib import Path
           from fontTools.ttLib import TTFont
@@ -220,22 +183,27 @@ jobs:
           root = Path('..')
           output = Path('app/src/main/assets/fonts')
           output.mkdir(parents=True, exist_ok=True)
+
           targets = {
               'regular': 'iransansx_regular.ttf',
               'medium': 'iransansx_medium.ttf',
               'bold': 'iransansx_bold.ttf',
           }
+
           for weight, target in targets.items():
               matches = sorted(root.glob(f'IRANSansXFaNum-{weight}*.woff2'))
               if not matches:
                   raise SystemExit(f'Missing IRANSansX {weight} WOFF2')
+
               source = matches[0]
               font = TTFont(source)
               font.flavor = None
               destination = output / target
               font.save(destination)
+
               if destination.stat().st_size < 1024:
                   raise SystemExit(f'Converted font is too small: {destination}')
+
               print(f'{source.name} -> {destination} ({destination.stat().st_size} bytes)')
           PY
 
@@ -251,16 +219,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           EXPECTED_JKS='b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39'
           EXPECTED_CERT='86:2B:C3:58:D8:D2:39:A2:13:4A:63:FA:B9:79:FF:60:19:86:23:72:E7:95:0E:A4:9B:AC:74:78:09:36:20:5D'
+
           echo "$EXPECTED_JKS  bankmovie_update.jks" | sha256sum -c -
-          keytool -list -v -keystore bankmovie_update.jks -storepass bankmovie123 -alias bankmovie | grep -F "SHA256: $EXPECTED_CERT"
+          keytool -list -v \
+            -keystore bankmovie_update.jks \
+            -storepass bankmovie123 \
+            -alias bankmovie | grep -F "SHA256: $EXPECTED_CERT"
+
           grep -F "applicationId 'ir.bankmoviee.app'" app/build.gradle
           grep -F 'versionName "2.1"' app/build.gradle
           grep -E 'versionCode[[:space:]]+5200000[[:space:]]*\+[[:space:]]*runNumber' app/build.gradle
           grep -F 'include(*bankmovieAbis)' app/build.gradle
 
-      - name: Build real ABI2 Lite releases
+      - name: Build ABI2 Lite releases
         working-directory: project
         shell: bash
         env:
@@ -287,6 +261,7 @@ jobs:
 
           while IFS= read -r apk; do
             normalized="$(printf '%s' "$apk" | tr '[:upper:]' '[:lower:]')"
+
             if [[ "$normalized" == *'abi2lite'* ]]; then
               edition='abi2-lite'
             elif [[ "$normalized" == *'abi4full'* ]]; then
@@ -304,20 +279,26 @@ jobs:
             else
               continue
             fi
-            cp "$apk" "output/Bankmovie-v2.1-${edition}-${abi}.apk"
+
+            destination="output/Bankmovie-v2.1-phase8-${edition}-${abi}.apk"
+            cp "$apk" "$destination"
+            echo "$apk -> $destination"
           done < <(find project/app/build/outputs/apk -type f -name '*.apk' | sort)
 
           expected=(
-            output/Bankmovie-v2.1-abi2-lite-universal.apk
-            output/Bankmovie-v2.1-abi2-lite-arm64-v8a.apk
-            output/Bankmovie-v2.1-abi2-lite-armeabi-v7a.apk
-            output/Bankmovie-v2.1-abi4-full-universal.apk
-            output/Bankmovie-v2.1-abi4-full-arm64-v8a.apk
-            output/Bankmovie-v2.1-abi4-full-armeabi-v7a.apk
+            output/Bankmovie-v2.1-phase8-abi2-lite-universal.apk
+            output/Bankmovie-v2.1-phase8-abi2-lite-arm64-v8a.apk
+            output/Bankmovie-v2.1-phase8-abi2-lite-armeabi-v7a.apk
+            output/Bankmovie-v2.1-phase8-abi4-full-universal.apk
+            output/Bankmovie-v2.1-phase8-abi4-full-arm64-v8a.apk
+            output/Bankmovie-v2.1-phase8-abi4-full-armeabi-v7a.apk
           )
-          for apk in "${expected[@]}"; do test -s "$apk"; done
 
-          ABI2=output/Bankmovie-v2.1-abi2-lite-universal.apk
+          for apk in "${expected[@]}"; do
+            test -s "$apk"
+          done
+
+          ABI2='output/Bankmovie-v2.1-phase8-abi2-lite-universal.apk'
           unzip -l "$ABI2" | grep -q 'lib/armeabi-v7a/'
           unzip -l "$ABI2" | grep -q 'lib/arm64-v8a/'
           if unzip -l "$ABI2" | grep -Eq 'lib/(x86|x86_64)/'; then
@@ -325,13 +306,14 @@ jobs:
             exit 1
           fi
 
-          ABI4=output/Bankmovie-v2.1-abi4-full-universal.apk
+          ABI4='output/Bankmovie-v2.1-phase8-abi4-full-universal.apk'
           for abi in armeabi-v7a arm64-v8a x86 x86_64; do
             unzip -l "$ABI4" | grep -q "lib/$abi/"
           done
 
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
           test -x "$APKSIGNER"
+
           EXPECTED_CERT_NO_COLONS='862bc358d8d239a2134a63fab979ff6019862372e7950ea49bac74780936205d'
           EXPECTED_PUBLIC_KEY='d692a8294236f8a5c071945be99e2cce705406cb5957ecfab02877b3d429985c'
 
@@ -341,6 +323,7 @@ jobs:
               cat "$report"
               exit 1
             }
+
             normalized_report="$(tr '[:upper:]' '[:lower:]' <"$report" | tr -d ':[:space:]')"
             if [[ "$normalized_report" != *"certificatesha-256digest${EXPECTED_CERT_NO_COLONS}"* ]] \
               && [[ "$normalized_report" != *"publickeysha-256digest${EXPECTED_PUBLIC_KEY}"* ]]; then
@@ -356,48 +339,55 @@ jobs:
       - name: Upload ABI2 Lite Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-ABI2-Lite-Universal-ARMv7-ARM64
-          path: output/Bankmovie-v2.1-abi2-lite-universal.apk
+          name: Bankmovie-V2.1-Phase8-ABI2-Lite-Universal-ARMv7-ARM64
+          path: output/Bankmovie-v2.1-phase8-abi2-lite-universal.apk
           if-no-files-found: error
+          retention-days: 30
 
       - name: Upload ABI2 Lite ARM64
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-ABI2-Lite-arm64-v8a
-          path: output/Bankmovie-v2.1-abi2-lite-arm64-v8a.apk
+          name: Bankmovie-V2.1-Phase8-ABI2-Lite-arm64-v8a
+          path: output/Bankmovie-v2.1-phase8-abi2-lite-arm64-v8a.apk
           if-no-files-found: error
+          retention-days: 30
 
       - name: Upload ABI2 Lite ARMv7
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-ABI2-Lite-armeabi-v7a
-          path: output/Bankmovie-v2.1-abi2-lite-armeabi-v7a.apk
+          name: Bankmovie-V2.1-Phase8-ABI2-Lite-armeabi-v7a
+          path: output/Bankmovie-v2.1-phase8-abi2-lite-armeabi-v7a.apk
           if-no-files-found: error
+          retention-days: 30
 
       - name: Upload ABI4 Full Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-ABI4-Full-Universal
-          path: output/Bankmovie-v2.1-abi4-full-universal.apk
+          name: Bankmovie-V2.1-Phase8-ABI4-Full-Universal
+          path: output/Bankmovie-v2.1-phase8-abi4-full-universal.apk
           if-no-files-found: error
+          retention-days: 30
 
       - name: Upload ABI4 Full ARM64
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-ABI4-Full-arm64-v8a
-          path: output/Bankmovie-v2.1-abi4-full-arm64-v8a.apk
+          name: Bankmovie-V2.1-Phase8-ABI4-Full-arm64-v8a
+          path: output/Bankmovie-v2.1-phase8-abi4-full-arm64-v8a.apk
           if-no-files-found: error
+          retention-days: 30
 
       - name: Upload ABI4 Full ARMv7
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-ABI4-Full-armeabi-v7a
-          path: output/Bankmovie-v2.1-abi4-full-armeabi-v7a.apk
+          name: Bankmovie-V2.1-Phase8-ABI4-Full-armeabi-v7a
+          path: output/Bankmovie-v2.1-phase8-abi4-full-armeabi-v7a.apk
           if-no-files-found: error
+          retention-days: 30
 
-      - name: Upload checksums
+      - name: Upload SHA256 checksums
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-SHA256
+          name: Bankmovie-V2.1-Phase8-SHA256
           path: output/SHA256SUMS.txt
           if-no-files-found: error
+          retention-days: 30
