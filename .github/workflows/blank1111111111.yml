@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 Phase6.1 Kotlin Type Fix
+name: Build Bankmovie V2.1 Phase7 Real Archive2 Categories Modal2
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       - main
 
 concurrency:
-  group: bankmovie-v2.1-phase6-1-kotlin-type-fix-${{ github.ref }}
+  group: bankmovie-v2.1-phase7-real-archive2-categories-modal2-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
         run: |
           set -euo pipefail
           required=(
-            'Bankmovie-v2.1-PHASE6-1-ARCHIVE2-DB-SMOOTH-PLAYER-FULL-SOURCE.zip'
+            'Bankmovie-v2.1-PHASE7-REAL-ARCHIVE2-CATEGORIES-MODAL2-FULL-SOURCE.zip'
             'irancell [@fontbazi].zip'
             'Cinema.otf'
             'Diako Hima Regular-@Fontsplua.ttf'
@@ -64,7 +64,7 @@ jobs:
           set -euo pipefail
           rm -rf project
           mkdir -p project
-          unzip -q 'Bankmovie-v2.1-PHASE6-1-ARCHIVE2-DB-SMOOTH-PLAYER-FULL-SOURCE.zip' -d project
+          unzip -q 'Bankmovie-v2.1-PHASE7-REAL-ARCHIVE2-CATEGORIES-MODAL2-FULL-SOURCE.zip' -d project
           test -s project/app/build.gradle
           test -s project/settings.gradle
           test -s project/bankmovie_update.jks
@@ -114,6 +114,49 @@ jobs:
           php -l project/server-required/app_api.php
           # Legacy endpoint remains byte-identical for old installed APKs.
           echo '6ef23c64a58ffeb0f60d431f5ccfb7fcdbd75295e1a125b2ce075e0ea0c680e0  project/server-required/api5.php' | sha256sum -c -
+          # Phase 7: strict Archive 2 DB source + new UI/category/copy flow.
+          test -s project/PHASE7_REAL_ARCHIVE2_CATEGORIES_MODAL2_FA.md
+          grep -F 'cached_remote_config_v4' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'canonicalBankmovieAssetUrl' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'categoryHubCard' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'imdbCompactBadge' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'کیفیت و نوع نسخه را انتخاب کن' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -F 'Archive 2 follows the real site DB update order' project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          main = Path('project/app/src/main/java/ir/bankmoviee/app/MainActivity.kt').read_text(encoding='utf-8')
+          # addQuickTabs may remain as a dormant compatibility helper, but must not be called anywhere.
+          if len(re.findall(r'\baddQuickTabs\s*\(', main)) != 1:
+              raise SystemExit('Old quick tabs are still invoked')
+          vault = Path('project/app/src/main/java/ir/bankmoviee/app/RuntimeVault.kt').read_text(encoding='utf-8')
+          def decode(name):
+              m = re.search(rf'private val {name}Data = intArrayOf\(([^)]*)\).*?private const val {name}Seed = (\d+)', vault, re.S)
+              if not m: raise SystemExit(f'Missing vault field {name}')
+              data = [int(x.strip()) for x in m.group(1).split(',') if x.strip()]
+              seed = int(m.group(2))
+              return ''.join(chr(v ^ ((seed + i*31 + ((i*i*7)&0xff)) & 0xffff)) for i,v in enumerate(data))
+          expected = {
+              'BASE_URL': 'https://bankmovie.top/',
+              'BASE_DOMAIN': 'https://bankmovie.top',
+              'APP_API_URL': 'https://bankmovie.top/app_api.php',
+              'CONFIG_URL_PRIMARY': 'https://bankmovie.top/app_config.php',
+              'HOST_PRIMARY': 'bankmovie.top',
+          }
+          for key, value in expected.items():
+              actual = decode(key)
+              if actual != value: raise SystemExit(f'{key}: {actual!r} != {value!r}')
+          print('PHASE7_DEFAULT_DOMAIN_OK')
+          PY
+          grep -F "'vietop_bankmovie'" project/server-required/app_api.php
+          grep -F "Archive 2 is intentionally strict" project/server-required/app_api.php
+          grep -F "EXISTS (SELECT 1 FROM dubbed_links" project/server-required/app_api.php
+          grep -F "EXISTS (SELECT 1 FROM softsub_links" project/server-required/app_api.php
+          grep -F 'bm_app_collection_fallback_cover' project/server-required/app_api.php
+          grep -F "return 'https://bankmovie.top';" project/server-required/app_api.php
+          ! grep -F "require_once __DIR__ . '/api5_lib.php'" project/server-required/app_api.php
+          grep -F 'https://bankmovie.top/app_api.php' project/server-required/bankmovie_remote_config.json.sample
+          php -l project/server-required/app_api.php
 
       - name: Install Irancell fonts from root ZIP
         working-directory: project
