@@ -74,7 +74,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Extract Pass4.2 Watch Party source
+      - name: Extract Pass4.3 Watch Party source
         shell: bash
         run: |
           set -euo pipefail
@@ -103,7 +103,7 @@ jobs:
           test -s project/bankmovie_update.jks
           test -s project/verify_phase11_1.sh
           test -s project/BANKMOVIE_PASS4_WATCH_PARTY_FA.md
-          test -s project/verify_pass4_watch_party.sh
+          test -s project/verify_pass4_3_watch_party_chat_only.sh
           test -d project/app/src/main
           test -s project/server-required/app_api.php
           test -s project/server-required/app_user_api.php
@@ -161,8 +161,8 @@ jobs:
           grep -F 'background = bankGlassDrawable(24, 236, 70, true)' "$MAIN"
           test -s WATCH_PARTY_NATIVE_PLAN_FA.md
 
-          chmod +x verify_pass4_watch_party.sh
-          ./verify_pass4_watch_party.sh
+          # Pass 4.3 is intentionally CHAT-ONLY. The legacy Pass 4 verifier
+          # required WebRTC/RECORD_AUDIO and must not run for this edition.
           chmod +x verify_pass4_3_watch_party_chat_only.sh
           ./verify_pass4_3_watch_party_chat_only.sh
           # Pass 4.1 compile regression guards
@@ -174,8 +174,10 @@ jobs:
 
           grep -F 'private fun watchPartyQualityButton' "$MAIN"
           grep -F 'EXTRA_WATCH_PARTY_ROOM_CODE' app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
-          grep -F "implementation 'io.github.webrtc-sdk:android:144.7559.12'" app/build.gradle
-          grep -F 'android.permission.RECORD_AUDIO' app/src/main/AndroidManifest.xml
+          # Pass 4.3 size/stability guards: WebRTC and microphone permission must stay removed.
+          ! grep -F 'io.github.webrtc-sdk' app/build.gradle
+          ! grep -F 'org.webrtc' app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
+          ! grep -F 'android.permission.RECORD_AUDIO' app/src/main/AndroidManifest.xml
           grep -F "if (\$action === 'watch_party_create')" server-required/app_user_api.php
           php -l server-required/app_user_api.php
 
