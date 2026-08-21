@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 Pass4.2 Watch Party Kotlin Fix
+name: Build Bankmovie V2.1 Pass4.2 Watch Party Polish
 
 on:
   workflow_dispatch:
@@ -7,11 +7,11 @@ on:
       - main
 
 concurrency:
-  group: bankmovie-v2.1-pass4-1-watch-party-kotlin-fix-${{ github.ref }}
+  group: bankmovie-v2.1-pass4-2-watch-party-polish-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.1-GLASS-REDESIGN-PASS4.2-WATCH-PARTY-KOTLIN-FIX-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.1-GLASS-REDESIGN-PASS4.2-WATCH-PARTY-POLISH-SOURCE.zip
 
 jobs:
   build:
