@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 Pass4.4 Watch Party Room Polish
+name: Build Bankmovie V2.1 Pass4.5 Android Sync Low-End Fix
 
 on:
   workflow_dispatch:
@@ -7,11 +7,11 @@ on:
       - main
 
 concurrency:
-  group: bankmovie-v2.1-pass4-4-watch-party-room-polish-${{ github.ref }}
+  group: bankmovie-v2.1-pass4-5-android-sync-lowend-fix-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.1-GLASS-REDESIGN-PASS4.4-WATCH-PARTY-ROOM-POLISH-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.1-GLASS-REDESIGN-PASS4.5-ANDROID-SYNC-LOWEND-FIX-SOURCE.zip
 
 jobs:
   build:
@@ -74,7 +74,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Extract Pass4.4 Watch Party source
+      - name: Extract Pass4.5 Android Sync source
         shell: bash
         run: |
           set -euo pipefail
@@ -105,6 +105,8 @@ jobs:
           test -s project/BANKMOVIE_PASS4_WATCH_PARTY_FA.md
           test -s project/verify_pass4_4_watch_party_room_polish.sh
           test -s project/BANKMOVIE_PASS4_4_WATCH_PARTY_ROOM_POLISH_FA.md
+          test -s project/verify_pass4_5_android_sync_lowend.sh
+          test -s project/BANKMOVIE_PASS4_5_ANDROID_SYNC_LOWEND_FA.md
           test -d project/app/src/main
           test -s project/server-required/app_api.php
           test -s project/server-required/app_user_api.php
@@ -167,6 +169,11 @@ jobs:
           chmod +x verify_pass4_4_watch_party_room_polish.sh
           ./verify_pass4_4_watch_party_room_polish.sh
           test -s BANKMOVIE_PASS4_4_WATCH_PARTY_ROOM_POLISH_FA.md
+          # Pass 4.5: Android->Android auto-start, explicit control retry,
+          # low-end non-blocking VLC exit and real avatar URL resolution.
+          chmod +x verify_pass4_5_android_sync_lowend.sh
+          ./verify_pass4_5_android_sync_lowend.sh
+          test -s BANKMOVIE_PASS4_5_ANDROID_SYNC_LOWEND_FA.md
           # Pass 4.1 compile regression guards inherited from the stable branch.
           grep -F 'setSingleLine(true); gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL' "$MAIN"
           ! grep -F 'singleLine = true; gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL' "$MAIN"
@@ -352,25 +359,25 @@ jobs:
               continue
             fi
 
-            destination="output/Bankmovie-v2.1-pass4.4-watch-party-room-polish-${edition}-${abi}.apk"
+            destination="output/Bankmovie-v2.1-pass4.5-android-sync-lowend-fix-${edition}-${abi}.apk"
             cp "$apk" "$destination"
             echo "$apk -> $destination"
           done < <(find project/app/build/outputs/apk -type f -name '*.apk' | sort)
 
           expected=(
-            output/Bankmovie-v2.1-pass4.4-watch-party-room-polish-abi2-lite-universal.apk
-            output/Bankmovie-v2.1-pass4.4-watch-party-room-polish-abi2-lite-arm64-v8a.apk
-            output/Bankmovie-v2.1-pass4.4-watch-party-room-polish-abi2-lite-armeabi-v7a.apk
-            output/Bankmovie-v2.1-pass4.4-watch-party-room-polish-abi4-full-universal.apk
-            output/Bankmovie-v2.1-pass4.4-watch-party-room-polish-abi4-full-arm64-v8a.apk
-            output/Bankmovie-v2.1-pass4.4-watch-party-room-polish-abi4-full-armeabi-v7a.apk
+            output/Bankmovie-v2.1-pass4.5-android-sync-lowend-fix-abi2-lite-universal.apk
+            output/Bankmovie-v2.1-pass4.5-android-sync-lowend-fix-abi2-lite-arm64-v8a.apk
+            output/Bankmovie-v2.1-pass4.5-android-sync-lowend-fix-abi2-lite-armeabi-v7a.apk
+            output/Bankmovie-v2.1-pass4.5-android-sync-lowend-fix-abi4-full-universal.apk
+            output/Bankmovie-v2.1-pass4.5-android-sync-lowend-fix-abi4-full-arm64-v8a.apk
+            output/Bankmovie-v2.1-pass4.5-android-sync-lowend-fix-abi4-full-armeabi-v7a.apk
           )
 
           for apk in "${expected[@]}"; do
             test -s "$apk"
           done
 
-          ABI2='output/Bankmovie-v2.1-pass4.4-watch-party-room-polish-abi2-lite-universal.apk'
+          ABI2='output/Bankmovie-v2.1-pass4.5-android-sync-lowend-fix-abi2-lite-universal.apk'
           unzip -l "$ABI2" | grep -q 'lib/armeabi-v7a/'
           unzip -l "$ABI2" | grep -q 'lib/arm64-v8a/'
           if unzip -l "$ABI2" | grep -Eq 'lib/(x86|x86_64)/'; then
@@ -378,7 +385,7 @@ jobs:
             exit 1
           fi
 
-          ABI4='output/Bankmovie-v2.1-pass4.4-watch-party-room-polish-abi4-full-universal.apk'
+          ABI4='output/Bankmovie-v2.1-pass4.5-android-sync-lowend-fix-abi4-full-universal.apk'
           for abi in armeabi-v7a arm64-v8a x86 x86_64; do
             unzip -l "$ABI4" | grep -q "lib/$abi/"
           done
@@ -411,55 +418,55 @@ jobs:
       - name: Upload ABI2 Lite Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass4.4-Watch-Party-Room-Polish-ABI2-Lite-Universal-ARMv7-ARM64
-          path: output/Bankmovie-v2.1-pass4.4-watch-party-room-polish-abi2-lite-universal.apk
+          name: Bankmovie-V2.1-Pass4.5-Android-Sync-LowEnd-Fix-ABI2-Lite-Universal-ARMv7-ARM64
+          path: output/Bankmovie-v2.1-pass4.5-android-sync-lowend-fix-abi2-lite-universal.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI2 Lite ARM64
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass4.4-Watch-Party-Room-Polish-ABI2-Lite-arm64-v8a
-          path: output/Bankmovie-v2.1-pass4.4-watch-party-room-polish-abi2-lite-arm64-v8a.apk
+          name: Bankmovie-V2.1-Pass4.5-Android-Sync-LowEnd-Fix-ABI2-Lite-arm64-v8a
+          path: output/Bankmovie-v2.1-pass4.5-android-sync-lowend-fix-abi2-lite-arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI2 Lite ARMv7
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass4.4-Watch-Party-Room-Polish-ABI2-Lite-armeabi-v7a
-          path: output/Bankmovie-v2.1-pass4.4-watch-party-room-polish-abi2-lite-armeabi-v7a.apk
+          name: Bankmovie-V2.1-Pass4.5-Android-Sync-LowEnd-Fix-ABI2-Lite-armeabi-v7a
+          path: output/Bankmovie-v2.1-pass4.5-android-sync-lowend-fix-abi2-lite-armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass4.4-Watch-Party-Room-Polish-ABI4-Full-Universal
-          path: output/Bankmovie-v2.1-pass4.4-watch-party-room-polish-abi4-full-universal.apk
+          name: Bankmovie-V2.1-Pass4.5-Android-Sync-LowEnd-Fix-ABI4-Full-Universal
+          path: output/Bankmovie-v2.1-pass4.5-android-sync-lowend-fix-abi4-full-universal.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full ARM64
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass4.4-Watch-Party-Room-Polish-ABI4-Full-arm64-v8a
-          path: output/Bankmovie-v2.1-pass4.4-watch-party-room-polish-abi4-full-arm64-v8a.apk
+          name: Bankmovie-V2.1-Pass4.5-Android-Sync-LowEnd-Fix-ABI4-Full-arm64-v8a
+          path: output/Bankmovie-v2.1-pass4.5-android-sync-lowend-fix-abi4-full-arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full ARMv7
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass4.4-Watch-Party-Room-Polish-ABI4-Full-armeabi-v7a
-          path: output/Bankmovie-v2.1-pass4.4-watch-party-room-polish-abi4-full-armeabi-v7a.apk
+          name: Bankmovie-V2.1-Pass4.5-Android-Sync-LowEnd-Fix-ABI4-Full-armeabi-v7a
+          path: output/Bankmovie-v2.1-pass4.5-android-sync-lowend-fix-abi4-full-armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload SHA256 checksums
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass4.4-Watch-Party-Room-Polish-SHA256
+          name: Bankmovie-V2.1-Pass4.5-Android-Sync-LowEnd-Fix-SHA256
           path: output/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
