@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 Pass4.2 Watch Party Polish
+name: Build Bankmovie V2.1 Pass4.3 Watch Party Chat Only
 
 on:
   workflow_dispatch:
@@ -7,11 +7,11 @@ on:
       - main
 
 concurrency:
-  group: bankmovie-v2.1-pass4-2-watch-party-polish-${{ github.ref }}
+  group: bankmovie-v2.1-pass4-3-watch-party-chat-only-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.1-GLASS-REDESIGN-PASS4.2-WATCH-PARTY-POLISH-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.1-GLASS-REDESIGN-PASS4.3-WATCH-PARTY-CHAT-ONLY-SOURCE.zip
 
 jobs:
   build:
@@ -163,8 +163,8 @@ jobs:
 
           chmod +x verify_pass4_watch_party.sh
           ./verify_pass4_watch_party.sh
-          chmod +x verify_pass4_2_watch_party_polish.sh
-          ./verify_pass4_2_watch_party_polish.sh
+          chmod +x verify_pass4_3_watch_party_chat_only.sh
+          ./verify_pass4_3_watch_party_chat_only.sh
           # Pass 4.1 compile regression guards
           grep -F 'setSingleLine(true); gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL' "$MAIN"
           ! grep -F 'singleLine = true; gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL' "$MAIN"
