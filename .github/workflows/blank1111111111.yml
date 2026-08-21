@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 Pass4.6.1 Player Lifecycle Guest Glass CI Fix
+name: Build Bankmovie V2.1 Pass4.6.2 Player Lifecycle Guest Glass Compile Fix
 
 on:
   workflow_dispatch:
@@ -7,11 +7,11 @@ on:
       - main
 
 concurrency:
-  group: bankmovie-v2.1-pass4-6-1-player-lifecycle-guest-glass-ci-fix-${{ github.ref }}
+  group: bankmovie-v2.1-pass4-6-2-player-lifecycle-guest-glass-compile-fix-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.1-GLASS-REDESIGN-PASS4.6.1-PLAYER-LIFECYCLE-GUEST-GLASS-CI-FIX-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.1-GLASS-REDESIGN-PASS4.6.2-PLAYER-LIFECYCLE-GUEST-GLASS-COMPILE-FIX-SOURCE.zip
 
 jobs:
   build:
@@ -74,7 +74,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Extract Pass4.6.1 Player Lifecycle Guest Glass CI Fix source
+      - name: Extract Pass4.6.2 Player Lifecycle Guest Glass Compile Fix source
         shell: bash
         run: |
           set -euo pipefail
@@ -111,12 +111,14 @@ jobs:
           test -s project/BANKMOVIE_PASS4_6_PLAYER_LIFECYCLE_GUEST_GLASS_FA.md
           test -s project/verify_pass4_6_1_source_identity.sh
           test -s project/BANKMOVIE_PASS4_6_1_STALE_SOURCE_GUARD_FA.md
+          test -s project/verify_pass4_6_2_viewgroup_compile_fix.sh
+          test -s project/BANKMOVIE_PASS4_6_2_VIEWGROUP_COMPILE_FIX_FA.md
 
           echo 'Source ZIP SHA256:'
           sha256sum "$SOURCE_ZIP"
           echo 'Extracted PlayerActivity SHA256:'
           sha256sum project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
-          grep -F 'BANKMOVIE_PASS4_6_1_SOURCE_FINGERPRINT: player-lifecycle-guest-glass-stale-source-guard' project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
+          grep -F 'BANKMOVIE_PASS4_6_2_SOURCE_FINGERPRINT: player-lifecycle-guest-glass-viewgroup-compile-fix' project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
           ! grep -F 'releaseRtc()' project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
           ! grep -F 'cornerRadii=floatArrayOf(dp(26f)' project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
           test -d project/app/src/main
@@ -207,13 +209,14 @@ jobs:
           php -l server-required/app_user_api.php
           php -l server-required/includes/watch_party.php
 
-      - name: Verify Pass4.6.1 source identity
+      - name: Verify Pass4.6.2 Kotlin import fix
         working-directory: project
         shell: bash
         run: |
           set -euo pipefail
-          chmod +x verify_pass4_6_1_source_identity.sh
-          ./verify_pass4_6_1_source_identity.sh
+          chmod +x verify_pass4_6_2_viewgroup_compile_fix.sh
+          ./verify_pass4_6_2_viewgroup_compile_fix.sh
+          grep -F 'import android.view.ViewGroup' app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
 
       - name: Install Irancell fonts from root ZIP
         working-directory: project
