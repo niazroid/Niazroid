@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 Pass4 Native Watch Party
+name: Build Bankmovie V2.1 Pass4.1 Watch Party Kotlin Fix
 
 on:
   workflow_dispatch:
@@ -7,11 +7,11 @@ on:
       - main
 
 concurrency:
-  group: bankmovie-v2.1-pass4-native-watch-party-${{ github.ref }}
+  group: bankmovie-v2.1-pass4-1-watch-party-kotlin-fix-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.1-GLASS-REDESIGN-PASS4-WATCH-PARTY-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.1-GLASS-REDESIGN-PASS4.1-WATCH-PARTY-KOTLIN-FIX-SOURCE.zip
 
 jobs:
   build:
@@ -74,7 +74,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Extract Pass4 Watch Party source
+      - name: Extract Pass4.1 Watch Party source
         shell: bash
         run: |
           set -euo pipefail
@@ -163,6 +163,13 @@ jobs:
 
           chmod +x verify_pass4_watch_party.sh
           ./verify_pass4_watch_party.sh
+          # Pass 4.1 compile regression guards
+          grep -F 'setSingleLine(true); gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL' "$MAIN"
+          ! grep -F 'singleLine = true; gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL' "$MAIN"
+          grep -F 'bankTintGlassDrawable(Color.rgb(139, 92, 246), 20, 232, 0.22f)' "$MAIN"
+          ! grep -F 'bankTintGlassDrawable(Color.rgb(139, 92, 246), 20, 0.22f, 232, 115)' "$MAIN"
+          test -s BANKMOVIE_PASS4_1_KOTLIN_COMPILE_FIX_FA.md
+
           grep -F 'private fun watchPartyQualityButton' "$MAIN"
           grep -F 'EXTRA_WATCH_PARTY_ROOM_CODE' app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
           grep -F "implementation 'io.github.webrtc-sdk:android:144.7559.12'" app/build.gradle
