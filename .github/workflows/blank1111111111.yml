@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 Glass Redesign Pass3
+name: Build Bankmovie V2.1 Glass Redesign Pass3.1 Kotlin Compile Fix
 
 on:
   workflow_dispatch:
@@ -7,11 +7,11 @@ on:
       - main
 
 concurrency:
-  group: bankmovie-v2.1-glass-redesign-pass3-${{ github.ref }}
+  group: bankmovie-v2.1-glass-redesign-pass3.1-kotlin-fix-1-kotlin-fix-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.1-GLASS-REDESIGN-PASS3-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.1-GLASS-REDESIGN-PASS3.1-KOTLIN-COMPILE-FIX-SOURCE.zip
 
 jobs:
   build:
@@ -74,7 +74,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Extract Glass Redesign Pass3 source
+      - name: Extract Glass Redesign Pass3.1 source
         shell: bash
         run: |
           set -euo pipefail
@@ -82,7 +82,7 @@ jobs:
           mkdir -p extracted project output
           unzip -q "$SOURCE_ZIP" -d extracted
 
-          # The Glass Pass3 ZIP currently contains a bankmovie_proj/ wrapper.
+          # The Glass Pass3.1 ZIP currently contains a bankmovie_proj/ wrapper.
           # This also supports future ZIPs whose Android project is at archive root.
           if [[ -s extracted/app/build.gradle ]]; then
             cp -a extracted/. project/
@@ -132,7 +132,7 @@ jobs:
           grep -F "id 'com.android.application' version '8.7.3'" build.gradle
           grep -F "id 'org.jetbrains.kotlin.android' version '2.0.21'" build.gradle
 
-      - name: Verify Glass Redesign Pass3 markers
+      - name: Verify Glass Redesign Pass3.1 markers
         working-directory: project
         shell: bash
         run: |
@@ -151,6 +151,11 @@ jobs:
           grep -F "'likes' => bm_app_feedback_satisfaction" server-required/app_api.php
           grep -F 'PASS 3: the old blue-black theme is retired.' app/src/main/java/ir/bankmoviee/app/UiPreferences.kt
           grep -F 'renderDetailTv(page, item)' "$MAIN"
+
+          DOWNLOADS='app/src/main/java/ir/bankmoviee/app/DownloadsActivity.kt'
+          grep -F 'PASS 3.1 compile fix: DownloadsActivity has no class-level palette property.' "$DOWNLOADS"
+          [[ "$(grep -Fc 'val p = UiPreferences.palette(this)' "$DOWNLOADS")" -ge 2 ]]
+          ! grep -F 'val p = palette' "$DOWNLOADS"
 
       - name: Install Irancell fonts from root ZIP
         working-directory: project
@@ -320,25 +325,25 @@ jobs:
               continue
             fi
 
-            destination="output/Bankmovie-v2.1-glass-redesign-pass3-${edition}-${abi}.apk"
+            destination="output/Bankmovie-v2.1-glass-redesign-pass3.1-kotlin-fix-${edition}-${abi}.apk"
             cp "$apk" "$destination"
             echo "$apk -> $destination"
           done < <(find project/app/build/outputs/apk -type f -name '*.apk' | sort)
 
           expected=(
-            output/Bankmovie-v2.1-glass-redesign-pass3-abi2-lite-universal.apk
-            output/Bankmovie-v2.1-glass-redesign-pass3-abi2-lite-arm64-v8a.apk
-            output/Bankmovie-v2.1-glass-redesign-pass3-abi2-lite-armeabi-v7a.apk
-            output/Bankmovie-v2.1-glass-redesign-pass3-abi4-full-universal.apk
-            output/Bankmovie-v2.1-glass-redesign-pass3-abi4-full-arm64-v8a.apk
-            output/Bankmovie-v2.1-glass-redesign-pass3-abi4-full-armeabi-v7a.apk
+            output/Bankmovie-v2.1-glass-redesign-pass3.1-kotlin-fix-abi2-lite-universal.apk
+            output/Bankmovie-v2.1-glass-redesign-pass3.1-kotlin-fix-abi2-lite-arm64-v8a.apk
+            output/Bankmovie-v2.1-glass-redesign-pass3.1-kotlin-fix-abi2-lite-armeabi-v7a.apk
+            output/Bankmovie-v2.1-glass-redesign-pass3.1-kotlin-fix-abi4-full-universal.apk
+            output/Bankmovie-v2.1-glass-redesign-pass3.1-kotlin-fix-abi4-full-arm64-v8a.apk
+            output/Bankmovie-v2.1-glass-redesign-pass3.1-kotlin-fix-abi4-full-armeabi-v7a.apk
           )
 
           for apk in "${expected[@]}"; do
             test -s "$apk"
           done
 
-          ABI2='output/Bankmovie-v2.1-glass-redesign-pass3-abi2-lite-universal.apk'
+          ABI2='output/Bankmovie-v2.1-glass-redesign-pass3.1-kotlin-fix-abi2-lite-universal.apk'
           unzip -l "$ABI2" | grep -q 'lib/armeabi-v7a/'
           unzip -l "$ABI2" | grep -q 'lib/arm64-v8a/'
           if unzip -l "$ABI2" | grep -Eq 'lib/(x86|x86_64)/'; then
@@ -346,7 +351,7 @@ jobs:
             exit 1
           fi
 
-          ABI4='output/Bankmovie-v2.1-glass-redesign-pass3-abi4-full-universal.apk'
+          ABI4='output/Bankmovie-v2.1-glass-redesign-pass3.1-kotlin-fix-abi4-full-universal.apk'
           for abi in armeabi-v7a arm64-v8a x86 x86_64; do
             unzip -l "$ABI4" | grep -q "lib/$abi/"
           done
@@ -379,55 +384,55 @@ jobs:
       - name: Upload ABI2 Lite Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Glass-Redesign-Pass1-ABI2-Lite-Universal-ARMv7-ARM64
-          path: output/Bankmovie-v2.1-glass-redesign-pass3-abi2-lite-universal.apk
+          name: Bankmovie-V2.1-Glass-Redesign-Pass3.1-Kotlin-Fix-ABI2-Lite-Universal-ARMv7-ARM64
+          path: output/Bankmovie-v2.1-glass-redesign-pass3.1-kotlin-fix-abi2-lite-universal.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI2 Lite ARM64
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Glass-Redesign-Pass1-ABI2-Lite-arm64-v8a
-          path: output/Bankmovie-v2.1-glass-redesign-pass3-abi2-lite-arm64-v8a.apk
+          name: Bankmovie-V2.1-Glass-Redesign-Pass3.1-Kotlin-Fix-ABI2-Lite-arm64-v8a
+          path: output/Bankmovie-v2.1-glass-redesign-pass3.1-kotlin-fix-abi2-lite-arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI2 Lite ARMv7
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Glass-Redesign-Pass1-ABI2-Lite-armeabi-v7a
-          path: output/Bankmovie-v2.1-glass-redesign-pass3-abi2-lite-armeabi-v7a.apk
+          name: Bankmovie-V2.1-Glass-Redesign-Pass3.1-Kotlin-Fix-ABI2-Lite-armeabi-v7a
+          path: output/Bankmovie-v2.1-glass-redesign-pass3.1-kotlin-fix-abi2-lite-armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Glass-Redesign-Pass1-ABI4-Full-Universal
-          path: output/Bankmovie-v2.1-glass-redesign-pass3-abi4-full-universal.apk
+          name: Bankmovie-V2.1-Glass-Redesign-Pass3.1-Kotlin-Fix-ABI4-Full-Universal
+          path: output/Bankmovie-v2.1-glass-redesign-pass3.1-kotlin-fix-abi4-full-universal.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full ARM64
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Glass-Redesign-Pass1-ABI4-Full-arm64-v8a
-          path: output/Bankmovie-v2.1-glass-redesign-pass3-abi4-full-arm64-v8a.apk
+          name: Bankmovie-V2.1-Glass-Redesign-Pass3.1-Kotlin-Fix-ABI4-Full-arm64-v8a
+          path: output/Bankmovie-v2.1-glass-redesign-pass3.1-kotlin-fix-abi4-full-arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full ARMv7
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Glass-Redesign-Pass1-ABI4-Full-armeabi-v7a
-          path: output/Bankmovie-v2.1-glass-redesign-pass3-abi4-full-armeabi-v7a.apk
+          name: Bankmovie-V2.1-Glass-Redesign-Pass3.1-Kotlin-Fix-ABI4-Full-armeabi-v7a
+          path: output/Bankmovie-v2.1-glass-redesign-pass3.1-kotlin-fix-abi4-full-armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload SHA256 checksums
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Glass-Redesign-Pass1-SHA256
+          name: Bankmovie-V2.1-Glass-Redesign-Pass3.1-Kotlin-Fix-SHA256
           path: output/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
