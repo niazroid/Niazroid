@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 Pass4.7 Profile Genre Smart Scroll Player Modal
+name: Build Bankmovie V2.1 Pass4.9 Player Modal Compact Spacing
 
 on:
   workflow_dispatch:
@@ -7,11 +7,11 @@ on:
       - main
 
 concurrency:
-  group: bankmovie-v2.1-pass4-7-profile-genre-smart-scroll-player-modal-${{ github.ref }}
+  group: bankmovie-v2.1-pass4-9-player-modal-compact-spacing-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.1-GLASS-REDESIGN-PASS4.7-PROFILE-GENRE-SMART-SCROLL-PLAYER-MODAL-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.1-GLASS-REDESIGN-PASS4.9-PLAYER-MODAL-COMPACT-SPACING-SOURCE.zip
 
 jobs:
   build:
@@ -74,7 +74,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Extract Pass4.7 Profile Genre Smart Scroll Player Modal source
+      - name: Extract Pass4.9 Player Modal Compact Spacing source
         shell: bash
         run: |
           set -euo pipefail
@@ -115,6 +115,10 @@ jobs:
           test -s project/BANKMOVIE_PASS4_6_2_VIEWGROUP_COMPILE_FIX_FA.md
           test -s project/verify_pass4_7_profile_genre_player_modal.sh
           test -s project/BANKMOVIE_PASS4_7_PROFILE_GENRE_SMART_SCROLL_PLAYER_MODAL_FA.md
+          test -s project/verify_pass4_8_home_cinematic_slider.sh
+          test -s project/BANKMOVIE_PASS4_8_HOME_CINEMATIC_SLIDER_FA.md
+          test -s project/verify_pass4_9_player_modal_compact_spacing.sh
+          test -s project/BANKMOVIE_PASS4_9_PLAYER_MODAL_COMPACT_SPACING_FA.md
 
           echo 'Source ZIP SHA256:'
           sha256sum "$SOURCE_ZIP"
@@ -232,6 +236,22 @@ jobs:
           grep -F '<package android:name="org.videolan.vlc" />' app/src/main/AndroidManifest.xml
           grep -F '<package android:name="com.mxtech.videoplayer.ad" />' app/src/main/AndroidManifest.xml
           grep -F '<package android:name="com.mxtech.videoplayer.pro" />' app/src/main/AndroidManifest.xml
+
+      - name: Verify Pass4.8 Home Cinematic Slider
+        working-directory: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x verify_pass4_8_home_cinematic_slider.sh
+          ./verify_pass4_8_home_cinematic_slider.sh
+
+      - name: Verify Pass4.9 Player Modal Compact Spacing
+        working-directory: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x verify_pass4_9_player_modal_compact_spacing.sh
+          ./verify_pass4_9_player_modal_compact_spacing.sh
 
       - name: Install Irancell fonts from root ZIP
         working-directory: project
@@ -409,25 +429,25 @@ jobs:
               continue
             fi
 
-            destination="output/Bankmovie-v2.1-pass4.7-profile-genre-smart-scroll-player-modal-${edition}-${abi}.apk"
+            destination="output/Bankmovie-v2.1-pass4.9-player-modal-compact-spacing-${edition}-${abi}.apk"
             cp "$apk" "$destination"
             echo "$apk -> $destination"
           done < <(find project/app/build/outputs/apk -type f -name '*.apk' | sort)
 
           expected=(
-            output/Bankmovie-v2.1-pass4.7-profile-genre-smart-scroll-player-modal-abi2-lite-universal.apk
-            output/Bankmovie-v2.1-pass4.7-profile-genre-smart-scroll-player-modal-abi2-lite-arm64-v8a.apk
-            output/Bankmovie-v2.1-pass4.7-profile-genre-smart-scroll-player-modal-abi2-lite-armeabi-v7a.apk
-            output/Bankmovie-v2.1-pass4.7-profile-genre-smart-scroll-player-modal-abi4-full-universal.apk
-            output/Bankmovie-v2.1-pass4.7-profile-genre-smart-scroll-player-modal-abi4-full-arm64-v8a.apk
-            output/Bankmovie-v2.1-pass4.7-profile-genre-smart-scroll-player-modal-abi4-full-armeabi-v7a.apk
+            output/Bankmovie-v2.1-pass4.9-player-modal-compact-spacing-abi2-lite-universal.apk
+            output/Bankmovie-v2.1-pass4.9-player-modal-compact-spacing-abi2-lite-arm64-v8a.apk
+            output/Bankmovie-v2.1-pass4.9-player-modal-compact-spacing-abi2-lite-armeabi-v7a.apk
+            output/Bankmovie-v2.1-pass4.9-player-modal-compact-spacing-abi4-full-universal.apk
+            output/Bankmovie-v2.1-pass4.9-player-modal-compact-spacing-abi4-full-arm64-v8a.apk
+            output/Bankmovie-v2.1-pass4.9-player-modal-compact-spacing-abi4-full-armeabi-v7a.apk
           )
 
           for apk in "${expected[@]}"; do
             test -s "$apk"
           done
 
-          ABI2='output/Bankmovie-v2.1-pass4.7-profile-genre-smart-scroll-player-modal-abi2-lite-universal.apk'
+          ABI2='output/Bankmovie-v2.1-pass4.9-player-modal-compact-spacing-abi2-lite-universal.apk'
           unzip -l "$ABI2" | grep -q 'lib/armeabi-v7a/'
           unzip -l "$ABI2" | grep -q 'lib/arm64-v8a/'
           if unzip -l "$ABI2" | grep -Eq 'lib/(x86|x86_64)/'; then
@@ -435,7 +455,7 @@ jobs:
             exit 1
           fi
 
-          ABI4='output/Bankmovie-v2.1-pass4.7-profile-genre-smart-scroll-player-modal-abi4-full-universal.apk'
+          ABI4='output/Bankmovie-v2.1-pass4.9-player-modal-compact-spacing-abi4-full-universal.apk'
           for abi in armeabi-v7a arm64-v8a x86 x86_64; do
             unzip -l "$ABI4" | grep -q "lib/$abi/"
           done
@@ -468,55 +488,55 @@ jobs:
       - name: Upload ABI2 Lite Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass4.7-Profile-Genre-Smart-Scroll-Player-Modal-ABI2-Lite-Universal-ARMv7-ARM64
-          path: output/Bankmovie-v2.1-pass4.7-profile-genre-smart-scroll-player-modal-abi2-lite-universal.apk
+          name: Bankmovie-V2.1-Pass4.9-Player-Modal-Compact-Spacing-ABI2-Lite-Universal-ARMv7-ARM64
+          path: output/Bankmovie-v2.1-pass4.9-player-modal-compact-spacing-abi2-lite-universal.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI2 Lite ARM64
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass4.7-Profile-Genre-Smart-Scroll-Player-Modal-ABI2-Lite-arm64-v8a
-          path: output/Bankmovie-v2.1-pass4.7-profile-genre-smart-scroll-player-modal-abi2-lite-arm64-v8a.apk
+          name: Bankmovie-V2.1-Pass4.9-Player-Modal-Compact-Spacing-ABI2-Lite-arm64-v8a
+          path: output/Bankmovie-v2.1-pass4.9-player-modal-compact-spacing-abi2-lite-arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI2 Lite ARMv7
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass4.7-Profile-Genre-Smart-Scroll-Player-Modal-ABI2-Lite-armeabi-v7a
-          path: output/Bankmovie-v2.1-pass4.7-profile-genre-smart-scroll-player-modal-abi2-lite-armeabi-v7a.apk
+          name: Bankmovie-V2.1-Pass4.9-Player-Modal-Compact-Spacing-ABI2-Lite-armeabi-v7a
+          path: output/Bankmovie-v2.1-pass4.9-player-modal-compact-spacing-abi2-lite-armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass4.7-Profile-Genre-Smart-Scroll-Player-Modal-ABI4-Full-Universal
-          path: output/Bankmovie-v2.1-pass4.7-profile-genre-smart-scroll-player-modal-abi4-full-universal.apk
+          name: Bankmovie-V2.1-Pass4.9-Player-Modal-Compact-Spacing-ABI4-Full-Universal
+          path: output/Bankmovie-v2.1-pass4.9-player-modal-compact-spacing-abi4-full-universal.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full ARM64
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass4.7-Profile-Genre-Smart-Scroll-Player-Modal-ABI4-Full-arm64-v8a
-          path: output/Bankmovie-v2.1-pass4.7-profile-genre-smart-scroll-player-modal-abi4-full-arm64-v8a.apk
+          name: Bankmovie-V2.1-Pass4.9-Player-Modal-Compact-Spacing-ABI4-Full-arm64-v8a
+          path: output/Bankmovie-v2.1-pass4.9-player-modal-compact-spacing-abi4-full-arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full ARMv7
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass4.7-Profile-Genre-Smart-Scroll-Player-Modal-ABI4-Full-armeabi-v7a
-          path: output/Bankmovie-v2.1-pass4.7-profile-genre-smart-scroll-player-modal-abi4-full-armeabi-v7a.apk
+          name: Bankmovie-V2.1-Pass4.9-Player-Modal-Compact-Spacing-ABI4-Full-armeabi-v7a
+          path: output/Bankmovie-v2.1-pass4.9-player-modal-compact-spacing-abi4-full-armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload SHA256 checksums
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass4.7-Profile-Genre-Smart-Scroll-Player-Modal-SHA256
+          name: Bankmovie-V2.1-Pass4.9-Player-Modal-Compact-Spacing-SHA256
           path: output/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
