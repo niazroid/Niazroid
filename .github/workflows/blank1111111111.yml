@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 Pass5.7 Search Player Modal Home Cleanup
+name: Build Bankmovie V2.1 Pass5.8 Search Player Modal Home Cleanup
 
 on:
   workflow_dispatch:
@@ -7,11 +7,11 @@ on:
       - main
 
 concurrency:
-  group: bankmovie-v2.1-pass5-7-ui-fixes-${{ github.ref }}
+  group: bankmovie-v2.1-pass5-8-ui-fixes-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.1-GLASS-REDESIGN-PASS5.7-UI-FIXES-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.1-GLASS-REDESIGN-PASS5.8-UI-FIXES-SOURCE.zip
 
 jobs:
   build:
@@ -74,7 +74,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Extract Pass5.7 Search Player Modal Home Cleanup source
+      - name: Extract Pass5.8 Search Player Modal Home Cleanup source
         shell: bash
         run: |
           set -euo pipefail
@@ -226,7 +226,7 @@ jobs:
           ./verify_pass4_6_2_viewgroup_compile_fix.sh
           grep -F 'import android.view.ViewGroup' app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
 
-      - name: Verify Pass5.7 Search Player Modal Home Cleanup
+      - name: Verify Pass5.8 Search Player Modal Home Cleanup
         working-directory: project
         shell: bash
         run: |
@@ -474,7 +474,7 @@ jobs:
       - name: Upload ABI2 Lite Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass5.7-Search-Player-Modal-Home-Cleanup-ABI2-Lite-Universal-ARMv7-ARM64
+          name: Bankmovie-V2.1-Pass5.8-Search-Player-Modal-Home-Cleanup-ABI2-Lite-Universal-ARMv7-ARM64
           path: output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi2-lite-universal.apk
           if-no-files-found: error
           retention-days: 30
@@ -482,7 +482,7 @@ jobs:
       - name: Upload ABI2 Lite ARM64
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass5.7-Search-Player-Modal-Home-Cleanup-ABI2-Lite-arm64-v8a
+          name: Bankmovie-V2.1-Pass5.8-Search-Player-Modal-Home-Cleanup-ABI2-Lite-arm64-v8a
           path: output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi2-lite-arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
@@ -490,7 +490,7 @@ jobs:
       - name: Upload ABI2 Lite ARMv7
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass5.7-Search-Player-Modal-Home-Cleanup-ABI2-Lite-armeabi-v7a
+          name: Bankmovie-V2.1-Pass5.8-Search-Player-Modal-Home-Cleanup-ABI2-Lite-armeabi-v7a
           path: output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi2-lite-armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
@@ -498,7 +498,7 @@ jobs:
       - name: Upload ABI4 Full Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass5.7-Search-Player-Modal-Home-Cleanup-ABI4-Full-Universal
+          name: Bankmovie-V2.1-Pass5.8-Search-Player-Modal-Home-Cleanup-ABI4-Full-Universal
           path: output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi4-full-universal.apk
           if-no-files-found: error
           retention-days: 30
@@ -506,7 +506,7 @@ jobs:
       - name: Upload ABI4 Full ARM64
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass5.7-Search-Player-Modal-Home-Cleanup-ABI4-Full-arm64-v8a
+          name: Bankmovie-V2.1-Pass5.8-Search-Player-Modal-Home-Cleanup-ABI4-Full-arm64-v8a
           path: output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi4-full-arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
@@ -514,7 +514,7 @@ jobs:
       - name: Upload ABI4 Full ARMv7
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass5.7-Search-Player-Modal-Home-Cleanup-ABI4-Full-armeabi-v7a
+          name: Bankmovie-V2.1-Pass5.8-Search-Player-Modal-Home-Cleanup-ABI4-Full-armeabi-v7a
           path: output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi4-full-armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
@@ -522,7 +522,7 @@ jobs:
       - name: Upload SHA256 checksums
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass5.7-Search-Player-Modal-Home-Cleanup-SHA256
+          name: Bankmovie-V2.1-Pass5.8-Search-Player-Modal-Home-Cleanup-SHA256
           path: output/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
