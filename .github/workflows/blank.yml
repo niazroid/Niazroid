@@ -1,4 +1,4 @@
-name: Build Bankmovie V2.1 Pass6.0 Remote Control UI
+name: Build Bankmovie V2.1 Pass6.1 Kotlin Compile Fix
 
 on:
   workflow_dispatch:
@@ -7,11 +7,11 @@ on:
       - main
 
 concurrency:
-  group: bankmovie-v2.1-pass6-0-remote-control-ui-${{ github.ref }}
+  group: bankmovie-v2.1-pass6-1-kotlin-compile-fix-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.1-GLASS-REDESIGN-PASS6.0-REMOTE-CONTROL-UI-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.1-GLASS-REDESIGN-PASS6.1-KOTLIN-COMPILE-FIX-SOURCE.zip
 
 jobs:
   build:
@@ -74,7 +74,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Extract Pass6.0 Remote Control UI source
+      - name: Extract Pass6.1 Kotlin Compile Fix source
         shell: bash
         run: |
           set -euo pipefail
@@ -226,7 +226,7 @@ jobs:
           ./verify_pass4_6_2_viewgroup_compile_fix.sh
           grep -F 'import android.view.ViewGroup' app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
 
-      - name: Verify Pass6.0 Remote Control UI
+      - name: Verify Pass6.1 Kotlin Compile Fix
         working-directory: project
         shell: bash
         run: |
@@ -235,6 +235,8 @@ jobs:
           ./verify_pass4_10_search_player_modal_home_cleanup.sh
           chmod +x verify_pass6_0_remote_control_ui.sh
           ./verify_pass6_0_remote_control_ui.sh
+          chmod +x verify_pass6_1_kotlin_compile_fix.sh
+          ./verify_pass6_1_kotlin_compile_fix.sh
 
           # Android 11+ external-player discovery remains available.
           grep -F '<package android:name="org.videolan.vlc" />' app/src/main/AndroidManifest.xml
@@ -476,7 +478,7 @@ jobs:
       - name: Upload ABI2 Lite Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass6.0-Remote-Control-UI-ABI2-Lite-Universal-ARMv7-ARM64
+          name: Bankmovie-V2.1-Pass6.1-Kotlin-Compile-Fix-ABI2-Lite-Universal-ARMv7-ARM64
           path: output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi2-lite-universal.apk
           if-no-files-found: error
           retention-days: 30
@@ -484,7 +486,7 @@ jobs:
       - name: Upload ABI2 Lite ARM64
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass6.0-Remote-Control-UI-ABI2-Lite-arm64-v8a
+          name: Bankmovie-V2.1-Pass6.1-Kotlin-Compile-Fix-ABI2-Lite-arm64-v8a
           path: output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi2-lite-arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
@@ -492,7 +494,7 @@ jobs:
       - name: Upload ABI2 Lite ARMv7
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass6.0-Remote-Control-UI-ABI2-Lite-armeabi-v7a
+          name: Bankmovie-V2.1-Pass6.1-Kotlin-Compile-Fix-ABI2-Lite-armeabi-v7a
           path: output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi2-lite-armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
@@ -500,7 +502,7 @@ jobs:
       - name: Upload ABI4 Full Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass6.0-Remote-Control-UI-ABI4-Full-Universal
+          name: Bankmovie-V2.1-Pass6.1-Kotlin-Compile-Fix-ABI4-Full-Universal
           path: output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi4-full-universal.apk
           if-no-files-found: error
           retention-days: 30
@@ -508,7 +510,7 @@ jobs:
       - name: Upload ABI4 Full ARM64
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass6.0-Remote-Control-UI-ABI4-Full-arm64-v8a
+          name: Bankmovie-V2.1-Pass6.1-Kotlin-Compile-Fix-ABI4-Full-arm64-v8a
           path: output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi4-full-arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
@@ -516,7 +518,7 @@ jobs:
       - name: Upload ABI4 Full ARMv7
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass6.0-Remote-Control-UI-ABI4-Full-armeabi-v7a
+          name: Bankmovie-V2.1-Pass6.1-Kotlin-Compile-Fix-ABI4-Full-armeabi-v7a
           path: output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi4-full-armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
@@ -524,7 +526,7 @@ jobs:
       - name: Upload SHA256 checksums
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass6.0-Remote-Control-UI-SHA256
+          name: Bankmovie-V2.1-Pass6.1-Kotlin-Compile-Fix-SHA256
           path: output/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
