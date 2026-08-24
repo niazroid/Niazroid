@@ -1,4 +1,4 @@
-name: Build BankMovie 2.2 RTL Icon Spacing Fix
+name: Build BankMovie 2.2 TV Remote Profile Final
 
 on:
   workflow_dispatch:
@@ -9,11 +9,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.2-rtl-spacing-${{ github.ref }}
+  group: bankmovie-2.2-tv-remote-profile-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.2-RTL-ICON-SPACING-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.2-TV-REMOTE-PROFILE-FINAL-SOURCE.zip
 
 jobs:
   build:
@@ -82,6 +82,7 @@ jobs:
             bankmovie_update.jks
             BANKMOVIE_GITHUB_ACTIONS_HOTFIX_FA.md
             BANKMOVIE_UI_SPACING_STICKER_HEADER_FIX_FA.md
+            BANKMOVIE_V2_2_TV_REMOTE_PROFILE_FINAL_FA.md
           )
           for required in "${required_files[@]}"; do
             if [[ ! -s "$project_dir/$required" ]]; then
@@ -206,6 +207,13 @@ jobs:
           require_fixed 'RuntimeVault.config_url_primary' app/src/main/java/ir/bankmoviee/app/AppConfig.kt
           require_fixed 'AccountSession.updateVip' app/src/main/java/ir/bankmoviee/app/AccountApi.kt
           require_fixed 'downloads_locked' "$main"
+          require_fixed 'showTvTextEntryFallback' app/src/main/java/ir/bankmoviee/app/AuthActivity.kt
+          require_fixed 'remoteProfileCleanupEnabled' "$main"
+          require_fixed 'remoteTvDetailStoryEnabled' "$main"
+          require_fixed 'remoteSearchAutoPageLimit' "$main"
+          require_fixed 'loadManualPage' "$main"
+          require_fixed 'archive1_download_vip' server-required/bm_admin.php
+          require_fixed "'_stream_vip'" server-required/app_config.php
 
           stale_cast='currentRemoteClient|approximateStreamPosition|streamDuration|CastContext|CastButtonFactory|RemoteMediaClient|com.google.android.gms.cast'
           if grep -R -n -E "$stale_cast" "$player" "$manifest" app/build.gradle; then
