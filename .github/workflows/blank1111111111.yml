@@ -1,4 +1,4 @@
-name: Build BankMovie 2.2 VIP TV UI Hotfix
+name: Build BankMovie 2.2 VIP Click TV Crop Final
 
 on:
   workflow_dispatch:
@@ -9,11 +9,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.2-vip-tv-ui-hotfix-${{ github.ref }}
+  group: bankmovie-2.2-vip-click-tv-crop-final-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.2-VIP-TV-UI-HOTFIX-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.2-VIP-CLICK-TV-CROP-PROFILE-FINAL-SOURCE.zip
 
 jobs:
   build:
@@ -69,7 +69,7 @@ jobs:
           fi
 
           if [[ -z "$project_dir" ]]; then
-            echo "::error::Android project and Bankmovie SOURCE ZIP were not found. Upload the exact SOURCE-HOTFIX ZIP or commit the extracted hotfix project."
+            echo "::error::Android project was not found. Upload $SOURCE_ZIP or commit the extracted final project."
             echo "Files found in repository:"
             find "$workspace" -maxdepth 3 -type f -printf '%P\n' | sort | sed -n '1,120p'
             exit 1
@@ -203,6 +203,10 @@ jobs:
           require_fixed 'android:viewportWidth="24"' app/src/main/res/drawable/ic_sticker_smile_square.xml
           require_fixed 'private fun isRemoteControllerUrl(raw: String)' "$main"
           require_fixed 'private fun showArchiveVipGate(item: JSONObject, feature: String)' "$main"
+          require_fixed 'private fun archiveVipGateRequired(item: JSONObject, feature: String)' "$main"
+          require_fixed 'val sliderArtworkHeight' "$main"
+          require_fixed 'val detailArtworkHeight' "$main"
+          require_fixed 'profileCompactActionTile' "$main"
           require_fixed 'archive=2' "$main"
           require_fixed 'RuntimeVault.config_url_primary' app/src/main/java/ir/bankmoviee/app/AppConfig.kt
           require_fixed 'AccountSession.updateVip' app/src/main/java/ir/bankmoviee/app/AccountApi.kt
@@ -217,7 +221,7 @@ jobs:
 
           stale_cast='currentRemoteClient|approximateStreamPosition|streamDuration|CastContext|CastButtonFactory|RemoteMediaClient|com.google.android.gms.cast'
           if grep -R -n -E "$stale_cast" "$player" "$manifest" app/build.gradle; then
-            echo "::error::Old Google Cast code is still present. The wrong/old source ZIP was selected. Use SOURCE-HOTFIX.zip."
+            echo "::error::Old Google Cast code is still present. Upload the exact $SOURCE_ZIP archive."
             exit 1
           fi
           if grep -Fq "implementation 'com.google.android.gms:play-services-cast-framework" app/build.gradle; then
