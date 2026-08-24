@@ -1,4 +1,4 @@
-name: Build BankMovie 2.1 Archive VIP Remote
+name: Build BankMovie 2.1 Archive VIP Remote Hotfix 1
 
 on:
   workflow_dispatch:
@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.1-ARCHIVE-VIP-REMOTE-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.1-ARCHIVE-VIP-REMOTE-SOURCE-HOTFIX1.zip
 
 jobs:
   build:
@@ -146,7 +146,7 @@ jobs:
           grep -F 'AccountSession.updateVip' app/src/main/java/ir/bankmoviee/app/AccountApi.kt
           grep -F 'downloads_locked' "$main"
 
-          ! grep -R -E 'CastContext|CastButtonFactory|RemoteMediaClient|com.google.android.gms.cast' "$player" "$manifest" app/build.gradle
+          ! grep -R -E 'currentRemoteClient|approximateStreamPosition|streamDuration|CastContext|CastButtonFactory|RemoteMediaClient|com.google.android.gms.cast' "$player" "$manifest" app/build.gradle
           ! grep -F "implementation 'com.google.android.gms:play-services-cast-framework" app/build.gradle
 
           grep -F "applicationId 'ir.bankmoviee.app'" app/build.gradle
