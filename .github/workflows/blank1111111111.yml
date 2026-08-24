@@ -1,4 +1,4 @@
-name: Build BankMovie 2.2 TV Remote Profile Final
+name: Build BankMovie 2.2 VIP TV UI Hotfix
 
 on:
   workflow_dispatch:
@@ -9,11 +9,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.2-tv-remote-profile-${{ github.ref }}
+  group: bankmovie-2.2-vip-tv-ui-hotfix-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.2-TV-REMOTE-PROFILE-FINAL-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.2-VIP-TV-UI-HOTFIX-SOURCE.zip
 
 jobs:
   build:
