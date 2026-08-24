@@ -1,4 +1,4 @@
-name: Build BankMovie 2.2 VIP Click TV Crop Final
+name: Build BankMovie 2.2 TV Hard Clip Glass Comments VIP DB
 
 on:
   workflow_dispatch:
@@ -9,11 +9,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.2-vip-click-tv-crop-final-${{ github.ref }}
+  group: bankmovie-2.2-tv-hard-clip-glass-comments-vip-db-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.2-VIP-CLICK-TV-CROP-PROFILE-FINAL-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.2-TV-HARD-CLIP-GLASS-COMMENTS-VIP-DB-SOURCE.zip
 
 jobs:
   build:
@@ -204,8 +204,11 @@ jobs:
           require_fixed 'private fun isRemoteControllerUrl(raw: String)' "$main"
           require_fixed 'private fun showArchiveVipGate(item: JSONObject, feature: String)' "$main"
           require_fixed 'private fun archiveVipGateRequired(item: JSONObject, feature: String)' "$main"
-          require_fixed 'val sliderArtworkHeight' "$main"
-          require_fixed 'val detailArtworkHeight' "$main"
+          require_fixed 'bm_tv_hard_artwork_clip' "$main"
+          require_fixed 'BM_COMMENT_MAIN_GLASS' "$main"
+          require_fixed 'BM_COMMENT_CIRCLE_AVATAR' "$main"
+          require_fixed 'BM_ARCHIVE_TEXT_ONLY' "$main"
+          require_fixed 'mergeArchiveAccessEnvelope' "$main"
           require_fixed 'profileCompactActionTile' "$main"
           require_fixed 'archive=2' "$main"
           require_fixed 'RuntimeVault.config_url_primary' app/src/main/java/ir/bankmoviee/app/AppConfig.kt
