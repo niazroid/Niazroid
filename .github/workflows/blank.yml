@@ -1,4 +1,4 @@
-name: Build BankMovie 2.1 Remote Controller Player V2
+name: Build BankMovie 2.1 Remote Controller Player V2 Hotfix
 
 on:
   workflow_dispatch:
@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.1-REMOTE-CONTROLLER-PLAYER-V2-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.1-REMOTE-CONTROLLER-PLAYER-V2-SOURCE-HOTFIX.zip
 
 jobs:
   build:
@@ -28,25 +28,68 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -s app/build.gradle && -s settings.gradle ]]; then
-            project_dir="$GITHUB_WORKSPACE"
+          workspace="${GITHUB_WORKSPACE:-$PWD}"
+          project_dir=""
+          source_zip=""
+
+          # The exact hotfix archive always wins over stale extracted source.
+          if [[ -s "$workspace/$SOURCE_ZIP" ]]; then
+            source_zip="$workspace/$SOURCE_ZIP"
           else
-            source_zip="$SOURCE_ZIP"
-            if [[ ! -s "$source_zip" ]]; then
-              source_zip="$(find . -maxdepth 1 -type f -iname '*Bankmovie*SOURCE*.zip' -print -quit)"
+            # Also support a normal repository or a project nested one level deeper.
+            build_file="$(find "$workspace" -maxdepth 6 -type f -path '*/app/build.gradle' \
+              ! -path '*/app/build/*' -print -quit || true)"
+            if [[ -n "$build_file" ]]; then
+              project_dir="$(dirname "$(dirname "$build_file")")"
+              echo "::notice::Android project found in repository: $project_dir"
+            else
+              source_zip="$(find "$workspace" -maxdepth 6 -type f \
+                -iname '*Bankmovie*SOURCE*.zip' -print -quit || true)"
             fi
-            test -n "$source_zip"
-            test -s "$source_zip"
-            mkdir -p "$RUNNER_TEMP/bankmovie-source"
-            unzip -q "$source_zip" -d "$RUNNER_TEMP/bankmovie-source"
-            project_dir="$(dirname "$(find "$RUNNER_TEMP/bankmovie-source" -type f -path '*/app/build.gradle' -print -quit)")"
-            project_dir="$(dirname "$project_dir")"
           fi
-          test -s "$project_dir/app/build.gradle"
-          test -s "$project_dir/build.gradle"
-          test -s "$project_dir/settings.gradle"
-          test -s "$project_dir/bankmovie_update.jks"
+
+          if [[ -n "$source_zip" ]]; then
+            echo "::notice::Using source archive: ${source_zip#$workspace/}"
+            if ! unzip -tq "$source_zip" >/dev/null; then
+              echo "::error::The source archive is damaged or is not a valid ZIP: $source_zip"
+              exit 1
+            fi
+            extract_dir="$RUNNER_TEMP/bankmovie-source-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+            mkdir -p "$extract_dir"
+            unzip -q "$source_zip" -d "$extract_dir"
+            build_file="$(find "$extract_dir" -type f -path '*/app/build.gradle' \
+              ! -path '*/app/build/*' -print -quit || true)"
+            if [[ -z "$build_file" ]]; then
+              echo "::error::The ZIP does not contain an Android app/build.gradle file."
+              unzip -Z1 "$source_zip" | head -n 120
+              exit 1
+            fi
+            project_dir="$(dirname "$(dirname "$build_file")")"
+            echo "::notice::Android project extracted to: $project_dir"
+          fi
+
+          if [[ -z "$project_dir" ]]; then
+            echo "::error::Android project and Bankmovie SOURCE ZIP were not found. Upload the exact SOURCE-HOTFIX ZIP or commit the extracted hotfix project."
+            echo "Files found in repository:"
+            find "$workspace" -maxdepth 3 -type f -printf '%P\n' | sort | sed -n '1,120p'
+            exit 1
+          fi
+
+          required_files=(
+            app/build.gradle
+            build.gradle
+            settings.gradle
+            bankmovie_update.jks
+            BANKMOVIE_GITHUB_ACTIONS_HOTFIX_FA.md
+          )
+          for required in "${required_files[@]}"; do
+            if [[ ! -s "$project_dir/$required" ]]; then
+              echo "::error::Required project file is missing or empty: $required (project: $project_dir)"
+              exit 1
+            fi
+          done
           echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
+          echo "::notice::Project preflight passed."
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -138,26 +181,47 @@ jobs:
           player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
           manifest='app/src/main/AndroidManifest.xml'
 
-          grep -F 'X-BM-User-Token' "$main"
-          grep -F 'private fun downloadUrl(link: JSONObject)' "$main"
-          grep -F 'link.optString("download_url")' "$main"
-          grep -F 'private fun playerUrl(link: JSONObject)' "$main"
-          grep -F 'BANKMOVIE PLAYBACK CHOOSER V2' "$main"
-          grep -F 'private fun isRemoteControllerUrl(raw: String)' "$main"
-          grep -F 'private fun showArchiveVipGate(item: JSONObject, feature: String)' "$main"
-          grep -F 'archive=2' "$main"
-          grep -F 'RuntimeVault.config_url_primary' app/src/main/java/ir/bankmoviee/app/AppConfig.kt
-          grep -F 'AccountSession.updateVip' app/src/main/java/ir/bankmoviee/app/AccountApi.kt
-          grep -F 'downloads_locked' "$main"
+          require_fixed() {
+            local pattern="$1"
+            local file="$2"
+            if ! grep -Fq -- "$pattern" "$file"; then
+              echo "::error file=$file::Required source marker is missing: $pattern"
+              exit 1
+            fi
+          }
 
-          ! grep -R -E 'currentRemoteClient|approximateStreamPosition|streamDuration|CastContext|CastButtonFactory|RemoteMediaClient|com.google.android.gms.cast' "$player" "$manifest" app/build.gradle
-          ! grep -F "implementation 'com.google.android.gms:play-services-cast-framework" app/build.gradle
+          require_fixed 'X-BM-User-Token' "$main"
+          require_fixed 'private fun downloadUrl(link: JSONObject)' "$main"
+          require_fixed 'link.optString("download_url")' "$main"
+          require_fixed 'private fun playerUrl(link: JSONObject)' "$main"
+          require_fixed 'BANKMOVIE PLAYBACK CHOOSER V2' "$main"
+          require_fixed 'private fun isRemoteControllerUrl(raw: String)' "$main"
+          require_fixed 'private fun showArchiveVipGate(item: JSONObject, feature: String)' "$main"
+          require_fixed 'archive=2' "$main"
+          require_fixed 'RuntimeVault.config_url_primary' app/src/main/java/ir/bankmoviee/app/AppConfig.kt
+          require_fixed 'AccountSession.updateVip' app/src/main/java/ir/bankmoviee/app/AccountApi.kt
+          require_fixed 'downloads_locked' "$main"
 
-          grep -F "applicationId 'ir.bankmoviee.app'" app/build.gradle
-          grep -F 'compileSdk 35' app/build.gradle
-          grep -F 'targetSdk 35' app/build.gradle
-          grep -F 'versionName "2.1"' app/build.gradle
-          echo 'b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39  bankmovie_update.jks' | sha256sum -c -
+          stale_cast='currentRemoteClient|approximateStreamPosition|streamDuration|CastContext|CastButtonFactory|RemoteMediaClient|com.google.android.gms.cast'
+          if grep -R -n -E "$stale_cast" "$player" "$manifest" app/build.gradle; then
+            echo "::error::Old Google Cast code is still present. The wrong/old source ZIP was selected. Use SOURCE-HOTFIX.zip."
+            exit 1
+          fi
+          if grep -Fq "implementation 'com.google.android.gms:play-services-cast-framework" app/build.gradle; then
+            echo "::error file=app/build.gradle::The removed Google Cast dependency is still present."
+            exit 1
+          fi
+
+          require_fixed "applicationId 'ir.bankmoviee.app'" app/build.gradle
+          require_fixed 'compileSdk 35' app/build.gradle
+          require_fixed 'targetSdk 35' app/build.gradle
+          require_fixed 'versionName "2.1"' app/build.gradle
+          expected_keystore_sha='b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39'
+          actual_keystore_sha="$(sha256sum bankmovie_update.jks | awk '{print $1}')"
+          if [[ "$actual_keystore_sha" != "$expected_keystore_sha" ]]; then
+            echo "::error file=bankmovie_update.jks::Signing keystore does not match the release keystore. Expected $expected_keystore_sha, got $actual_keystore_sha."
+            exit 1
+          fi
 
           python3 - <<'PY'
           import json, re
@@ -183,7 +247,22 @@ jobs:
           print('XML/JSON verification passed')
           PY
 
-          find server-required -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+          if [[ ! -d server-required ]]; then
+            echo "::error::Required server integration directory is missing: server-required"
+            exit 1
+          fi
+          first_php="$(find server-required -type f -name '*.php' -print -quit)"
+          if [[ -z "$first_php" ]]; then
+            echo "::error::No PHP server endpoints were found in server-required."
+            exit 1
+          fi
+          if ! command -v php >/dev/null 2>&1; then
+            echo "::error::PHP is unavailable even though the Setup PHP step completed."
+            exit 1
+          fi
+          find server-required -type f -name '*.php' \
+            -exec sh -ec 'for php_file do php -l "$php_file"; done' sh {} +
+          echo "::notice::Source, controller/download separation, Cast removal, XML, JSON and PHP checks passed."
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -208,29 +287,51 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p output
-          copy_edition() {
-            local flavor="$1"
-            local edition="$2"
-            local source_dir="$PROJECT_DIR/app/build/outputs/apk/$flavor/release"
-            test -d "$source_dir"
-            while IFS= read -r -d '' apk; do
-              local base
-              local abi
-              base="$(basename "$apk")"
-              case "$base" in
-                *universal*) abi="Universal" ;;
-                *arm64-v8a*) abi="Arm64-v8a" ;;
-                *armeabi-v7a*) abi="Armeabi-v7a" ;;
-                *x86_64*) abi="X86_64" ;;
-                *x86*) abi="X86" ;;
-                *) echo "Unknown APK ABI: $base" >&2; return 1 ;;
-              esac
-              cp "$apk" "output/Bankmovie-v2.1-$edition-$abi.apk"
-            done < <(find "$source_dir" -maxdepth 1 -type f -name '*.apk' -print0)
-          }
+          apk_root="$PROJECT_DIR/app/build/outputs/apk"
+          if [[ ! -d "$apk_root" ]]; then
+            echo "::error::Gradle produced no APK output directory: $apk_root"
+            find "$PROJECT_DIR/app/build/outputs" -maxdepth 5 -type f -printf '%P\n' 2>/dev/null | sort | head -n 120 || true
+            exit 1
+          fi
 
-          copy_edition abi2Lite ABI2-Lite
-          copy_edition abi4Full ABI4-Full
+          mapfile -d '' built_apks < <(find "$apk_root" -type f -iname '*.apk' -print0)
+          if [[ ${#built_apks[@]} -eq 0 ]]; then
+            echo "::error::Gradle completed but no APK files were found below: $apk_root"
+            find "$apk_root" -maxdepth 6 -type f -printf '%P\n' | sort | head -n 120
+            exit 1
+          fi
+
+          for apk in "${built_apks[@]}"; do
+            full_lower="${apk,,}"
+            base="$(basename "$apk")"
+            base_lower="${base,,}"
+            case "$full_lower" in
+              *abi2lite*) edition="ABI2-Lite" ;;
+              *abi4full*) edition="ABI4-Full" ;;
+              *)
+                echo "::warning::Skipping APK with unknown edition: $apk"
+                continue
+                ;;
+            esac
+            case "$base_lower" in
+              *universal*) abi="Universal" ;;
+              *arm64-v8a*) abi="Arm64-v8a" ;;
+              *armeabi-v7a*) abi="Armeabi-v7a" ;;
+              *x86_64*) abi="X86_64" ;;
+              *x86*) abi="X86" ;;
+              *)
+                echo "::error::Cannot identify APK ABI from filename: $base"
+                exit 1
+                ;;
+            esac
+            target="output/Bankmovie-v2.1-$edition-$abi.apk"
+            if [[ -e "$target" ]]; then
+              echo "::error::More than one APK maps to output file: $target"
+              exit 1
+            fi
+            cp "$apk" "$target"
+            echo "Collected: ${apk#$PROJECT_DIR/} -> $target"
+          done
 
           expected=(
             Bankmovie-v2.1-ABI2-Lite-Universal.apk
@@ -242,15 +343,33 @@ jobs:
             Bankmovie-v2.1-ABI4-Full-X86.apk
             Bankmovie-v2.1-ABI4-Full-X86_64.apk
           )
-          for apk in "${expected[@]}"; do test -s "output/$apk"; done
-          test "$(find output -maxdepth 1 -type f -name '*.apk' | wc -l)" -eq 8
+          for apk in "${expected[@]}"; do
+            if [[ ! -s "output/$apk" ]]; then
+              echo "::error::Expected APK was not generated: $apk"
+              echo "APK files generated by Gradle:"
+              find "$apk_root" -type f -iname '*.apk' -printf '%P\n' | sort
+              echo "APK files collected:"
+              find output -maxdepth 1 -type f -name '*.apk' -printf '%f\n' | sort
+              exit 1
+            fi
+          done
+          apk_count="$(find output -maxdepth 1 -type f -name '*.apk' | wc -l)"
+          if [[ "$apk_count" -ne 8 ]]; then
+            echo "::error::Expected exactly 8 APKs, collected $apk_count."
+            find output -maxdepth 1 -type f -name '*.apk' -printf '%f\n' | sort
+            exit 1
+          fi
 
           apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
-          test -x "$apksigner"
+          if [[ -z "$apksigner" || ! -x "$apksigner" ]]; then
+            echo "::error::Android apksigner was not found below $ANDROID_HOME/build-tools."
+            exit 1
+          fi
           while IFS= read -r apk; do
             "$apksigner" verify --verbose --print-certs "$apk"
           done < <(find output -type f -name '*.apk' | sort)
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
+          echo "::notice::All 8 APK files were found and their signatures verified."
 
       - name: Upload ABI2 Lite Universal
         uses: actions/upload-artifact@v4
@@ -313,5 +432,13 @@ jobs:
         with:
           name: Bankmovie-2.1-ABI4-Full-X86_64
           path: output/Bankmovie-v2.1-ABI4-Full-X86_64.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload APK checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.1-APK-SHA256SUMS
+          path: output/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
