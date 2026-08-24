@@ -1,4 +1,4 @@
-name: Build BankMovie 2.1 Archive VIP Remote Hotfix 1
+name: Build BankMovie 2.1 Remote Controller Player V2
 
 on:
   workflow_dispatch:
@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.1-ARCHIVE-VIP-REMOTE-SOURCE-HOTFIX1.zip
+  SOURCE_ZIP: Bankmovie-v2.1-REMOTE-CONTROLLER-PLAYER-V2-SOURCE.zip
 
 jobs:
   build:
@@ -141,6 +141,10 @@ jobs:
           grep -F 'X-BM-User-Token' "$main"
           grep -F 'private fun downloadUrl(link: JSONObject)' "$main"
           grep -F 'link.optString("download_url")' "$main"
+          grep -F 'private fun playerUrl(link: JSONObject)' "$main"
+          grep -F 'BANKMOVIE PLAYBACK CHOOSER V2' "$main"
+          grep -F 'private fun isRemoteControllerUrl(raw: String)' "$main"
+          grep -F 'private fun showArchiveVipGate(item: JSONObject, feature: String)' "$main"
           grep -F 'archive=2' "$main"
           grep -F 'RuntimeVault.config_url_primary' app/src/main/java/ir/bankmoviee/app/AppConfig.kt
           grep -F 'AccountSession.updateVip' app/src/main/java/ir/bankmoviee/app/AccountApi.kt
@@ -156,12 +160,26 @@ jobs:
           echo 'b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39  bankmovie_update.jks' | sha256sum -c -
 
           python3 - <<'PY'
-          import json
+          import json, re
           import xml.etree.ElementTree as ET
           from pathlib import Path
           for path in Path('app/src/main').rglob('*.xml'): ET.parse(path)
           sample = Path('server-required/bankmovie_remote_config.json.sample')
-          if sample.exists(): json.loads(sample.read_text(encoding='utf-8'))
+          if sample.exists():
+              config = json.loads(sample.read_text(encoding='utf-8'))
+              assert config['schema_version'] >= 6
+              assert config['active_domain'] == 'https://bankmovie.top'
+              assert 'bankmoviee.ir' not in config['api_url']
+
+          vault = Path('app/src/main/java/ir/bankmoviee/app/RuntimeVault.kt').read_text(encoding='utf-8')
+          def decode(name):
+              data = [int(v.strip()) for v in re.search(rf'{name}Data = intArrayOf\(([^)]*)\)', vault).group(1).split(',')]
+              seed = int(re.search(rf'{name}Seed = (\d+)', vault).group(1))
+              return ''.join(chr(value ^ ((seed + i * 31 + ((i * i * 7) & 255)) & 0xffff)) for i, value in enumerate(data))
+          assert decode('CONFIG_URL_PRIMARY') == 'https://bankmoviee.ir/app_config.php'
+          assert decode('CONFIG_URL_SECONDARY') == 'https://www.bankmoviee.ir/app_config.php'
+          assert decode('APP_API_URL') == 'https://bankmovie.top/app_api.php'
+          assert decode('ACCOUNT_API_URL') == 'https://bankmovie.top/app_user_api.php'
           print('XML/JSON verification passed')
           PY
 
@@ -190,11 +208,42 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p output
-          find "$PROJECT_DIR/app/build/outputs/apk" -type f -name '*.apk' -print0 | while IFS= read -r -d '' apk; do
-            name="$(basename "$apk")"
-            cp "$apk" "output/Bankmovie-v2.1-archive-vip-remote-$name"
-          done
-          test "$(find output -type f -name '*.apk' | wc -l)" -ge 6
+          copy_edition() {
+            local flavor="$1"
+            local edition="$2"
+            local source_dir="$PROJECT_DIR/app/build/outputs/apk/$flavor/release"
+            test -d "$source_dir"
+            while IFS= read -r -d '' apk; do
+              local base
+              local abi
+              base="$(basename "$apk")"
+              case "$base" in
+                *universal*) abi="Universal" ;;
+                *arm64-v8a*) abi="Arm64-v8a" ;;
+                *armeabi-v7a*) abi="Armeabi-v7a" ;;
+                *x86_64*) abi="X86_64" ;;
+                *x86*) abi="X86" ;;
+                *) echo "Unknown APK ABI: $base" >&2; return 1 ;;
+              esac
+              cp "$apk" "output/Bankmovie-v2.1-$edition-$abi.apk"
+            done < <(find "$source_dir" -maxdepth 1 -type f -name '*.apk' -print0)
+          }
+
+          copy_edition abi2Lite ABI2-Lite
+          copy_edition abi4Full ABI4-Full
+
+          expected=(
+            Bankmovie-v2.1-ABI2-Lite-Universal.apk
+            Bankmovie-v2.1-ABI2-Lite-Armeabi-v7a.apk
+            Bankmovie-v2.1-ABI2-Lite-Arm64-v8a.apk
+            Bankmovie-v2.1-ABI4-Full-Universal.apk
+            Bankmovie-v2.1-ABI4-Full-Armeabi-v7a.apk
+            Bankmovie-v2.1-ABI4-Full-Arm64-v8a.apk
+            Bankmovie-v2.1-ABI4-Full-X86.apk
+            Bankmovie-v2.1-ABI4-Full-X86_64.apk
+          )
+          for apk in "${expected[@]}"; do test -s "output/$apk"; done
+          test "$(find output -maxdepth 1 -type f -name '*.apk' | wc -l)" -eq 8
 
           apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -x "$apksigner"
@@ -203,10 +252,66 @@ jobs:
           done < <(find output -type f -name '*.apk' | sort)
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
 
-      - name: Upload APK bundle
+      - name: Upload ABI2 Lite Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.1-Archive-VIP-Remote-APKs
-          path: output/
+          name: Bankmovie-2.1-ABI2-Lite-Universal
+          path: output/Bankmovie-v2.1-ABI2-Lite-Universal.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ABI2 Lite Armeabi-v7a
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.1-ABI2-Lite-Armeabi-v7a
+          path: output/Bankmovie-v2.1-ABI2-Lite-Armeabi-v7a.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ABI2 Lite Arm64-v8a
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.1-ABI2-Lite-Arm64-v8a
+          path: output/Bankmovie-v2.1-ABI2-Lite-Arm64-v8a.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ABI4 Full Universal
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.1-ABI4-Full-Universal
+          path: output/Bankmovie-v2.1-ABI4-Full-Universal.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ABI4 Full Armeabi-v7a
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.1-ABI4-Full-Armeabi-v7a
+          path: output/Bankmovie-v2.1-ABI4-Full-Armeabi-v7a.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ABI4 Full Arm64-v8a
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.1-ABI4-Full-Arm64-v8a
+          path: output/Bankmovie-v2.1-ABI4-Full-Arm64-v8a.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ABI4 Full X86
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.1-ABI4-Full-X86
+          path: output/Bankmovie-v2.1-ABI4-Full-X86.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ABI4 Full X86_64
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.1-ABI4-Full-X86_64
+          path: output/Bankmovie-v2.1-ABI4-Full-X86_64.apk
           if-no-files-found: error
           retention-days: 30
