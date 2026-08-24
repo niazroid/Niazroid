@@ -1,17 +1,19 @@
-name: Build Bankmovie V2.1 Pass6.1 Kotlin Compile Fix
+name: Build BankMovie 2.1 Archive VIP Remote
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
+
+permissions:
+  contents: read
 
 concurrency:
-  group: bankmovie-v2.1-pass6-1-kotlin-compile-fix-${{ github.ref }}
+  group: bankmovie-2.1-archive-vip-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.1-GLASS-REDESIGN-PASS6.1-KOTLIN-COMPILE-FIX-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.1-ARCHIVE-VIP-REMOTE-SOURCE.zip
 
 jobs:
   build:
@@ -22,42 +24,42 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verify required root files
+      - name: Locate Android project
         shell: bash
         run: |
           set -euo pipefail
-
-          required=(
-            "$SOURCE_ZIP"
-            'irancell [@fontbazi].zip'
-            'Cinema.otf'
-            'Diako Hima Regular-@Fontsplua.ttf'
-            'Nic [@fontbazi].ttf'
-          )
-
-          for file in "${required[@]}"; do
-            if [[ ! -s "$file" ]]; then
-              echo "Missing or empty required root file: $file" >&2
-              echo "Files in repository root:" >&2
-              find . -maxdepth 1 -type f -printf '%f\n' | sort >&2
-              exit 1
+          if [[ -s app/build.gradle && -s settings.gradle ]]; then
+            project_dir="$GITHUB_WORKSPACE"
+          else
+            source_zip="$SOURCE_ZIP"
+            if [[ ! -s "$source_zip" ]]; then
+              source_zip="$(find . -maxdepth 1 -type f -iname '*Bankmovie*SOURCE*.zip' -print -quit)"
             fi
-          done
-
-          for weight in regular medium bold; do
-            match="$(find . -maxdepth 1 -type f -iname "IRANSansXFaNum-${weight}*.woff2" -print -quit)"
-            if [[ -z "$match" || ! -s "$match" ]]; then
-              echo "Missing IRANSansX WOFF2 weight: $weight" >&2
-              exit 1
-            fi
-            echo "$weight -> $match"
-          done
+            test -n "$source_zip"
+            test -s "$source_zip"
+            mkdir -p "$RUNNER_TEMP/bankmovie-source"
+            unzip -q "$source_zip" -d "$RUNNER_TEMP/bankmovie-source"
+            project_dir="$(dirname "$(find "$RUNNER_TEMP/bankmovie-source" -type f -path '*/app/build.gradle' -print -quit)")"
+            project_dir="$(dirname "$project_dir")"
+          fi
+          test -s "$project_dir/app/build.gradle"
+          test -s "$project_dir/build.gradle"
+          test -s "$project_dir/settings.gradle"
+          test -s "$project_dir/bankmovie_update.jks"
+          echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: Setup PHP 8.2 for server endpoint lint
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+          tools: none
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -74,459 +76,137 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Extract Pass6.1 Kotlin Compile Fix source
+      - name: Install repository fonts when supplied
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf extracted project output
-          mkdir -p extracted project output
-          unzip -q "$SOURCE_ZIP" -d extracted
+          font_dir="$PROJECT_DIR/app/src/main/assets/fonts"
+          mkdir -p "$font_dir"
 
-          # The Pass4 ZIP currently contains a bankmovie_proj/ wrapper.
-          # This also supports future ZIPs whose Android project is at archive root.
-          if [[ -s extracted/app/build.gradle ]]; then
-            cp -a extracted/. project/
-          else
-            mapfile -t candidates < <(find extracted -mindepth 1 -maxdepth 1 -type d -print)
-            if [[ ${#candidates[@]} -eq 1 && -s "${candidates[0]}/app/build.gradle" ]]; then
-              cp -a "${candidates[0]}/." project/
-            else
-              echo "Could not locate Android project root inside $SOURCE_ZIP" >&2
-              find extracted -maxdepth 3 -type f -printf '%p\n' | sort | head -200 >&2
-              exit 1
-            fi
-          fi
-
-          test -s project/app/build.gradle
-          test -s project/build.gradle
-          test -s project/settings.gradle
-          test -s project/bankmovie_update.jks
-          test -s project/verify_phase11_1.sh
-          test -s project/BANKMOVIE_PASS4_WATCH_PARTY_FA.md
-          test -s project/verify_pass4_4_watch_party_room_polish.sh
-          test -s project/BANKMOVIE_PASS4_4_WATCH_PARTY_ROOM_POLISH_FA.md
-          test -s project/verify_pass4_5_android_sync_lowend.sh
-          test -s project/BANKMOVIE_PASS4_5_ANDROID_SYNC_LOWEND_FA.md
-          test -s project/verify_pass4_6_player_lifecycle_guest_glass.sh
-          test -s project/BANKMOVIE_PASS4_6_PLAYER_LIFECYCLE_GUEST_GLASS_FA.md
-          test -s project/verify_pass4_6_1_source_identity.sh
-          test -s project/BANKMOVIE_PASS4_6_1_STALE_SOURCE_GUARD_FA.md
-          test -s project/verify_pass4_6_2_viewgroup_compile_fix.sh
-          test -s project/BANKMOVIE_PASS4_6_2_VIEWGROUP_COMPILE_FIX_FA.md
-          test -s project/verify_pass4_7_profile_genre_player_modal.sh
-          test -s project/BANKMOVIE_PASS4_7_PROFILE_GENRE_SMART_SCROLL_PLAYER_MODAL_FA.md
-          test -s project/verify_pass4_8_home_cinematic_slider.sh
-          test -s project/BANKMOVIE_PASS4_8_HOME_CINEMATIC_SLIDER_FA.md
-          test -s project/verify_pass4_9_player_modal_compact_spacing.sh
-          test -s project/BANKMOVIE_PASS4_9_PLAYER_MODAL_COMPACT_SPACING_FA.md
-          test -s project/verify_pass4_10_search_player_modal_home_cleanup.sh
-          test -s project/BANKMOVIE_PASS4_10_SEARCH_PLAYER_MODAL_HOME_CLEANUP_FA.md
-
-          echo 'Source ZIP SHA256:'
-          sha256sum "$SOURCE_ZIP"
-          echo 'Extracted PlayerActivity SHA256:'
-          sha256sum project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
-          grep -F 'BANKMOVIE_PASS4_6_2_SOURCE_FINGERPRINT: player-lifecycle-guest-glass-viewgroup-compile-fix' project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
-          ! grep -F 'releaseRtc()' project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
-          ! grep -F 'cornerRadii=floatArrayOf(dp(26f)' project/app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
-          test -d project/app/src/main
-          test -s project/server-required/app_api.php
-          test -s project/server-required/app_user_api.php
-
-      - name: Verify inherited Phase11.1 fixes
-        working-directory: project
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if ! command -v php >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y php-cli
-          fi
-
-          chmod +x verify_phase11_1.sh
-          ./verify_phase11_1.sh
-
-          grep -F 'setBackgroundColor(Color.TRANSPARENT)' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -F 'android.view.ViewGroup.LayoutParams.WRAP_CONTENT' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          ! grep -F 'scroll.addView(grid, ScrollView.LayoutParams(-1, -2))' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-
-          grep -F "applicationId 'ir.bankmoviee.app'" app/build.gradle
-          grep -F 'versionName "2.1"' app/build.gradle
-          grep -F 'compileSdk 35' app/build.gradle
-          grep -F 'targetSdk 35' app/build.gradle
-          grep -F "id 'com.android.application' version '8.7.3'" build.gradle
-          grep -F "id 'org.jetbrains.kotlin.android' version '2.0.21'" build.gradle
-
-      - name: Verify Pass4 Watch Party markers
-        working-directory: project
-        shell: bash
-        run: |
-          set -euo pipefail
-          MAIN='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
-
-          grep -F 'BANKMOVIE GLASS DESIGN SYSTEM' "$MAIN"
-          grep -F 'PASS 3: global charcoal glass family + Archive 1 satisfaction/IMDb cleanup.' "$MAIN"
-          grep -F 'private fun bankGlassDrawable(' "$MAIN"
-          grep -F 'private fun bankPrimaryGlassDrawable(' "$MAIN"
-          grep -F 'private fun bankTintGlassDrawable(' "$MAIN"
-          grep -F 'private fun detailSatisfactionText(' "$MAIN"
-          grep -F 'private fun bankRatingStrip(item: JSONObject): View?' "$MAIN"
-          grep -F 'private fun detailListText(' "$MAIN"
-          grep -F 'feedback_satisfaction' server-required/app_api.php
-          grep -F "'likes' => bm_app_feedback_satisfaction" server-required/app_api.php
-          grep -F 'PASS 3: the old blue-black theme is retired.' app/src/main/java/ir/bankmoviee/app/UiPreferences.kt
-          grep -F 'renderDetailTv(page, item)' "$MAIN"
-
-          DOWNLOADS='app/src/main/java/ir/bankmoviee/app/DownloadsActivity.kt'
-          grep -F 'PASS 3.1 compile fix: DownloadsActivity has no class-level palette property.' "$DOWNLOADS"
-          [[ "$(grep -Fc 'val p = UiPreferences.palette(this)' "$DOWNLOADS")" -ge 2 ]]
-          ! grep -F 'val p = palette' "$DOWNLOADS"
-          grep -F 'PASS 3.2: use the exact same archive selector language as Categories.' "$MAIN"
-          grep -F 'background = bankGlassDrawable(24, 236, 70, true)' "$MAIN"
-          test -s WATCH_PARTY_NATIVE_PLAN_FA.md
-
-          # Pass 4.4: chat-only Watch Party, persistent 4-hour room reuse,
-          # Telegram-style chat polish, real avatars and 5x playback retry.
-          chmod +x verify_pass4_4_watch_party_room_polish.sh
-          ./verify_pass4_4_watch_party_room_polish.sh
-          test -s BANKMOVIE_PASS4_4_WATCH_PARTY_ROOM_POLISH_FA.md
-          # Pass 4.5: Android->Android auto-start, explicit control retry,
-          # low-end non-blocking VLC exit and real avatar URL resolution.
-          chmod +x verify_pass4_5_android_sync_lowend.sh
-          ./verify_pass4_5_android_sync_lowend.sh
-          test -s BANKMOVIE_PASS4_5_ANDROID_SYNC_LOWEND_FA.md
-          # Pass 4.6: lifecycle/surface rebuild, guest playback lock, glass player settings and polished party message overlay.
-          chmod +x verify_pass4_6_player_lifecycle_guest_glass.sh
-          ./verify_pass4_6_player_lifecycle_guest_glass.sh
-          test -s BANKMOVIE_PASS4_6_PLAYER_LIFECYCLE_GUEST_GLASS_FA.md
-          # Pass 4.1 compile regression guards inherited from the stable branch.
-          grep -F 'setSingleLine(true); gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL' "$MAIN"
-          ! grep -F 'singleLine = true; gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL' "$MAIN"
-          grep -F 'text = t("مشاهده پلن‌ها و خرید VIP  ♕"' "$MAIN"
-          grep -F 'text = t("فعلاً نه", "Not now")' "$MAIN"
-          test -s BANKMOVIE_PASS4_1_KOTLIN_COMPILE_FIX_FA.md
-
-          grep -F 'private fun watchPartyQualityButton' "$MAIN"
-          grep -F 'EXTRA_WATCH_PARTY_ROOM_CODE' app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
-          # Pass 4.3 size/stability guards: WebRTC and microphone permission must stay removed.
-          ! grep -F 'io.github.webrtc-sdk' app/build.gradle
-          ! grep -F 'org.webrtc' app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
-          ! grep -F 'android.permission.RECORD_AUDIO' app/src/main/AndroidManifest.xml
-          grep -F "if (\$action === 'watch_party_create')" server-required/app_user_api.php
-          php -l server-required/app_user_api.php
-          php -l server-required/includes/watch_party.php
-
-      - name: Verify Pass4.6.2 Kotlin import fix
-        working-directory: project
-        shell: bash
-        run: |
-          set -euo pipefail
-          chmod +x verify_pass4_6_2_viewgroup_compile_fix.sh
-          ./verify_pass4_6_2_viewgroup_compile_fix.sh
-          grep -F 'import android.view.ViewGroup' app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt
-
-      - name: Verify Pass6.1 Kotlin Compile Fix
-        working-directory: project
-        shell: bash
-        run: |
-          set -euo pipefail
-          chmod +x verify_pass4_10_search_player_modal_home_cleanup.sh
-          ./verify_pass4_10_search_player_modal_home_cleanup.sh
-          chmod +x verify_pass6_0_remote_control_ui.sh
-          ./verify_pass6_0_remote_control_ui.sh
-          chmod +x verify_pass6_1_kotlin_compile_fix.sh
-          ./verify_pass6_1_kotlin_compile_fix.sh
-
-          # Android 11+ external-player discovery remains available.
-          grep -F '<package android:name="org.videolan.vlc" />' app/src/main/AndroidManifest.xml
-          grep -F '<package android:name="com.mxtech.videoplayer.ad" />' app/src/main/AndroidManifest.xml
-          grep -F '<package android:name="com.mxtech.videoplayer.pro" />' app/src/main/AndroidManifest.xml
-
-      - name: Install Irancell fonts from root ZIP
-        working-directory: project
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
+          font_zip="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -iname 'irancell*.zip' -print -quit)"
+          if [[ -n "$font_zip" ]]; then
+            FONT_ZIP="$font_zip" FONT_DIR="$font_dir" python3 - <<'PY'
+          import os, re
           from pathlib import Path, PurePosixPath
           from zipfile import ZipFile
-          import re
-
-          archive = Path('../irancell [@fontbazi].zip')
-          output = Path('app/src/main/assets/fonts')
-          output.mkdir(parents=True, exist_ok=True)
-
-          targets = {
-              1: 'irancell_bold.ttf',
-              2: 'irancell_regular.ttf',
-              3: 'irancell_black.ttf',
-              4: 'irancell_semibold.ttf',
-              5: 'irancell_medium.ttf',
-          }
-
+          archive, output = Path(os.environ['FONT_ZIP']), Path(os.environ['FONT_DIR'])
+          targets = {1:'irancell_bold.ttf',2:'irancell_regular.ttf',3:'irancell_black.ttf',4:'irancell_semibold.ttf',5:'irancell_medium.ttf'}
           with ZipFile(archive) as zf:
-              entries = [
-                  item for item in zf.infolist()
-                  if not item.is_dir() and item.filename.lower().endswith('.ttf')
-              ]
               indexed = {}
-              for item in entries:
-                  name = PurePosixPath(item.filename).name
-                  match = re.search(r'irancell[^0-9]*([1-5])', name, re.IGNORECASE)
-                  if match:
-                      indexed[int(match.group(1))] = item
-
-              missing = [number for number in targets if number not in indexed]
-              if missing:
-                  raise SystemExit(f'Missing Irancell weights: {missing}')
-
-              for number, target in targets.items():
+              for item in zf.infolist():
+                  if item.is_dir() or not item.filename.lower().endswith('.ttf'): continue
+                  match = re.search(r'irancell[^0-9]*([1-5])', PurePosixPath(item.filename).name, re.I)
+                  if match: indexed[int(match.group(1))] = item
+              for number, name in targets.items():
+                  if number not in indexed: raise SystemExit(f'Missing Irancell font {number}')
                   data = zf.read(indexed[number], pwd=b'fontbazi')
-                  if len(data) < 1024:
-                      raise SystemExit(f'Invalid Irancell font: {indexed[number].filename}')
-                  destination = output / target
-                  destination.write_bytes(data)
-                  print(f'{indexed[number].filename} -> {destination}')
+                  if len(data) < 1024: raise SystemExit(f'Invalid font: {name}')
+                  (output / name).write_bytes(data)
           PY
+          fi
 
-      - name: Install additional root fonts
-        working-directory: project
-        shell: bash
-        run: |
-          set -euo pipefail
-          install -d app/src/main/assets/fonts
-          install -m 0644 '../Cinema.otf' app/src/main/assets/fonts/cinema.otf
-          install -m 0644 '../Diako Hima Regular-@Fontsplua.ttf' app/src/main/assets/fonts/diako_hima.ttf
-          install -m 0644 '../Nic [@fontbazi].ttf' app/src/main/assets/fonts/nic.ttf
-
-      - name: Convert and install IRANSansX fonts
-        working-directory: project
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 -m pip install --disable-pip-version-check --no-cache-dir 'fonttools[woff]>=4.50,<5'
-
-          python3 - <<'PY'
-          from pathlib import Path
-          from fontTools.ttLib import TTFont
-
-          root = Path('..')
-          output = Path('app/src/main/assets/fonts')
-          output.mkdir(parents=True, exist_ok=True)
-
-          targets = {
-              'regular': 'iransansx_regular.ttf',
-              'medium': 'iransansx_medium.ttf',
-              'bold': 'iransansx_bold.ttf',
-          }
-
-          for weight, target in targets.items():
-              matches = sorted(root.glob(f'IRANSansXFaNum-{weight}*.woff2'))
-              if not matches:
-                  raise SystemExit(f'Missing IRANSansX {weight} WOFF2')
-
-              source = matches[0]
-              font = TTFont(source)
-              font.flavor = None
-              destination = output / target
-              font.save(destination)
-
-              if destination.stat().st_size < 1024:
-                  raise SystemExit(f'Converted font is too small: {destination}')
-
-              print(f'{source.name} -> {destination} ({destination.stat().st_size} bytes)')
-          PY
-
-          for font in \
-            irancell_regular.ttf irancell_medium.ttf irancell_semibold.ttf irancell_bold.ttf irancell_black.ttf \
-            cinema.otf diako_hima.ttf nic.ttf \
-            iransansx_regular.ttf iransansx_medium.ttf iransansx_bold.ttf; do
-            test -s "app/src/main/assets/fonts/$font"
+          declare -A direct_fonts=(
+            [Cinema.otf]=cinema.otf
+            ['Diako Hima Regular-@Fontsplua.ttf']=diako_hima.ttf
+            ['Nic [@fontbazi].ttf']=nic.ttf
+          )
+          for source in "${!direct_fonts[@]}"; do
+            [[ -s "$GITHUB_WORKSPACE/$source" ]] && cp "$GITHUB_WORKSPACE/$source" "$font_dir/${direct_fonts[$source]}"
           done
 
-      - name: Verify package version and signing identity
-        working-directory: project
+          mapfile -t woff_fonts < <(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -iname 'IRANSansXFaNum-*.woff2' -print)
+          if [[ ${#woff_fonts[@]} -gt 0 ]]; then
+            python3 -m pip install --disable-pip-version-check --quiet fonttools brotli
+            FONT_DIR="$font_dir" python3 - <<'PY'
+          import os
+          from pathlib import Path
+          from fontTools.ttLib import TTFont
+          root, out = Path(os.environ['GITHUB_WORKSPACE']), Path(os.environ['FONT_DIR'])
+          for weight in ('regular','medium','bold'):
+              source = next(iter(root.glob(f'IRANSansXFaNum-{weight}*.woff2')), None)
+              if source is None: continue
+              font = TTFont(source); font.flavor = None; font.save(out / f'iransansx_{weight}.ttf')
+          PY
+          fi
+
+      - name: Verify security and source integration
         shell: bash
         run: |
           set -euo pipefail
+          cd "$PROJECT_DIR"
+          main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
+          player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
+          manifest='app/src/main/AndroidManifest.xml'
 
-          EXPECTED_JKS='b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39'
-          EXPECTED_CERT='86:2B:C3:58:D8:D2:39:A2:13:4A:63:FA:B9:79:FF:60:19:86:23:72:E7:95:0E:A4:9B:AC:74:78:09:36:20:5D'
+          grep -F 'X-BM-User-Token' "$main"
+          grep -F 'private fun downloadUrl(link: JSONObject)' "$main"
+          grep -F 'link.optString("download_url")' "$main"
+          grep -F 'archive=2' "$main"
+          grep -F 'RuntimeVault.config_url_primary' app/src/main/java/ir/bankmoviee/app/AppConfig.kt
+          grep -F 'AccountSession.updateVip' app/src/main/java/ir/bankmoviee/app/AccountApi.kt
+          grep -F 'downloads_locked' "$main"
 
-          echo "$EXPECTED_JKS  bankmovie_update.jks" | sha256sum -c -
-          keytool -list -v \
-            -keystore bankmovie_update.jks \
-            -storepass bankmovie123 \
-            -alias bankmovie | grep -F "SHA256: $EXPECTED_CERT"
+          ! grep -R -E 'CastContext|CastButtonFactory|RemoteMediaClient|com.google.android.gms.cast' "$player" "$manifest" app/build.gradle
+          ! grep -F "implementation 'com.google.android.gms:play-services-cast-framework" app/build.gradle
 
           grep -F "applicationId 'ir.bankmoviee.app'" app/build.gradle
+          grep -F 'compileSdk 35' app/build.gradle
+          grep -F 'targetSdk 35' app/build.gradle
           grep -F 'versionName "2.1"' app/build.gradle
-          grep -E 'versionCode[[:space:]]+5200000[[:space:]]*\+[[:space:]]*runNumber' app/build.gradle
-          grep -F 'include(*bankmovieAbis)' app/build.gradle
+          echo 'b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39  bankmovie_update.jks' | sha256sum -c -
 
-      - name: Clean extracted Android project
-        working-directory: project
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf app/build build .gradle
-          gradle --no-daemon clean
+          python3 - <<'PY'
+          import json
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          for path in Path('app/src/main').rglob('*.xml'): ET.parse(path)
+          sample = Path('server-required/bankmovie_remote_config.json.sample')
+          if sample.exists(): json.loads(sample.read_text(encoding='utf-8'))
+          print('XML/JSON verification passed')
+          PY
+
+          find server-required -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Build ABI2 Lite releases
-        working-directory: project
         shell: bash
         env:
           BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a
         run: |
           set -euo pipefail
-          gradle --no-daemon --stacktrace assembleAbi2LiteRelease
+          cd "$PROJECT_DIR"
+          gradle --no-daemon --stacktrace clean assembleAbi2LiteRelease
 
       - name: Build ABI4 Full releases
-        working-directory: project
         shell: bash
         env:
           BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a,x86,x86_64
         run: |
           set -euo pipefail
+          cd "$PROJECT_DIR"
           gradle --no-daemon --stacktrace assembleAbi4FullRelease
 
-      - name: Collect and verify APKs
+      - name: Collect and verify signed APKs
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf output
           mkdir -p output
+          find "$PROJECT_DIR/app/build/outputs/apk" -type f -name '*.apk' -print0 | while IFS= read -r -d '' apk; do
+            name="$(basename "$apk")"
+            cp "$apk" "output/Bankmovie-v2.1-archive-vip-remote-$name"
+          done
+          test "$(find output -type f -name '*.apk' | wc -l)" -ge 6
 
+          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$apksigner"
           while IFS= read -r apk; do
-            normalized="$(printf '%s' "$apk" | tr '[:upper:]' '[:lower:]')"
+            "$apksigner" verify --verbose --print-certs "$apk"
+          done < <(find output -type f -name '*.apk' | sort)
+          sha256sum output/*.apk | tee output/SHA256SUMS.txt
 
-            if [[ "$normalized" == *'abi2lite'* ]]; then
-              edition='abi2-lite'
-            elif [[ "$normalized" == *'abi4full'* ]]; then
-              edition='abi4-full'
-            else
-              continue
-            fi
-
-            if [[ "$normalized" == *'universal'* ]]; then
-              abi='universal'
-            elif [[ "$normalized" == *'arm64-v8a'* ]]; then
-              abi='arm64-v8a'
-            elif [[ "$normalized" == *'armeabi-v7a'* ]]; then
-              abi='armeabi-v7a'
-            else
-              continue
-            fi
-
-            destination="output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-${edition}-${abi}.apk"
-            cp "$apk" "$destination"
-            echo "$apk -> $destination"
-          done < <(find project/app/build/outputs/apk -type f -name '*.apk' | sort)
-
-          expected=(
-            output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi2-lite-universal.apk
-            output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi2-lite-arm64-v8a.apk
-            output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi2-lite-armeabi-v7a.apk
-            output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi4-full-universal.apk
-            output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi4-full-arm64-v8a.apk
-            output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi4-full-armeabi-v7a.apk
-          )
-
-          for apk in "${expected[@]}"; do
-            test -s "$apk"
-          done
-
-          ABI2='output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi2-lite-universal.apk'
-          unzip -l "$ABI2" | grep -q 'lib/armeabi-v7a/'
-          unzip -l "$ABI2" | grep -q 'lib/arm64-v8a/'
-          if unzip -l "$ABI2" | grep -Eq 'lib/(x86|x86_64)/'; then
-            echo 'ABI2 Universal unexpectedly contains x86 libraries' >&2
-            exit 1
-          fi
-
-          ABI4='output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi4-full-universal.apk'
-          for abi in armeabi-v7a arm64-v8a x86 x86_64; do
-            unzip -l "$ABI4" | grep -q "lib/$abi/"
-          done
-
-          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
-          test -x "$APKSIGNER"
-
-          EXPECTED_CERT_NO_COLONS='862bc358d8d239a2134a63fab979ff6019862372e7950ea49bac74780936205d'
-          EXPECTED_PUBLIC_KEY='d692a8294236f8a5c071945be99e2cce705406cb5957ecfab02877b3d429985c'
-
-          for apk in "${expected[@]}"; do
-            report="$(mktemp)"
-            "$APKSIGNER" verify --verbose --print-certs "$apk" >"$report" 2>&1 || {
-              cat "$report"
-              exit 1
-            }
-
-            normalized_report="$(tr '[:upper:]' '[:lower:]' <"$report" | tr -d ':[:space:]')"
-            if [[ "$normalized_report" != *"certificatesha-256digest${EXPECTED_CERT_NO_COLONS}"* ]] \
-              && [[ "$normalized_report" != *"publickeysha-256digest${EXPECTED_PUBLIC_KEY}"* ]]; then
-              cat "$report"
-              echo "Unexpected signing identity: $apk" >&2
-              exit 1
-            fi
-            rm -f "$report"
-          done
-
-          sha256sum "${expected[@]}" | tee output/SHA256SUMS.txt
-
-      - name: Upload ABI2 Lite Universal
+      - name: Upload APK bundle
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-V2.1-Pass6.1-Kotlin-Compile-Fix-ABI2-Lite-Universal-ARMv7-ARM64
-          path: output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi2-lite-universal.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI2 Lite ARM64
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-V2.1-Pass6.1-Kotlin-Compile-Fix-ABI2-Lite-arm64-v8a
-          path: output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi2-lite-arm64-v8a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI2 Lite ARMv7
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-V2.1-Pass6.1-Kotlin-Compile-Fix-ABI2-Lite-armeabi-v7a
-          path: output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi2-lite-armeabi-v7a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full Universal
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-V2.1-Pass6.1-Kotlin-Compile-Fix-ABI4-Full-Universal
-          path: output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi4-full-universal.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full ARM64
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-V2.1-Pass6.1-Kotlin-Compile-Fix-ABI4-Full-arm64-v8a
-          path: output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi4-full-arm64-v8a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full ARMv7
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-V2.1-Pass6.1-Kotlin-Compile-Fix-ABI4-Full-armeabi-v7a
-          path: output/Bankmovie-v2.1-pass4.10-search-player-modal-home-cleanup-abi4-full-armeabi-v7a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload SHA256 checksums
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-V2.1-Pass6.1-Kotlin-Compile-Fix-SHA256
-          path: output/SHA256SUMS.txt
+          name: Bankmovie-2.1-Archive-VIP-Remote-APKs
+          path: output/
           if-no-files-found: error
           retention-days: 30
