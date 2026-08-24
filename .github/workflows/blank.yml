@@ -1,4 +1,4 @@
-name: Build BankMovie 2.1 Remote Controller Player V2 Hotfix
+name: Build BankMovie 2.1 UI Spacing Sticker Header Fix
 
 on:
   workflow_dispatch:
@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.1-REMOTE-CONTROLLER-PLAYER-V2-SOURCE-HOTFIX.zip
+  SOURCE_ZIP: Bankmovie-v2.1-UI-SPACING-STICKER-HEADER-FIX-SOURCE.zip
 
 jobs:
   build:
@@ -81,6 +81,7 @@ jobs:
             settings.gradle
             bankmovie_update.jks
             BANKMOVIE_GITHUB_ACTIONS_HOTFIX_FA.md
+            BANKMOVIE_UI_SPACING_STICKER_HEADER_FIX_FA.md
           )
           for required in "${required_files[@]}"; do
             if [[ ! -s "$project_dir/$required" ]]; then
@@ -195,6 +196,10 @@ jobs:
           require_fixed 'link.optString("download_url")' "$main"
           require_fixed 'private fun playerUrl(link: JSONObject)' "$main"
           require_fixed 'BANKMOVIE PLAYBACK CHOOSER V2' "$main"
+          require_fixed 'V3 SPACING LOCK' "$main"
+          require_fixed 'ic_sticker_smile_square' "$main"
+          require_fixed 'ic_sticker_smile_square' "$player"
+          require_fixed 'android:viewportWidth="24"' app/src/main/res/drawable/ic_sticker_smile_square.xml
           require_fixed 'private fun isRemoteControllerUrl(raw: String)' "$main"
           require_fixed 'private fun showArchiveVipGate(item: JSONObject, feature: String)' "$main"
           require_fixed 'archive=2' "$main"
@@ -262,7 +267,7 @@ jobs:
           fi
           find server-required -type f -name '*.php' \
             -exec sh -ec 'for php_file do php -l "$php_file"; done' sh {} +
-          echo "::notice::Source, controller/download separation, Cast removal, XML, JSON and PHP checks passed."
+          echo "::notice::Source, controller/download separation, UI spacing, sticker, Cast removal, XML, JSON and PHP checks passed."
 
       - name: Build ABI2 Lite releases
         shell: bash
