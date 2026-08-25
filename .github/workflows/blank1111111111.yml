@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.2-TV-HARD-CLIP-GLASS-COMMENTS-VIP-DB-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.2-TV-HARD-CLIP-GLASS-COMMENTS-VIP-DB-SOURCE_FIXED.zip
 
 jobs:
   build:
@@ -219,6 +219,9 @@ jobs:
           require_fixed 'remoteTvDetailStoryEnabled' "$main"
           require_fixed 'remoteSearchAutoPageLimit' "$main"
           require_fixed 'loadManualPage' "$main"
+           require_fixed 'activePlayableSheet?.dismiss()' "$main"
+           require_fixed 'private fun showDownloadChoiceModal(item: JSONObject, link: JSONObject)' "$main"
+           require_fixed 'private fun showDownloadForLinks(item: JSONObject, links: List<JSONObject>)' "$main"
           require_fixed 'archive1_download_vip' server-required/bm_admin.php
           require_fixed "'_stream_vip'" server-required/app_config.php
 
