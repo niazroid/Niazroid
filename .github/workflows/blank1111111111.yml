@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.2-DOWNLOAD-MODAL-NO-LIGHT-SETUP-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.2-INTERNAL-DOWNLOADER-FIX-SOURCE.zip
 
 jobs:
   build:
@@ -225,6 +225,8 @@ jobs:
            require_fixed 'private fun showDownloadChoiceModal(item: JSONObject, link: JSONObject)' "$main"
            require_fixed 'private fun showDownloadForLinks(item: JSONObject, links: List<JSONObject>)' "$main"
            require_fixed 'theme = "black"' app/src/main/java/ir/bankmoviee/app/OnboardingActivity.kt
+           require_fixed 'startActivity(Intent(this, DownloadsActivity::class.java))' "$main"
+           require_fixed 'ACTION_START -> executor.execute' app/src/main/java/ir/bankmoviee/app/InternalDownloadService.kt
            if grep -Fq 'onboardingThemeSwitch' app/src/main/java/ir/bankmoviee/app/OnboardingActivity.kt; then
              echo "::error::The removed light-theme switch is still present in quick setup."
              exit 1
