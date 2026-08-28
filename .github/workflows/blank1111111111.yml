@@ -1,15 +1,14 @@
-name: Build BankMovie Windows v1
+name: Build BankMovie Windows V1
 
 on:
   workflow_dispatch:
   push:
-    branches: [main, master]
+    branches:
+      - main
+      - master
     paths:
-      - 'src/**'
-      - 'installer/**'
-      - '.github/workflows/build-windows.yml'
-  release:
-    types: [published]
+      - "BankMovie-Windows-v1-rebuilt-source.zip"
+      - ".github/workflows/build-windows.yml"
 
 permissions:
   contents: read
@@ -24,151 +23,262 @@ jobs:
     timeout-minutes: 60
 
     env:
+      SOURCE_ZIP: ${{ github.workspace }}\BankMovie-Windows-v1-rebuilt-source.zip
+      SOURCE_DIR: ${{ github.workspace }}\_bankmovie_v1_source
+      PROJECT: ${{ github.workspace }}\_bankmovie_v1_source\src\BankMovie.Windows\BankMovie.Windows.csproj
+      INSTALLER_SCRIPT: ${{ github.workspace }}\_bankmovie_v1_source\installer\BankMovie.iss
       PUBLISH_DIR: ${{ github.workspace }}\artifacts\publish
       OUTPUT_DIR: ${{ github.workspace }}\artifacts\output
-      # Deliberately frozen until the Windows product is declared complete.
       BM_PUBLIC_VERSION: 1.0.0
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Detect project paths
+      - name: Extract BankMovie V1 source
         shell: pwsh
         run: |
-          Write-Host "Workspace: $env:GITHUB_WORKSPACE"
-          Write-Host "Repository files:"
-          Get-ChildItem -LiteralPath $env:GITHUB_WORKSPACE -Force | Select-Object Name, FullName
+          $ErrorActionPreference = "Stop"
 
-          $projects = @(Get-ChildItem -LiteralPath $env:GITHUB_WORKSPACE -Recurse -File -Filter 'BankMovie.Windows.csproj' -ErrorAction SilentlyContinue)
-          if ($projects.Count -eq 0) {
-            Write-Host "No BankMovie.Windows.csproj found. Available .csproj files:"
-            Get-ChildItem -LiteralPath $env:GITHUB_WORKSPACE -Recurse -File -Filter '*.csproj' -ErrorAction SilentlyContinue |
+          Write-Host "Source ZIP: $env:SOURCE_ZIP"
+
+          if (!(Test-Path -LiteralPath $env:SOURCE_ZIP)) {
+            Write-Host "Repository root files:"
+            Get-ChildItem -LiteralPath $env:GITHUB_WORKSPACE -Force |
+              ForEach-Object { Write-Host " - $($_.Name)" }
+
+            throw "BankMovie-Windows-v1-rebuilt-source.zip was not found in repository root."
+          }
+
+          if (Test-Path -LiteralPath $env:SOURCE_DIR) {
+            Remove-Item -LiteralPath $env:SOURCE_DIR -Recurse -Force
+          }
+
+          New-Item -ItemType Directory -Path $env:SOURCE_DIR -Force | Out-Null
+          Expand-Archive -LiteralPath $env:SOURCE_ZIP -DestinationPath $env:SOURCE_DIR -Force
+
+          if (!(Test-Path -LiteralPath $env:PROJECT)) {
+            Write-Host "Extracted files:"
+            Get-ChildItem -LiteralPath $env:SOURCE_DIR -Recurse -File |
               ForEach-Object { Write-Host " - $($_.FullName)" }
-            throw 'BankMovie.Windows.csproj was not found anywhere in the repository.'
-          }
-          if ($projects.Count -gt 1) {
-            Write-Host "Multiple BankMovie.Windows.csproj files found:"
-            $projects | ForEach-Object { Write-Host " - $($_.FullName)" }
-            throw 'More than one BankMovie.Windows.csproj was found; keep only one source tree in the repository.'
+
+            throw "Project was not found after extracting source ZIP: $env:PROJECT"
           }
 
-          $project = $projects[0].FullName
-          $projectRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $project))
-
-          $installerCandidates = @(Get-ChildItem -LiteralPath $env:GITHUB_WORKSPACE -Recurse -File -Filter 'BankMovie.iss' -ErrorAction SilentlyContinue)
-          if ($installerCandidates.Count -eq 0) {
-            throw 'installer/BankMovie.iss was not found anywhere in the repository.'
+          if (!(Test-Path -LiteralPath $env:INSTALLER_SCRIPT)) {
+            throw "Installer script was not found: $env:INSTALLER_SCRIPT"
           }
 
-          # Prefer the installer that belongs to the same source tree as the project.
-          $installer = $installerCandidates |
-            Sort-Object @{Expression={ if ($_.FullName.StartsWith($projectRoot, [System.StringComparison]::OrdinalIgnoreCase)) { 0 } else { 1 } }}, FullName |
-            Select-Object -First 1
-
-          "PROJECT=$project" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "INSTALLER_SCRIPT=$($installer.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-
-          Write-Host "Detected project: $project"
-          Write-Host "Detected installer: $($installer.FullName)"
+          Write-Host "Project: $env:PROJECT"
+          Write-Host "Installer: $env:INSTALLER_SCRIPT"
 
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: "8.0.x"
+          cache: true
+          cache-dependency-path: "_bankmovie_v1_source/src/BankMovie.Windows/BankMovie.Windows.csproj"
 
-      - name: Validate v1 version policy
+      - name: Keep public version fixed at V1
         shell: pwsh
         run: |
-          if ([string]::IsNullOrWhiteSpace($env:PROJECT) -or !(Test-Path -LiteralPath $env:PROJECT)) {
-            throw "Project not found after auto-detection: $env:PROJECT"
-          }
+          $ErrorActionPreference = "Stop"
+
           $projectText = Get-Content -LiteralPath $env:PROJECT -Raw
-          if ($projectText -notmatch '<Version>1\.0\.0</Version>') { throw 'Project version must remain 1.0.0 during development.' }
-          if ($projectText -notmatch '<FileVersion>1\.0\.0\.0</FileVersion>') { throw 'FileVersion must remain 1.0.0.0 during development.' }
-          Write-Host 'Version policy OK: public version is fixed at v1.'
 
-      - name: Restore
-        shell: pwsh
-        run: dotnet restore "$env:PROJECT" -r win-x64
+          if ($projectText -notmatch "<Version>1\.0\.0</Version>") {
+            throw "BankMovie public version must remain 1.0.0."
+          }
 
-      - name: Build
-        shell: pwsh
-        run: dotnet build "$env:PROJECT" -c Release -r win-x64 --no-restore -p:Version=$env:BM_PUBLIC_VERSION -p:FileVersion=1.0.0.0
+          if ($projectText -notmatch "<FileVersion>1\.0\.0\.0</FileVersion>") {
+            throw "BankMovie FileVersion must remain 1.0.0.0."
+          }
 
-      - name: Publish self-contained x64
+          Write-Host "Version locked to V1 / 1.0.0."
+
+      - name: Restore NuGet packages
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path $env:PUBLISH_DIR | Out-Null
-          dotnet publish "$env:PROJECT" `
-            -c Release `
-            -r win-x64 `
-            --self-contained true `
+          dotnet restore "$env:PROJECT" `
+            --runtime win-x64
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "dotnet restore failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Build Release x64
+        shell: pwsh
+        run: |
+          dotnet build "$env:PROJECT" `
+            --configuration Release `
+            --runtime win-x64 `
             --no-restore `
-            -o "$env:PUBLISH_DIR" `
             -p:Version=$env:BM_PUBLIC_VERSION `
             -p:FileVersion=1.0.0.0 `
+            -p:AssemblyVersion=1.0.0.0
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "dotnet build failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Publish self-contained Windows x64
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          if (Test-Path -LiteralPath $env:PUBLISH_DIR) {
+            Remove-Item -LiteralPath $env:PUBLISH_DIR -Recurse -Force
+          }
+
+          New-Item -ItemType Directory -Path $env:PUBLISH_DIR -Force | Out-Null
+
+          dotnet publish "$env:PROJECT" `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            --no-restore `
+            --output "$env:PUBLISH_DIR" `
+            -p:Version=$env:BM_PUBLIC_VERSION `
+            -p:FileVersion=1.0.0.0 `
+            -p:AssemblyVersion=1.0.0.0 `
             -p:PublishSingleFile=false `
             -p:PublishTrimmed=false
 
-      - name: Validate runtime
+          if ($LASTEXITCODE -ne 0) {
+            throw "dotnet publish failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Validate published player runtime
         shell: pwsh
         run: |
-          $exe = Join-Path $env:PUBLISH_DIR 'BankMovie.exe'
-          if (!(Test-Path -LiteralPath $exe)) { throw 'BankMovie.exe was not created.' }
-          $libvlc = Get-ChildItem $env:PUBLISH_DIR -Recurse -File -Filter 'libvlc.dll' | Select-Object -First 1
-          if (!$libvlc) { throw 'libvlc.dll is missing from publish output.' }
-          Write-Host "BankMovie: $exe"
-          Write-Host "LibVLC: $($libvlc.FullName)"
+          $ErrorActionPreference = "Stop"
+
+          $exe = Join-Path $env:PUBLISH_DIR "BankMovie.exe"
+          if (!(Test-Path -LiteralPath $exe)) {
+            throw "BankMovie.exe was not generated."
+          }
+
+          $libvlc = Get-ChildItem -LiteralPath $env:PUBLISH_DIR -Recurse -File -Filter "libvlc.dll" |
+            Select-Object -First 1
+
+          if ($null -eq $libvlc) {
+            throw "libvlc.dll is missing from publish output."
+          }
+
+          Write-Host "BankMovie.exe OK"
+          Write-Host "libvlc.dll: $($libvlc.FullName)"
 
       - name: Create portable package
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path $env:OUTPUT_DIR | Out-Null
-          Compress-Archive -Path "$env:PUBLISH_DIR\*" -DestinationPath "$env:OUTPUT_DIR\BankMovie-Windows-v1-Portable-x64.zip" -Force
+          $ErrorActionPreference = "Stop"
 
-      - name: Download WebView2 bootstrapper
+          New-Item -ItemType Directory -Path $env:OUTPUT_DIR -Force | Out-Null
+
+          $portable = Join-Path $env:OUTPUT_DIR "BankMovie-Windows-v1-Portable-x64.zip"
+          if (Test-Path -LiteralPath $portable) {
+            Remove-Item -LiteralPath $portable -Force
+          }
+
+          Compress-Archive `
+            -Path (Join-Path $env:PUBLISH_DIR "*") `
+            -DestinationPath $portable `
+            -CompressionLevel Optimal
+
+      - name: Download Microsoft WebView2 bootstrapper
         shell: pwsh
         run: |
-          $target = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
-          Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $target
-          if ((Get-Item $target).Length -lt 500000) { throw 'Invalid WebView2 bootstrapper.' }
-          "WEBVIEW_BOOTSTRAPPER=$target" >> $env:GITHUB_ENV
+          $ErrorActionPreference = "Stop"
+
+          $target = Join-Path $env:RUNNER_TEMP "MicrosoftEdgeWebview2Setup.exe"
+          Invoke-WebRequest `
+            -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703" `
+            -OutFile $target
+
+          if (!(Test-Path -LiteralPath $target)) {
+            throw "WebView2 bootstrapper download failed."
+          }
+
+          if ((Get-Item -LiteralPath $target).Length -lt 500000) {
+            throw "Downloaded WebView2 bootstrapper is invalid."
+          }
+
+          "WEBVIEW_BOOTSTRAPPER=$target" |
+            Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Install Inno Setup
         shell: pwsh
-        run: choco install innosetup --no-progress -y
+        run: |
+          choco install innosetup --no-progress --yes
 
-      - name: Build installer
+          if ($LASTEXITCODE -ne 0) {
+            throw "Inno Setup installation failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Build Windows installer
         shell: pwsh
         run: |
-          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
-          if (!(Test-Path -LiteralPath $iscc)) { throw 'Inno Setup compiler not found.' }
+          $ErrorActionPreference = "Stop"
+
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path -LiteralPath $iscc)) {
+            throw "ISCC.exe was not found."
+          }
+
           & $iscc `
             "/DMyAppVersion=$env:BM_PUBLIC_VERSION" `
             "/DSourceDir=$env:PUBLISH_DIR" `
             "/DWebView2Bootstrapper=$env:WEBVIEW_BOOTSTRAPPER" `
             "/O$env:OUTPUT_DIR" `
             "$env:INSTALLER_SCRIPT"
-          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed: $LASTEXITCODE" }
-          $setup = Get-ChildItem $env:OUTPUT_DIR -File -Filter 'BankMovie-Setup-x64.exe' | Select-Object -First 1
-          if (!$setup) { throw 'Setup EXE was not created.' }
-          Rename-Item -LiteralPath $setup.FullName -NewName 'BankMovie-Windows-v1-Setup-x64.exe'
 
-      - name: SHA-256
-        shell: pwsh
-        run: |
-          $checksumFile = Join-Path $env:OUTPUT_DIR 'SHA256SUMS.txt'
-          if (Test-Path -LiteralPath $checksumFile) { Remove-Item $checksumFile -Force }
-          Get-ChildItem $env:OUTPUT_DIR -File | ForEach-Object {
-            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-            "$hash  $($_.Name)" | Out-File -FilePath $checksumFile -Append -Encoding ascii
+          if ($LASTEXITCODE -ne 0) {
+            throw "Inno Setup compile failed with exit code $LASTEXITCODE"
           }
 
-      - name: Upload artifacts
+          $generated = Join-Path $env:OUTPUT_DIR "BankMovie-Setup-x64.exe"
+          if (!(Test-Path -LiteralPath $generated)) {
+            throw "BankMovie-Setup-x64.exe was not generated."
+          }
+
+          $finalSetup = Join-Path $env:OUTPUT_DIR "BankMovie-Windows-v1-Setup-x64.exe"
+          if (Test-Path -LiteralPath $finalSetup) {
+            Remove-Item -LiteralPath $finalSetup -Force
+          }
+
+          Move-Item -LiteralPath $generated -Destination $finalSetup
+
+      - name: Generate SHA-256 checksums
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $checksumFile = Join-Path $env:OUTPUT_DIR "SHA256SUMS.txt"
+
+          if (Test-Path -LiteralPath $checksumFile) {
+            Remove-Item -LiteralPath $checksumFile -Force
+          }
+
+          Get-ChildItem -LiteralPath $env:OUTPUT_DIR -File |
+            Where-Object { $_.Name -ne "SHA256SUMS.txt" } |
+            Sort-Object Name |
+            ForEach-Object {
+              $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+              "$hash  $($_.Name)" |
+                Out-File -FilePath $checksumFile -Append -Encoding ascii
+            }
+
+      - name: Show final output
+        shell: pwsh
+        run: |
+          Get-ChildItem -LiteralPath $env:OUTPUT_DIR -File |
+            Select-Object Name, Length, LastWriteTime
+
+      - name: Upload V1 artifacts
         uses: actions/upload-artifact@v4
         with:
           name: BankMovie-Windows-v1
           path: artifacts/output/*
           if-no-files-found: error
           retention-days: 30
+          compression-level: 0
