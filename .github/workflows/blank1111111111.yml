@@ -1,511 +1,135 @@
-name: Build BankMovie 2.2 Episode Group Remote Text
+name: Build BankMovie Windows v1
 
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, master]
+    paths:
+      - 'src/**'
+      - 'installer/**'
+      - '.github/workflows/build-windows.yml'
+  release:
+    types: [published]
 
 permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.2-episode-group-remote-text-${{ github.ref }}
+  group: bankmovie-windows-v1-${{ github.ref }}
   cancel-in-progress: true
-
-env:
-  SOURCE_ZIP: Bankmovie-v2.2-EPISODE-GROUP-REMOTE-TEXT-FIX-SOURCE.zip
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     timeout-minutes: 60
 
+    env:
+      PROJECT: ${{ github.workspace }}\src\BankMovie.Windows\BankMovie.Windows.csproj
+      INSTALLER_SCRIPT: ${{ github.workspace }}\installer\BankMovie.iss
+      PUBLISH_DIR: ${{ github.workspace }}\artifacts\publish
+      OUTPUT_DIR: ${{ github.workspace }}\artifacts\output
+      # Deliberately frozen until the Windows product is declared complete.
+      BM_PUBLIC_VERSION: 1.0.0
+
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Locate Android project
-        shell: bash
-        run: |
-          set -euo pipefail
-          workspace="${GITHUB_WORKSPACE:-$PWD}"
-          project_dir=""
-          source_zip=""
-
-          # The exact hotfix archive always wins over stale extracted source.
-          if [[ -s "$workspace/$SOURCE_ZIP" ]]; then
-            source_zip="$workspace/$SOURCE_ZIP"
-          else
-            # Also support a normal repository or a project nested one level deeper.
-            build_file="$(find "$workspace" -maxdepth 6 -type f -path '*/app/build.gradle' \
-              ! -path '*/app/build/*' -print -quit || true)"
-            if [[ -n "$build_file" ]]; then
-              project_dir="$(dirname "$(dirname "$build_file")")"
-              echo "::notice::Android project found in repository: $project_dir"
-            else
-              source_zip="$(find "$workspace" -maxdepth 6 -type f \
-                -iname '*Bankmovie*SOURCE*.zip' -print -quit || true)"
-            fi
-          fi
-
-          if [[ -n "$source_zip" ]]; then
-            echo "::notice::Using source archive: ${source_zip#$workspace/}"
-            if ! unzip -tq "$source_zip" >/dev/null; then
-              echo "::error::The source archive is damaged or is not a valid ZIP: $source_zip"
-              exit 1
-            fi
-            extract_dir="$RUNNER_TEMP/bankmovie-source-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
-            mkdir -p "$extract_dir"
-            unzip -q "$source_zip" -d "$extract_dir"
-            build_file="$(find "$extract_dir" -type f -path '*/app/build.gradle' \
-              ! -path '*/app/build/*' -print -quit || true)"
-            if [[ -z "$build_file" ]]; then
-              echo "::error::The ZIP does not contain an Android app/build.gradle file."
-              unzip -Z1 "$source_zip" | head -n 120
-              exit 1
-            fi
-            project_dir="$(dirname "$(dirname "$build_file")")"
-            echo "::notice::Android project extracted to: $project_dir"
-          fi
-
-          if [[ -z "$project_dir" ]]; then
-            echo "::error::Android project was not found. Upload $SOURCE_ZIP or commit the extracted final project."
-            echo "Files found in repository:"
-            find "$workspace" -maxdepth 3 -type f -printf '%P\n' | sort | sed -n '1,120p'
-            exit 1
-          fi
-
-          required_files=(
-            app/build.gradle
-            build.gradle
-            settings.gradle
-            bankmovie_update.jks
-            BANKMOVIE_GITHUB_ACTIONS_HOTFIX_FA.md
-            BANKMOVIE_UI_SPACING_STICKER_HEADER_FIX_FA.md
-            BANKMOVIE_V2_2_TV_REMOTE_PROFILE_FINAL_FA.md
-            BANKMOVIE_EPISODE_REMOTE_TEXT_FIX_FA.md
-          )
-          for required in "${required_files[@]}"; do
-            if [[ ! -s "$project_dir/$required" ]]; then
-              echo "::error::Required project file is missing or empty: $required (project: $project_dir)"
-              exit 1
-            fi
-          done
-          echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
-          echo "::notice::Project preflight passed."
-
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
         with:
-          distribution: temurin
-          java-version: '17'
+          dotnet-version: '8.0.x'
 
-      - name: Setup PHP 8.2 for server endpoint lint
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
-          coverage: none
-          tools: none
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK 35
-        shell: bash
+      - name: Validate v1 version policy
+        shell: pwsh
         run: |
-          set -euo pipefail
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+          if (!(Test-Path -LiteralPath $env:PROJECT)) { throw "Project not found: $env:PROJECT" }
+          $projectText = Get-Content -LiteralPath $env:PROJECT -Raw
+          if ($projectText -notmatch '<Version>1\.0\.0</Version>') { throw 'Project version must remain 1.0.0 during development.' }
+          if ($projectText -notmatch '<FileVersion>1\.0\.0\.0</FileVersion>') { throw 'FileVersion must remain 1.0.0.0 during development.' }
+          Write-Host 'Version policy OK: public version is fixed at v1.'
 
-      - name: Setup Gradle 8.10.2
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.10.2'
+      - name: Restore
+        shell: pwsh
+        run: dotnet restore "$env:PROJECT" -r win-x64
 
-      - name: Install repository fonts when supplied
-        shell: bash
+      - name: Build
+        shell: pwsh
+        run: dotnet build "$env:PROJECT" -c Release -r win-x64 --no-restore -p:Version=$env:BM_PUBLIC_VERSION -p:FileVersion=1.0.0.0
+
+      - name: Publish self-contained x64
+        shell: pwsh
         run: |
-          set -euo pipefail
-          font_dir="$PROJECT_DIR/app/src/main/assets/fonts"
-          mkdir -p "$font_dir"
+          New-Item -ItemType Directory -Force -Path $env:PUBLISH_DIR | Out-Null
+          dotnet publish "$env:PROJECT" `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            --no-restore `
+            -o "$env:PUBLISH_DIR" `
+            -p:Version=$env:BM_PUBLIC_VERSION `
+            -p:FileVersion=1.0.0.0 `
+            -p:PublishSingleFile=false `
+            -p:PublishTrimmed=false
 
-          font_zip="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -iname 'irancell*.zip' -print -quit)"
-          if [[ -n "$font_zip" ]]; then
-            FONT_ZIP="$font_zip" FONT_DIR="$font_dir" python3 - <<'PY'
-          import os, re
-          from pathlib import Path, PurePosixPath
-          from zipfile import ZipFile
-          archive, output = Path(os.environ['FONT_ZIP']), Path(os.environ['FONT_DIR'])
-          targets = {1:'irancell_bold.ttf',2:'irancell_regular.ttf',3:'irancell_black.ttf',4:'irancell_semibold.ttf',5:'irancell_medium.ttf'}
-          with ZipFile(archive) as zf:
-              indexed = {}
-              for item in zf.infolist():
-                  if item.is_dir() or not item.filename.lower().endswith('.ttf'): continue
-                  match = re.search(r'irancell[^0-9]*([1-5])', PurePosixPath(item.filename).name, re.I)
-                  if match: indexed[int(match.group(1))] = item
-              for number, name in targets.items():
-                  if number not in indexed: raise SystemExit(f'Missing Irancell font {number}')
-                  data = zf.read(indexed[number], pwd=b'fontbazi')
-                  if len(data) < 1024: raise SystemExit(f'Invalid font: {name}')
-                  (output / name).write_bytes(data)
-          PY
-          fi
-
-          declare -A direct_fonts=(
-            [Cinema.otf]=cinema.otf
-            ['Diako Hima Regular-@Fontsplua.ttf']=diako_hima.ttf
-            ['Nic [@fontbazi].ttf']=nic.ttf
-          )
-          for source in "${!direct_fonts[@]}"; do
-            [[ -s "$GITHUB_WORKSPACE/$source" ]] && cp "$GITHUB_WORKSPACE/$source" "$font_dir/${direct_fonts[$source]}"
-          done
-
-          mapfile -t woff_fonts < <(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -iname 'IRANSansXFaNum-*.woff2' -print)
-          if [[ ${#woff_fonts[@]} -gt 0 ]]; then
-            python3 -m pip install --disable-pip-version-check --quiet fonttools brotli
-            FONT_DIR="$font_dir" python3 - <<'PY'
-          import os
-          from pathlib import Path
-          from fontTools.ttLib import TTFont
-          root, out = Path(os.environ['GITHUB_WORKSPACE']), Path(os.environ['FONT_DIR'])
-          for weight in ('regular','medium','bold'):
-              source = next(iter(root.glob(f'IRANSansXFaNum-{weight}*.woff2')), None)
-              if source is None: continue
-              font = TTFont(source); font.flavor = None; font.save(out / f'iransansx_{weight}.ttf')
-          PY
-          fi
-
-      - name: Verify security and source integration
-        shell: bash
+      - name: Validate runtime
+        shell: pwsh
         run: |
-          set -euo pipefail
-          cd "$PROJECT_DIR"
-          main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
-          player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
-          manifest='app/src/main/AndroidManifest.xml'
-          remote_text='app/src/main/java/ir/bankmoviee/app/RemoteTextStore.kt'
+          $exe = Join-Path $env:PUBLISH_DIR 'BankMovie.exe'
+          if (!(Test-Path -LiteralPath $exe)) { throw 'BankMovie.exe was not created.' }
+          $libvlc = Get-ChildItem $env:PUBLISH_DIR -Recurse -File -Filter 'libvlc.dll' | Select-Object -First 1
+          if (!$libvlc) { throw 'libvlc.dll is missing from publish output.' }
+          Write-Host "BankMovie: $exe"
+          Write-Host "LibVLC: $($libvlc.FullName)"
 
-          require_fixed() {
-            local pattern="$1"
-            local file="$2"
-            if ! grep -Fq -- "$pattern" "$file"; then
-              echo "::error file=$file::Required source marker is missing: $pattern"
-              exit 1
-            fi
+      - name: Create portable package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:OUTPUT_DIR | Out-Null
+          Compress-Archive -Path "$env:PUBLISH_DIR\*" -DestinationPath "$env:OUTPUT_DIR\BankMovie-Windows-v1-Portable-x64.zip" -Force
+
+      - name: Download WebView2 bootstrapper
+        shell: pwsh
+        run: |
+          $target = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
+          Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $target
+          if ((Get-Item $target).Length -lt 500000) { throw 'Invalid WebView2 bootstrapper.' }
+          "WEBVIEW_BOOTSTRAPPER=$target" >> $env:GITHUB_ENV
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (!(Test-Path -LiteralPath $iscc)) { throw 'Inno Setup compiler not found.' }
+          & $iscc `
+            "/DMyAppVersion=$env:BM_PUBLIC_VERSION" `
+            "/DSourceDir=$env:PUBLISH_DIR" `
+            "/DWebView2Bootstrapper=$env:WEBVIEW_BOOTSTRAPPER" `
+            "/O$env:OUTPUT_DIR" `
+            "$env:INSTALLER_SCRIPT"
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed: $LASTEXITCODE" }
+          $setup = Get-ChildItem $env:OUTPUT_DIR -File -Filter 'BankMovie-Setup-x64.exe' | Select-Object -First 1
+          if (!$setup) { throw 'Setup EXE was not created.' }
+          Rename-Item -LiteralPath $setup.FullName -NewName 'BankMovie-Windows-v1-Setup-x64.exe'
+
+      - name: SHA-256
+        shell: pwsh
+        run: |
+          $checksumFile = Join-Path $env:OUTPUT_DIR 'SHA256SUMS.txt'
+          if (Test-Path -LiteralPath $checksumFile) { Remove-Item $checksumFile -Force }
+          Get-ChildItem $env:OUTPUT_DIR -File | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)" | Out-File -FilePath $checksumFile -Append -Encoding ascii
           }
 
-          require_fixed 'X-BM-User-Token' "$main"
-          require_fixed 'private fun downloadUrl(link: JSONObject)' "$main"
-          require_fixed 'link.optString("download_url")' "$main"
-          require_fixed 'private fun playerUrl(link: JSONObject)' "$main"
-          require_fixed 'BANKMOVIE PLAYBACK CHOOSER V2' "$main"
-          require_fixed 'V3 SPACING LOCK' "$main"
-          require_fixed 'ic_sticker_smile_square' "$main"
-          require_fixed 'ic_sticker_smile_square' "$player"
-          require_fixed 'android:viewportWidth="24"' app/src/main/res/drawable/ic_sticker_smile_square.xml
-          require_fixed 'private fun isRemoteControllerUrl(raw: String)' "$main"
-          require_fixed 'private fun showArchiveVipGate(item: JSONObject, feature: String)' "$main"
-          require_fixed 'private fun archiveVipGateRequired(item: JSONObject, feature: String)' "$main"
-          require_fixed 'bm_tv_hard_artwork_clip' "$main"
-          require_fixed 'BM_COMMENT_MAIN_GLASS' "$main"
-          require_fixed 'BM_COMMENT_CIRCLE_AVATAR' "$main"
-          require_fixed 'BM_ARCHIVE_TEXT_ONLY' "$main"
-          require_fixed 'mergeArchiveAccessEnvelope' "$main"
-          require_fixed 'profileCompactActionTile' "$main"
-          require_fixed 'archive=2' "$main"
-          require_fixed 'RuntimeVault.config_url_primary' app/src/main/java/ir/bankmoviee/app/AppConfig.kt
-          require_fixed 'AccountSession.updateVip' app/src/main/java/ir/bankmoviee/app/AccountApi.kt
-          require_fixed 'downloads_locked' "$main"
-          require_fixed 'showTvTextEntryFallback' app/src/main/java/ir/bankmoviee/app/AuthActivity.kt
-          require_fixed 'remoteProfileCleanupEnabled' "$main"
-          require_fixed 'remoteTvDetailStoryEnabled' "$main"
-          require_fixed 'remoteSearchAutoPageLimit' "$main"
-          require_fixed 'loadManualPage' "$main"
-           require_fixed 'activePlayableSheet?.dismiss()' "$main"
-           require_fixed 'downloadChooser' "$main"
-           require_fixed 'activePlayableSheet = downloadBoxDialog' "$main"
-           require_fixed 'private fun showDownloadChoiceModal(item: JSONObject, link: JSONObject)' "$main"
-           require_fixed 'private fun showDownloadForLinks(item: JSONObject, links: List<JSONObject>)' "$main"
-           require_fixed 'theme = "black"' app/src/main/java/ir/bankmoviee/app/OnboardingActivity.kt
-           require_fixed 'startActivity(Intent(this, DownloadsActivity::class.java))' "$main"
-           require_fixed 'ACTION_START -> executor.execute' app/src/main/java/ir/bankmoviee/app/InternalDownloadService.kt
-
-          # Episode grouping: Season -> Episode -> all available qualities.
-          require_fixed 'val episodeGroups = sortedSeasonLinks.groupBy' "$main"
-          require_fixed 'qualityOnlyLinks(sortedArchive1Links(epLinksRaw))' "$main"
-          require_fixed 'text = if (episode > 0) "${ui("قسمت")} $episode" else ui("لینک‌های فصل")' "$main"
-          require_fixed 'text = "${epLinks.size} ${ui("کیفیت")}"' "$main"
-
-          # Remote/future-proof text controls.
-          require_fixed 'RemoteTextStore.applyConfig(this, json)' "$main"
-          require_fixed 'RemoteTextStore.displayYear(this)' "$main"
-          require_fixed 'RemoteTextStore.searchMaxYear(this)' "$main"
-          require_fixed 'object RemoteTextStore' "$remote_text"
-          require_fixed 'fun applyConfig(context: Context, root: JSONObject)' "$remote_text"
-          require_fixed 'fun displayYear(context: Context): Int' "$remote_text"
-          require_fixed 'fun searchMaxYear(context: Context): Int' "$remote_text"
-          require_fixed '{{year}}' "$remote_text"
-          require_fixed '{{prev_year}}' "$remote_text"
-          require_fixed '{{next_year}}' "$remote_text"
-          require_fixed 'text_overrides' "$remote_text"
-           if grep -Fq 'onboardingThemeSwitch' app/src/main/java/ir/bankmoviee/app/OnboardingActivity.kt; then
-             echo "::error::The removed light-theme switch is still present in quick setup."
-             exit 1
-           fi
-          require_fixed 'archive1_download_vip' server-required/bm_admin.php
-          require_fixed "'_stream_vip'" server-required/app_config.php
-          require_fixed "'display_year'=>0" server-required/bm_admin.php
-          require_fixed "'search_max_year'=>0" server-required/bm_admin.php
-          require_fixed 'ui_text_overrides_fa' server-required/bm_admin.php
-          require_fixed 'ui_text_overrides_en' server-required/bm_admin.php
-          require_fixed "'display_year'=>0" server-required/app_config.php
-          require_fixed "'search_max_year'=>0" server-required/app_config.php
-          require_fixed '"display_year": 0' server-required/bankmovie_remote_config.json.sample
-          require_fixed '"search_max_year": 0' server-required/bankmovie_remote_config.json.sample
-          require_fixed '"text_overrides"' server-required/bankmovie_remote_config.json.sample
-
-          stale_cast='currentRemoteClient|approximateStreamPosition|streamDuration|CastContext|CastButtonFactory|RemoteMediaClient|com.google.android.gms.cast'
-          if grep -R -n -E "$stale_cast" "$player" "$manifest" app/build.gradle; then
-            echo "::error::Old Google Cast code is still present. Upload the exact $SOURCE_ZIP archive."
-            exit 1
-          fi
-          if grep -Fq "implementation 'com.google.android.gms:play-services-cast-framework" app/build.gradle; then
-            echo "::error file=app/build.gradle::The removed Google Cast dependency is still present."
-            exit 1
-          fi
-
-          require_fixed "applicationId 'ir.bankmoviee.app'" app/build.gradle
-          require_fixed 'compileSdk 35' app/build.gradle
-          require_fixed 'targetSdk 35' app/build.gradle
-          require_fixed 'versionName "2.2"' app/build.gradle
-          require_fixed 'versionCode 5300000 + runNumber' app/build.gradle
-          expected_keystore_sha='b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39'
-          actual_keystore_sha="$(sha256sum bankmovie_update.jks | awk '{print $1}')"
-          if [[ "$actual_keystore_sha" != "$expected_keystore_sha" ]]; then
-            echo "::error file=bankmovie_update.jks::Signing keystore does not match the release keystore. Expected $expected_keystore_sha, got $actual_keystore_sha."
-            exit 1
-          fi
-
-          python3 - <<'PY'
-          import json, re
-          import xml.etree.ElementTree as ET
-          from pathlib import Path
-          for path in Path('app/src/main').rglob('*.xml'): ET.parse(path)
-          sample = Path('server-required/bankmovie_remote_config.json.sample')
-          if sample.exists():
-              config = json.loads(sample.read_text(encoding='utf-8'))
-              assert config['schema_version'] >= 6
-              assert config['active_domain'] == 'https://bankmovie.top'
-              assert 'bankmoviee.ir' not in config['api_url']
-              assert config['ui']['display_year'] == 0
-              assert config['ui']['search_max_year'] == 0
-              assert 'text_overrides' in config['ui']
-              assert 'fa' in config['ui']['text_overrides'] and 'en' in config['ui']['text_overrides']
-
-          vault = Path('app/src/main/java/ir/bankmoviee/app/RuntimeVault.kt').read_text(encoding='utf-8')
-          def decode(name):
-              data = [int(v.strip()) for v in re.search(rf'{name}Data = intArrayOf\(([^)]*)\)', vault).group(1).split(',')]
-              seed = int(re.search(rf'{name}Seed = (\d+)', vault).group(1))
-              return ''.join(chr(value ^ ((seed + i * 31 + ((i * i * 7) & 255)) & 0xffff)) for i, value in enumerate(data))
-          assert decode('CONFIG_URL_PRIMARY') == 'https://bankmoviee.ir/app_config.php'
-          assert decode('CONFIG_URL_SECONDARY') == 'https://www.bankmoviee.ir/app_config.php'
-          assert decode('APP_API_URL') == 'https://bankmovie.top/app_api.php'
-          assert decode('ACCOUNT_API_URL') == 'https://bankmovie.top/app_user_api.php'
-          print('XML/JSON verification passed')
-          PY
-
-          if [[ ! -d server-required ]]; then
-            echo "::error::Required server integration directory is missing: server-required"
-            exit 1
-          fi
-          first_php="$(find server-required -type f -name '*.php' -print -quit)"
-          if [[ -z "$first_php" ]]; then
-            echo "::error::No PHP server endpoints were found in server-required."
-            exit 1
-          fi
-          if ! command -v php >/dev/null 2>&1; then
-            echo "::error::PHP is unavailable even though the Setup PHP step completed."
-            exit 1
-          fi
-          find server-required -type f -name '*.php' \
-            -exec sh -ec 'for php_file do php -l "$php_file"; done' sh {} +
-          echo "::notice::Source, episode grouping, remote text/year controls, controller/download separation, UI spacing, sticker, Cast removal, XML, JSON and PHP checks passed."
-
-      - name: Build ABI2 Lite releases
-        shell: bash
-        env:
-          BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a
-        run: |
-          set -euo pipefail
-          cd "$PROJECT_DIR"
-          gradle --no-daemon --stacktrace clean assembleAbi2LiteRelease
-
-      - name: Build ABI4 Full releases
-        shell: bash
-        env:
-          BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a,x86,x86_64
-        run: |
-          set -euo pipefail
-          cd "$PROJECT_DIR"
-          gradle --no-daemon --stacktrace assembleAbi4FullRelease
-
-      - name: Collect and verify signed APKs
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p output
-          apk_root="$PROJECT_DIR/app/build/outputs/apk"
-          if [[ ! -d "$apk_root" ]]; then
-            echo "::error::Gradle produced no APK output directory: $apk_root"
-            find "$PROJECT_DIR/app/build/outputs" -maxdepth 5 -type f -printf '%P\n' 2>/dev/null | sort | head -n 120 || true
-            exit 1
-          fi
-
-          mapfile -d '' built_apks < <(find "$apk_root" -type f -iname '*.apk' -print0)
-          if [[ ${#built_apks[@]} -eq 0 ]]; then
-            echo "::error::Gradle completed but no APK files were found below: $apk_root"
-            find "$apk_root" -maxdepth 6 -type f -printf '%P\n' | sort | head -n 120
-            exit 1
-          fi
-
-          for apk in "${built_apks[@]}"; do
-            full_lower="${apk,,}"
-            base="$(basename "$apk")"
-            base_lower="${base,,}"
-            case "$full_lower" in
-              *abi2lite*) edition="ABI2-Lite" ;;
-              *abi4full*) edition="ABI4-Full" ;;
-              *)
-                echo "::warning::Skipping APK with unknown edition: $apk"
-                continue
-                ;;
-            esac
-            case "$base_lower" in
-              *universal*) abi="Universal" ;;
-              *arm64-v8a*) abi="Arm64-v8a" ;;
-              *armeabi-v7a*) abi="Armeabi-v7a" ;;
-              *x86_64*) abi="X86_64" ;;
-              *x86*) abi="X86" ;;
-              *)
-                echo "::error::Cannot identify APK ABI from filename: $base"
-                exit 1
-                ;;
-            esac
-            target="output/Bankmovie-v2.2-$edition-$abi.apk"
-            if [[ -e "$target" ]]; then
-              echo "::error::More than one APK maps to output file: $target"
-              exit 1
-            fi
-            cp "$apk" "$target"
-            echo "Collected: ${apk#$PROJECT_DIR/} -> $target"
-          done
-
-          expected=(
-            Bankmovie-v2.2-ABI2-Lite-Universal.apk
-            Bankmovie-v2.2-ABI2-Lite-Armeabi-v7a.apk
-            Bankmovie-v2.2-ABI2-Lite-Arm64-v8a.apk
-            Bankmovie-v2.2-ABI4-Full-Universal.apk
-            Bankmovie-v2.2-ABI4-Full-Armeabi-v7a.apk
-            Bankmovie-v2.2-ABI4-Full-Arm64-v8a.apk
-            Bankmovie-v2.2-ABI4-Full-X86.apk
-            Bankmovie-v2.2-ABI4-Full-X86_64.apk
-          )
-          for apk in "${expected[@]}"; do
-            if [[ ! -s "output/$apk" ]]; then
-              echo "::error::Expected APK was not generated: $apk"
-              echo "APK files generated by Gradle:"
-              find "$apk_root" -type f -iname '*.apk' -printf '%P\n' | sort
-              echo "APK files collected:"
-              find output -maxdepth 1 -type f -name '*.apk' -printf '%f\n' | sort
-              exit 1
-            fi
-          done
-          apk_count="$(find output -maxdepth 1 -type f -name '*.apk' | wc -l)"
-          if [[ "$apk_count" -ne 8 ]]; then
-            echo "::error::Expected exactly 8 APKs, collected $apk_count."
-            find output -maxdepth 1 -type f -name '*.apk' -printf '%f\n' | sort
-            exit 1
-          fi
-
-          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
-          if [[ -z "$apksigner" || ! -x "$apksigner" ]]; then
-            echo "::error::Android apksigner was not found below $ANDROID_HOME/build-tools."
-            exit 1
-          fi
-          while IFS= read -r apk; do
-            "$apksigner" verify --verbose --print-certs "$apk"
-          done < <(find output -type f -name '*.apk' | sort)
-          sha256sum output/*.apk | tee output/SHA256SUMS.txt
-          echo "::notice::All 8 APK files were found and their signatures verified."
-
-      - name: Upload ABI2 Lite Universal
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.2-ABI2-Lite-Universal
-          path: output/Bankmovie-v2.2-ABI2-Lite-Universal.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI2 Lite Armeabi-v7a
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.2-ABI2-Lite-Armeabi-v7a
-          path: output/Bankmovie-v2.2-ABI2-Lite-Armeabi-v7a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI2 Lite Arm64-v8a
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.2-ABI2-Lite-Arm64-v8a
-          path: output/Bankmovie-v2.2-ABI2-Lite-Arm64-v8a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full Universal
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.2-ABI4-Full-Universal
-          path: output/Bankmovie-v2.2-ABI4-Full-Universal.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full Armeabi-v7a
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.2-ABI4-Full-Armeabi-v7a
-          path: output/Bankmovie-v2.2-ABI4-Full-Armeabi-v7a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full Arm64-v8a
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.2-ABI4-Full-Arm64-v8a
-          path: output/Bankmovie-v2.2-ABI4-Full-Arm64-v8a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full X86
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.2-ABI4-Full-X86
-          path: output/Bankmovie-v2.2-ABI4-Full-X86.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full X86_64
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.2-ABI4-Full-X86_64
-          path: output/Bankmovie-v2.2-ABI4-Full-X86_64.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload APK checksums
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.2-APK-SHA256SUMS
-          path: output/SHA256SUMS.txt
+          name: BankMovie-Windows-v1
+          path: artifacts/output/*
           if-no-files-found: error
           retention-days: 30
