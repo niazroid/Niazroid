@@ -1,4 +1,4 @@
-name: Build BankMovie 2.2 TV Hard Clip Glass Comments VIP DB
+name: Build BankMovie 2.2 Episode Group Remote Text
 
 on:
   workflow_dispatch:
@@ -9,11 +9,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.2-tv-hard-clip-glass-comments-vip-db-${{ github.ref }}
+  group: bankmovie-2.2-episode-group-remote-text-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.2-INTERNAL-DOWNLOADER-FIX-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.2-EPISODE-GROUP-REMOTE-TEXT-FIX-SOURCE.zip
 
 jobs:
   build:
@@ -83,6 +83,7 @@ jobs:
             BANKMOVIE_GITHUB_ACTIONS_HOTFIX_FA.md
             BANKMOVIE_UI_SPACING_STICKER_HEADER_FIX_FA.md
             BANKMOVIE_V2_2_TV_REMOTE_PROFILE_FINAL_FA.md
+            BANKMOVIE_EPISODE_REMOTE_TEXT_FIX_FA.md
           )
           for required in "${required_files[@]}"; do
             if [[ ! -s "$project_dir/$required" ]]; then
@@ -182,6 +183,7 @@ jobs:
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
           player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
           manifest='app/src/main/AndroidManifest.xml'
+          remote_text='app/src/main/java/ir/bankmoviee/app/RemoteTextStore.kt'
 
           require_fixed() {
             local pattern="$1"
@@ -227,12 +229,40 @@ jobs:
            require_fixed 'theme = "black"' app/src/main/java/ir/bankmoviee/app/OnboardingActivity.kt
            require_fixed 'startActivity(Intent(this, DownloadsActivity::class.java))' "$main"
            require_fixed 'ACTION_START -> executor.execute' app/src/main/java/ir/bankmoviee/app/InternalDownloadService.kt
+
+          # Episode grouping: Season -> Episode -> all available qualities.
+          require_fixed 'val episodeGroups = sortedSeasonLinks.groupBy' "$main"
+          require_fixed 'qualityOnlyLinks(sortedArchive1Links(epLinksRaw))' "$main"
+          require_fixed 'text = if (episode > 0) "${ui("قسمت")} $episode" else ui("لینک‌های فصل")' "$main"
+          require_fixed 'text = "${epLinks.size} ${ui("کیفیت")}"' "$main"
+
+          # Remote/future-proof text controls.
+          require_fixed 'RemoteTextStore.applyConfig(this, json)' "$main"
+          require_fixed 'RemoteTextStore.displayYear(this)' "$main"
+          require_fixed 'RemoteTextStore.searchMaxYear(this)' "$main"
+          require_fixed 'object RemoteTextStore' "$remote_text"
+          require_fixed 'fun applyConfig(context: Context, root: JSONObject)' "$remote_text"
+          require_fixed 'fun displayYear(context: Context): Int' "$remote_text"
+          require_fixed 'fun searchMaxYear(context: Context): Int' "$remote_text"
+          require_fixed '{{year}}' "$remote_text"
+          require_fixed '{{prev_year}}' "$remote_text"
+          require_fixed '{{next_year}}' "$remote_text"
+          require_fixed 'text_overrides' "$remote_text"
            if grep -Fq 'onboardingThemeSwitch' app/src/main/java/ir/bankmoviee/app/OnboardingActivity.kt; then
              echo "::error::The removed light-theme switch is still present in quick setup."
              exit 1
            fi
           require_fixed 'archive1_download_vip' server-required/bm_admin.php
           require_fixed "'_stream_vip'" server-required/app_config.php
+          require_fixed "'display_year'=>0" server-required/bm_admin.php
+          require_fixed "'search_max_year'=>0" server-required/bm_admin.php
+          require_fixed 'ui_text_overrides_fa' server-required/bm_admin.php
+          require_fixed 'ui_text_overrides_en' server-required/bm_admin.php
+          require_fixed "'display_year'=>0" server-required/app_config.php
+          require_fixed "'search_max_year'=>0" server-required/app_config.php
+          require_fixed '"display_year": 0' server-required/bankmovie_remote_config.json.sample
+          require_fixed '"search_max_year": 0' server-required/bankmovie_remote_config.json.sample
+          require_fixed '"text_overrides"' server-required/bankmovie_remote_config.json.sample
 
           stale_cast='currentRemoteClient|approximateStreamPosition|streamDuration|CastContext|CastButtonFactory|RemoteMediaClient|com.google.android.gms.cast'
           if grep -R -n -E "$stale_cast" "$player" "$manifest" app/build.gradle; then
@@ -267,6 +297,10 @@ jobs:
               assert config['schema_version'] >= 6
               assert config['active_domain'] == 'https://bankmovie.top'
               assert 'bankmoviee.ir' not in config['api_url']
+              assert config['ui']['display_year'] == 0
+              assert config['ui']['search_max_year'] == 0
+              assert 'text_overrides' in config['ui']
+              assert 'fa' in config['ui']['text_overrides'] and 'en' in config['ui']['text_overrides']
 
           vault = Path('app/src/main/java/ir/bankmoviee/app/RuntimeVault.kt').read_text(encoding='utf-8')
           def decode(name):
@@ -295,7 +329,7 @@ jobs:
           fi
           find server-required -type f -name '*.php' \
             -exec sh -ec 'for php_file do php -l "$php_file"; done' sh {} +
-          echo "::notice::Source, controller/download separation, UI spacing, sticker, Cast removal, XML, JSON and PHP checks passed."
+          echo "::notice::Source, episode grouping, remote text/year controls, controller/download separation, UI spacing, sticker, Cast removal, XML, JSON and PHP checks passed."
 
       - name: Build ABI2 Lite releases
         shell: bash
