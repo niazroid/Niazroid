@@ -24,8 +24,6 @@ jobs:
     timeout-minutes: 60
 
     env:
-      PROJECT: ${{ github.workspace }}\src\BankMovie.Windows\BankMovie.Windows.csproj
-      INSTALLER_SCRIPT: ${{ github.workspace }}\installer\BankMovie.iss
       PUBLISH_DIR: ${{ github.workspace }}\artifacts\publish
       OUTPUT_DIR: ${{ github.workspace }}\artifacts\output
       # Deliberately frozen until the Windows product is declared complete.
@@ -35,6 +33,45 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Detect project paths
+        shell: pwsh
+        run: |
+          Write-Host "Workspace: $env:GITHUB_WORKSPACE"
+          Write-Host "Repository files:"
+          Get-ChildItem -LiteralPath $env:GITHUB_WORKSPACE -Force | Select-Object Name, FullName
+
+          $projects = @(Get-ChildItem -LiteralPath $env:GITHUB_WORKSPACE -Recurse -File -Filter 'BankMovie.Windows.csproj' -ErrorAction SilentlyContinue)
+          if ($projects.Count -eq 0) {
+            Write-Host "No BankMovie.Windows.csproj found. Available .csproj files:"
+            Get-ChildItem -LiteralPath $env:GITHUB_WORKSPACE -Recurse -File -Filter '*.csproj' -ErrorAction SilentlyContinue |
+              ForEach-Object { Write-Host " - $($_.FullName)" }
+            throw 'BankMovie.Windows.csproj was not found anywhere in the repository.'
+          }
+          if ($projects.Count -gt 1) {
+            Write-Host "Multiple BankMovie.Windows.csproj files found:"
+            $projects | ForEach-Object { Write-Host " - $($_.FullName)" }
+            throw 'More than one BankMovie.Windows.csproj was found; keep only one source tree in the repository.'
+          }
+
+          $project = $projects[0].FullName
+          $projectRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $project))
+
+          $installerCandidates = @(Get-ChildItem -LiteralPath $env:GITHUB_WORKSPACE -Recurse -File -Filter 'BankMovie.iss' -ErrorAction SilentlyContinue)
+          if ($installerCandidates.Count -eq 0) {
+            throw 'installer/BankMovie.iss was not found anywhere in the repository.'
+          }
+
+          # Prefer the installer that belongs to the same source tree as the project.
+          $installer = $installerCandidates |
+            Sort-Object @{Expression={ if ($_.FullName.StartsWith($projectRoot, [System.StringComparison]::OrdinalIgnoreCase)) { 0 } else { 1 } }}, FullName |
+            Select-Object -First 1
+
+          "PROJECT=$project" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "INSTALLER_SCRIPT=$($installer.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+          Write-Host "Detected project: $project"
+          Write-Host "Detected installer: $($installer.FullName)"
+
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:
@@ -43,7 +80,9 @@ jobs:
       - name: Validate v1 version policy
         shell: pwsh
         run: |
-          if (!(Test-Path -LiteralPath $env:PROJECT)) { throw "Project not found: $env:PROJECT" }
+          if ([string]::IsNullOrWhiteSpace($env:PROJECT) -or !(Test-Path -LiteralPath $env:PROJECT)) {
+            throw "Project not found after auto-detection: $env:PROJECT"
+          }
           $projectText = Get-Content -LiteralPath $env:PROJECT -Raw
           if ($projectText -notmatch '<Version>1\.0\.0</Version>') { throw 'Project version must remain 1.0.0 during development.' }
           if ($projectText -notmatch '<FileVersion>1\.0\.0\.0</FileVersion>') { throw 'FileVersion must remain 1.0.0.0 during development.' }
