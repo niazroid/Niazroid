@@ -234,6 +234,27 @@ jobs:
           "WEBVIEW_BOOTSTRAPPER=$target" |
             Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
+      - name: Download .NET 8 Desktop Runtime x64 offline installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $target = Join-Path $env:RUNNER_TEMP "windowsdesktop-runtime-8-x64.exe"
+          Invoke-WebRequest `
+            -Uri "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe" `
+            -OutFile $target
+
+          if (!(Test-Path -LiteralPath $target)) {
+            throw ".NET 8 Desktop Runtime offline installer download failed."
+          }
+
+          if ((Get-Item -LiteralPath $target).Length -lt 40000000) {
+            throw "Downloaded .NET 8 Desktop Runtime installer is unexpectedly small/invalid."
+          }
+
+          "DOTNET_DESKTOP_RUNTIME_INSTALLER=$target" |
+            Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Install Inno Setup
         shell: pwsh
         run: |
@@ -257,6 +278,7 @@ jobs:
             "/DMyAppVersion=$env:BM_PUBLIC_VERSION" `
             "/DSourceDir=$env:PUBLISH_DIR" `
             "/DWebView2Bootstrapper=$env:WEBVIEW_BOOTSTRAPPER" `
+            "/DDotNetDesktopRuntimeInstaller=$env:DOTNET_DESKTOP_RUNTIME_INSTALLER" `
             "/O$env:OUTPUT_DIR" `
             "$env:INSTALLER_SCRIPT"
 
