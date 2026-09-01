@@ -148,7 +148,7 @@ jobs:
             throw "dotnet publish failed with exit code $LASTEXITCODE"
           }
 
-      - name: Validate published player runtime
+      - name: Validate external-player-only publish
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -158,15 +158,22 @@ jobs:
             throw "BankMovie.exe was not generated."
           }
 
-          $libvlc = Get-ChildItem -LiteralPath $env:PUBLISH_DIR -Recurse -File -Filter "libvlc.dll" |
-            Select-Object -First 1
-
-          if ($null -eq $libvlc) {
-            throw "libvlc.dll is missing from publish output."
+          $forbidden = @(
+            "libvlc.dll",
+            "libvlccore.dll",
+            "LibVLCSharp.dll",
+            "LibVLCSharp.WPF.dll"
+          )
+          foreach ($name in $forbidden) {
+            $match = Get-ChildItem -LiteralPath $env:PUBLISH_DIR -Recurse -File -Filter $name -ErrorAction SilentlyContinue |
+              Select-Object -First 1
+            if ($null -ne $match) {
+              throw "Internal-player runtime must not be bundled: $($match.FullName)"
+            }
           }
 
           Write-Host "BankMovie.exe OK"
-          Write-Host "libvlc.dll: $($libvlc.FullName)"
+          Write-Host "Internal LibVLC runtime is not bundled."
 
       - name: Create portable package
         shell: pwsh
