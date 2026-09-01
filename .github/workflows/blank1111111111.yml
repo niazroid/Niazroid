@@ -121,7 +121,7 @@ jobs:
             throw "dotnet build failed with exit code $LASTEXITCODE"
           }
 
-      - name: Publish self-contained Windows x64
+      - name: Publish lightweight framework-dependent Windows x64
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -135,14 +135,16 @@ jobs:
           dotnet publish "$env:PROJECT" `
             --configuration Release `
             --runtime win-x64 `
-            --self-contained true `
+            --self-contained false `
             --no-restore `
             --output "$env:PUBLISH_DIR" `
             -p:Version=$env:BM_PUBLIC_VERSION `
             -p:FileVersion=1.0.0.0 `
             -p:AssemblyVersion=1.0.0.0 `
+            -p:SelfContained=false `
             -p:PublishSingleFile=false `
-            -p:PublishTrimmed=false
+            -p:PublishTrimmed=false `
+            -p:PublishReadyToRun=false
 
           if ($LASTEXITCODE -ne 0) {
             throw "dotnet publish failed with exit code $LASTEXITCODE"
@@ -175,27 +177,46 @@ jobs:
           Write-Host "BankMovie.exe OK"
           Write-Host "Internal LibVLC runtime is not bundled."
 
-      - name: Create portable package
+      - name: Validate lightweight publish size
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
 
-          New-Item -ItemType Directory -Path $env:OUTPUT_DIR -Force | Out-Null
+          $runtimeFiles = @(
+            "coreclr.dll",
+            "clrjit.dll",
+            "hostpolicy.dll",
+            "System.Private.CoreLib.dll"
+          )
 
-          $portable = Join-Path $env:OUTPUT_DIR "BankMovie-Windows-v1-Portable-x64.zip"
-          if (Test-Path -LiteralPath $portable) {
-            Remove-Item -LiteralPath $portable -Force
+          foreach ($name in $runtimeFiles) {
+            $match = Get-ChildItem -LiteralPath $env:PUBLISH_DIR -Recurse -File -Filter $name -ErrorAction SilentlyContinue |
+              Select-Object -First 1
+            if ($null -ne $match) {
+              throw "Framework-dependent publish unexpectedly bundled .NET runtime file: $($match.FullName)"
+            }
           }
 
-          Compress-Archive `
-            -Path (Join-Path $env:PUBLISH_DIR "*") `
-            -DestinationPath $portable `
-            -CompressionLevel Optimal
+          $publishBytes = (Get-ChildItem -LiteralPath $env:PUBLISH_DIR -Recurse -File | Measure-Object -Property Length -Sum).Sum
+          $publishMiB = [math]::Round($publishBytes / 1MB, 2)
+          Write-Host "Framework-dependent publish size: $publishMiB MiB"
+
+          if ($publishBytes -gt 25MB) {
+            throw "Publish is unexpectedly large ($publishMiB MiB). Expected <= 25 MiB for the web shell."
+          }
+
+          # Keep GitHub's artifact ZIP clean: do not generate a ZIP inside it.
+          $nestedZip = Get-ChildItem -LiteralPath $env:SOURCE_DIR -Recurse -File -Filter *.zip -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($null -ne $nestedZip) {
+            throw "Nested ZIP found inside source package: $($nestedZip.FullName)"
+          }
 
       - name: Download Microsoft WebView2 bootstrapper
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
+
+          New-Item -ItemType Directory -Path $env:OUTPUT_DIR -Force | Out-Null
 
           $target = Join-Path $env:RUNNER_TEMP "MicrosoftEdgeWebview2Setup.exe"
           Invoke-WebRequest `
