@@ -1,4 +1,4 @@
-name: Build BankMovie 2.1 UI Spacing Sticker Header Fix
+name: Build BankMovie 2.2 TV Right Sidenav Focus Fix
 
 on:
   workflow_dispatch:
@@ -9,11 +9,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.1-archive-vip-${{ github.ref }}
+  group: bankmovie-2.2-tv-right-sidenav-focus-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.1-UI-SPACING-STICKER-HEADER-FIX-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.2-TV-RIGHT-SIDENAV-FOCUS-FIX-SOURCE.zip
 
 jobs:
   build:
@@ -82,6 +82,8 @@ jobs:
             bankmovie_update.jks
             BANKMOVIE_GITHUB_ACTIONS_HOTFIX_FA.md
             BANKMOVIE_UI_SPACING_STICKER_HEADER_FIX_FA.md
+            BANKMOVIE_TV_RIGHT_SIDENAV_FOCUS_FIX_FA.md
+            verify_tv_right_sidenav_focus_fix.sh
           )
           for required in "${required_files[@]}"; do
             if [[ ! -s "$project_dir/$required" ]]; then
@@ -206,6 +208,15 @@ jobs:
           require_fixed 'RuntimeVault.config_url_primary' app/src/main/java/ir/bankmoviee/app/AppConfig.kt
           require_fixed 'AccountSession.updateVip' app/src/main/java/ir/bankmoviee/app/AccountApi.kt
           require_fixed 'downloads_locked' "$main"
+          require_fixed 'private fun buildTvSideNavigation()' "$main"
+          require_fixed 'private fun tvFocusRows(nodes: List<TvFocusNode>)' "$main"
+          require_fixed 'private fun handleTvDirectionalFocus(keyCode: Int)' "$main"
+          require_fixed 'private fun requestTvSideNavFocus(preferMenu: Boolean = false)' "$main"
+          require_fixed 'FrameLayout.LayoutParams(dp(82), -1, Gravity.RIGHT or Gravity.CENTER_VERTICAL)' "$main"
+          require_fixed 'tvInitialMenuFocusShown' "$main"
+          require_fixed 'setTag(R.id.bm_tv_item_json, item.toString())' "$main"
+
+          bash verify_tv_right_sidenav_focus_fix.sh
 
           stale_cast='currentRemoteClient|approximateStreamPosition|streamDuration|CastContext|CastButtonFactory|RemoteMediaClient|com.google.android.gms.cast'
           if grep -R -n -E "$stale_cast" "$player" "$manifest" app/build.gradle; then
@@ -220,7 +231,7 @@ jobs:
           require_fixed "applicationId 'ir.bankmoviee.app'" app/build.gradle
           require_fixed 'compileSdk 35' app/build.gradle
           require_fixed 'targetSdk 35' app/build.gradle
-          require_fixed 'versionName "2.1"' app/build.gradle
+          require_fixed 'versionName "2.2"' app/build.gradle
           expected_keystore_sha='b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39'
           actual_keystore_sha="$(sha256sum bankmovie_update.jks | awk '{print $1}')"
           if [[ "$actual_keystore_sha" != "$expected_keystore_sha" ]]; then
@@ -267,7 +278,7 @@ jobs:
           fi
           find server-required -type f -name '*.php' \
             -exec sh -ec 'for php_file do php -l "$php_file"; done' sh {} +
-          echo "::notice::Source, controller/download separation, UI spacing, sticker, Cast removal, XML, JSON and PHP checks passed."
+          echo "::notice::Source, TV side navigation, row-aware focus, controller/download separation, UI spacing, sticker, Cast removal, XML, JSON and PHP checks passed."
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -329,7 +340,7 @@ jobs:
                 exit 1
                 ;;
             esac
-            target="output/Bankmovie-v2.1-$edition-$abi.apk"
+            target="output/Bankmovie-v2.2-$edition-$abi.apk"
             if [[ -e "$target" ]]; then
               echo "::error::More than one APK maps to output file: $target"
               exit 1
@@ -339,14 +350,14 @@ jobs:
           done
 
           expected=(
-            Bankmovie-v2.1-ABI2-Lite-Universal.apk
-            Bankmovie-v2.1-ABI2-Lite-Armeabi-v7a.apk
-            Bankmovie-v2.1-ABI2-Lite-Arm64-v8a.apk
-            Bankmovie-v2.1-ABI4-Full-Universal.apk
-            Bankmovie-v2.1-ABI4-Full-Armeabi-v7a.apk
-            Bankmovie-v2.1-ABI4-Full-Arm64-v8a.apk
-            Bankmovie-v2.1-ABI4-Full-X86.apk
-            Bankmovie-v2.1-ABI4-Full-X86_64.apk
+            Bankmovie-v2.2-ABI2-Lite-Universal.apk
+            Bankmovie-v2.2-ABI2-Lite-Armeabi-v7a.apk
+            Bankmovie-v2.2-ABI2-Lite-Arm64-v8a.apk
+            Bankmovie-v2.2-ABI4-Full-Universal.apk
+            Bankmovie-v2.2-ABI4-Full-Armeabi-v7a.apk
+            Bankmovie-v2.2-ABI4-Full-Arm64-v8a.apk
+            Bankmovie-v2.2-ABI4-Full-X86.apk
+            Bankmovie-v2.2-ABI4-Full-X86_64.apk
           )
           for apk in "${expected[@]}"; do
             if [[ ! -s "output/$apk" ]]; then
@@ -379,71 +390,71 @@ jobs:
       - name: Upload ABI2 Lite Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.1-ABI2-Lite-Universal
-          path: output/Bankmovie-v2.1-ABI2-Lite-Universal.apk
+          name: Bankmovie-2.2-ABI2-Lite-Universal
+          path: output/Bankmovie-v2.2-ABI2-Lite-Universal.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI2 Lite Armeabi-v7a
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.1-ABI2-Lite-Armeabi-v7a
-          path: output/Bankmovie-v2.1-ABI2-Lite-Armeabi-v7a.apk
+          name: Bankmovie-2.2-ABI2-Lite-Armeabi-v7a
+          path: output/Bankmovie-v2.2-ABI2-Lite-Armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI2 Lite Arm64-v8a
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.1-ABI2-Lite-Arm64-v8a
-          path: output/Bankmovie-v2.1-ABI2-Lite-Arm64-v8a.apk
+          name: Bankmovie-2.2-ABI2-Lite-Arm64-v8a
+          path: output/Bankmovie-v2.2-ABI2-Lite-Arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.1-ABI4-Full-Universal
-          path: output/Bankmovie-v2.1-ABI4-Full-Universal.apk
+          name: Bankmovie-2.2-ABI4-Full-Universal
+          path: output/Bankmovie-v2.2-ABI4-Full-Universal.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full Armeabi-v7a
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.1-ABI4-Full-Armeabi-v7a
-          path: output/Bankmovie-v2.1-ABI4-Full-Armeabi-v7a.apk
+          name: Bankmovie-2.2-ABI4-Full-Armeabi-v7a
+          path: output/Bankmovie-v2.2-ABI4-Full-Armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full Arm64-v8a
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.1-ABI4-Full-Arm64-v8a
-          path: output/Bankmovie-v2.1-ABI4-Full-Arm64-v8a.apk
+          name: Bankmovie-2.2-ABI4-Full-Arm64-v8a
+          path: output/Bankmovie-v2.2-ABI4-Full-Arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full X86
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.1-ABI4-Full-X86
-          path: output/Bankmovie-v2.1-ABI4-Full-X86.apk
+          name: Bankmovie-2.2-ABI4-Full-X86
+          path: output/Bankmovie-v2.2-ABI4-Full-X86.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full X86_64
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.1-ABI4-Full-X86_64
-          path: output/Bankmovie-v2.1-ABI4-Full-X86_64.apk
+          name: Bankmovie-2.2-ABI4-Full-X86_64
+          path: output/Bankmovie-v2.2-ABI4-Full-X86_64.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload APK checksums
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.1-APK-SHA256SUMS
+          name: Bankmovie-2.2-APK-SHA256SUMS
           path: output/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
