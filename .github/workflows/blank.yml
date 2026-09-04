@@ -1,4 +1,4 @@
-name: Build BankMovie 2.2 TV Global Focus Fix
+name: Build BankMovie 2.2 TV Global Focus Flow V2
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.2-tv-global-focus-fix-${{ github.ref }}
+  group: bankmovie-2.2-tv-global-focus-v2-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -84,8 +84,10 @@ jobs:
             BANKMOVIE_UI_SPACING_STICKER_HEADER_FIX_FA.md
             BANKMOVIE_TV_RIGHT_SIDENAV_FOCUS_FIX_FA.md
             BANKMOVIE_TV_GLOBAL_FOCUS_BOOTSTRAP_FIX_FA.md
+            BANKMOVIE_TV_FOCUS_FLOW_V2_FIX_FA.md
             verify_tv_right_sidenav_focus_fix.sh
             verify_tv_global_focus_bootstrap_fix.sh
+            verify_tv_focus_flow_v2.sh
           )
           for required in "${required_files[@]}"; do
             if [[ ! -s "$project_dir/$required" ]]; then
@@ -217,7 +219,6 @@ jobs:
           require_fixed 'FrameLayout.LayoutParams(dp(82), -1, Gravity.RIGHT or Gravity.CENTER_VERTICAL)' "$main"
           require_fixed 'tvInitialMenuFocusShown' "$main"
           require_fixed 'setTag(R.id.bm_tv_item_json, item.toString())' "$main"
-          require_fixed 'HOME-ONLY: honor the explicit section "View all" link' "$main"
           require_fixed 'private var tvScreenFocusGeneration = 0' "$main"
           require_fixed 'private var tvInitialFocusPending = false' "$main"
           require_fixed 'private fun requestTvInitialScreenFocus' "$main"
@@ -226,9 +227,13 @@ jobs:
           require_fixed '"profile" -> content.findViewWithTag<View>("bm_tv_profile_primary")' "$main"
           require_fixed 'tag = "bm_tv_search_input"' "$main"
           require_fixed 'tag = "bm_tv_profile_primary"' "$main"
+          require_fixed 'private fun wireHomePosterRows()' "$main"
+          require_fixed 'Archive 1 -> newest/rightmost poster -> remaining posters -> View all.' "$main"
+          require_fixed 'private fun restoreTvFocusAfterMutation(' "$main"
 
           bash verify_tv_right_sidenav_focus_fix.sh
           bash verify_tv_global_focus_bootstrap_fix.sh
+          bash verify_tv_focus_flow_v2.sh
 
           # Reject the experimental Home streaming focus-chain builds that broke global TV navigation.
           stale_focus='HOME STREAMING FOCUS CHAIN|homeFirstStreaming|firstStreamingFocus|streamingFocusChain'
