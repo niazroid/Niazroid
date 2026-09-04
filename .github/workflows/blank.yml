@@ -1,4 +1,4 @@
-name: Build BankMovie 2.2 TV Original Focus ViewAll Only Fix
+name: Build BankMovie 2.2 TV Global Focus Fix
 
 on:
   workflow_dispatch:
@@ -9,11 +9,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.2-tv-original-focus-viewall-only-${{ github.ref }}
+  group: bankmovie-2.2-tv-global-focus-fix-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.2-TV-ORIGINAL-FOCUS-VIEWALL-ONLY-FIX-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.2-TV-GLOBAL-FOCUS-FIX-SOURCE.zip
 
 jobs:
   build:
@@ -69,7 +69,7 @@ jobs:
           fi
 
           if [[ -z "$project_dir" ]]; then
-            echo "::error::Android project and Bankmovie SOURCE ZIP were not found. Upload the exact SOURCE-HOTFIX ZIP or commit the extracted hotfix project."
+            echo "::error::Android project and Bankmovie SOURCE ZIP were not found. Upload the exact $SOURCE_ZIP or commit the extracted GLOBAL-FOCUS-FIX project."
             echo "Files found in repository:"
             find "$workspace" -maxdepth 3 -type f -printf '%P\n' | sort | sed -n '1,120p'
             exit 1
@@ -83,7 +83,9 @@ jobs:
             BANKMOVIE_GITHUB_ACTIONS_HOTFIX_FA.md
             BANKMOVIE_UI_SPACING_STICKER_HEADER_FIX_FA.md
             BANKMOVIE_TV_RIGHT_SIDENAV_FOCUS_FIX_FA.md
+            BANKMOVIE_TV_GLOBAL_FOCUS_BOOTSTRAP_FIX_FA.md
             verify_tv_right_sidenav_focus_fix.sh
+            verify_tv_global_focus_bootstrap_fix.sh
           )
           for required in "${required_files[@]}"; do
             if [[ ! -s "$project_dir/$required" ]]; then
@@ -216,19 +218,28 @@ jobs:
           require_fixed 'tvInitialMenuFocusShown' "$main"
           require_fixed 'setTag(R.id.bm_tv_item_json, item.toString())' "$main"
           require_fixed 'HOME-ONLY: honor the explicit section "View all" link' "$main"
+          require_fixed 'private var tvScreenFocusGeneration = 0' "$main"
+          require_fixed 'private var tvInitialFocusPending = false' "$main"
+          require_fixed 'private fun requestTvInitialScreenFocus' "$main"
+          require_fixed 'releaseTvFocusScrollGuards(content)' "$main"
+          require_fixed '"search" -> content.findViewWithTag<View>("bm_tv_search_input")' "$main"
+          require_fixed '"profile" -> content.findViewWithTag<View>("bm_tv_profile_primary")' "$main"
+          require_fixed 'tag = "bm_tv_search_input"' "$main"
+          require_fixed 'tag = "bm_tv_profile_primary"' "$main"
 
           bash verify_tv_right_sidenav_focus_fix.sh
+          bash verify_tv_global_focus_bootstrap_fix.sh
 
           # Reject the experimental Home streaming focus-chain builds that broke global TV navigation.
           stale_focus='HOME STREAMING FOCUS CHAIN|homeFirstStreaming|firstStreamingFocus|streamingFocusChain'
           if grep -n -E "$stale_focus" "$main"; then
-            echo "::error file=$main::Broken/experimental Home streaming focus-chain code detected. Use ORIGINAL-FOCUS-VIEWALL-ONLY-FIX source."
+            echo "::error file=$main::Broken/experimental Home streaming focus-chain code detected. Use GLOBAL-FOCUS-FIX source."
             exit 1
           fi
 
           stale_cast='currentRemoteClient|approximateStreamPosition|streamDuration|CastContext|CastButtonFactory|RemoteMediaClient|com.google.android.gms.cast'
           if grep -R -n -E "$stale_cast" "$player" "$manifest" app/build.gradle; then
-            echo "::error::Old Google Cast code is still present. The wrong/old source ZIP was selected. Use SOURCE-HOTFIX.zip."
+            echo "::error::Old Google Cast code is still present. The wrong/old source ZIP was selected. Use $SOURCE_ZIP."
             exit 1
           fi
           if grep -Fq "implementation 'com.google.android.gms:play-services-cast-framework" app/build.gradle; then
@@ -286,7 +297,7 @@ jobs:
           fi
           find server-required -type f -name '*.php' \
             -exec sh -ec 'for php_file do php -l "$php_file"; done' sh {} +
-          echo "::notice::Source, TV side navigation, row-aware focus, controller/download separation, UI spacing, sticker, Cast removal, XML, JSON and PHP checks passed."
+          echo "::notice::Source, TV side navigation, global focus bootstrap, row-aware focus, controller/download separation, UI spacing, sticker, Cast removal, XML, JSON and PHP checks passed."
 
       - name: Build ABI2 Lite releases
         shell: bash
