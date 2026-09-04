@@ -1,4 +1,4 @@
-name: Build BankMovie 2.2 TV Right Sidenav Focus Fix
+name: Build BankMovie 2.2 TV Home Streaming Focus Chain
 
 on:
   workflow_dispatch:
@@ -9,11 +9,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.2-tv-right-sidenav-focus-${{ github.ref }}
+  group: bankmovie-2.2-tv-home-streaming-focus-chain-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.2-TV-RIGHT-SIDENAV-FOCUS-FIX-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.2-TV-HOME-STREAMING-FOCUS-CHAIN-SOURCE.zip
 
 jobs:
   build:
@@ -83,7 +83,11 @@ jobs:
             BANKMOVIE_GITHUB_ACTIONS_HOTFIX_FA.md
             BANKMOVIE_UI_SPACING_STICKER_HEADER_FIX_FA.md
             BANKMOVIE_TV_RIGHT_SIDENAV_FOCUS_FIX_FA.md
+            BANKMOVIE_TV_TOP_FOCUS_VIEWALL_ARCHIVE4_PALETTE_FIX_FA.md
+            BANKMOVIE_TV_HOME_STREAMING_FOCUS_CHAIN_FA.md
             verify_tv_right_sidenav_focus_fix.sh
+            verify_tv_top_focus_viewall_archive4_palette_fix.sh
+            verify_tv_home_streaming_focus_chain.sh
           )
           for required in "${required_files[@]}"; do
             if [[ ! -s "$project_dir/$required" ]]; then
@@ -217,6 +221,8 @@ jobs:
           require_fixed 'setTag(R.id.bm_tv_item_json, item.toString())' "$main"
 
           bash verify_tv_right_sidenav_focus_fix.sh
+          bash verify_tv_top_focus_viewall_archive4_palette_fix.sh
+          bash verify_tv_home_streaming_focus_chain.sh
 
           stale_cast='currentRemoteClient|approximateStreamPosition|streamDuration|CastContext|CastButtonFactory|RemoteMediaClient|com.google.android.gms.cast'
           if grep -R -n -E "$stale_cast" "$player" "$manifest" app/build.gradle; then
@@ -278,7 +284,7 @@ jobs:
           fi
           find server-required -type f -name '*.php' \
             -exec sh -ec 'for php_file do php -l "$php_file"; done' sh {} +
-          echo "::notice::Source, TV side navigation, row-aware focus, controller/download separation, UI spacing, sticker, Cast removal, XML, JSON and PHP checks passed."
+          echo "::notice::Source, TV side navigation, top-focus scroll control, Home streaming focus chain, Archive4 palette, controller/download separation, UI spacing, sticker, Cast removal, XML, JSON and PHP checks passed."
 
       - name: Build ABI2 Lite releases
         shell: bash
