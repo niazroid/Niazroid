@@ -1,4 +1,4 @@
-name: Build BankMovie 2.2 TV Global Focus Flow V3
+name: Build BankMovie 2.2 TV Global Focus V6 Lifecycle Root
 
 on:
   workflow_dispatch:
@@ -9,11 +9,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.2-tv-global-focus-v2-${{ github.ref }}
+  group: bankmovie-2.2-tv-global-focus-v6-lifecycle-root-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.2-TV-GLOBAL-FOCUS-V5-ROOT-REGISTRY-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.2-TV-GLOBAL-FOCUS-V6-LIFECYCLE-ROOT-SOURCE.zip
 
 jobs:
   build:
@@ -69,7 +69,7 @@ jobs:
           fi
 
           if [[ -z "$project_dir" ]]; then
-            echo "::error::Android project and Bankmovie SOURCE ZIP were not found. Upload the exact $SOURCE_ZIP or commit the extracted GLOBAL-FOCUS-FIX project."
+            echo "::error::Android project and Bankmovie SOURCE ZIP were not found. Upload the exact $SOURCE_ZIP or commit the extracted GLOBAL-FOCUS-V6-LIFECYCLE-ROOT project."
             echo "Files found in repository:"
             find "$workspace" -maxdepth 3 -type f -printf '%P\n' | sort | sed -n '1,120p'
             exit 1
@@ -85,9 +85,13 @@ jobs:
             BANKMOVIE_TV_RIGHT_SIDENAV_FOCUS_FIX_FA.md
             BANKMOVIE_TV_GLOBAL_FOCUS_BOOTSTRAP_FIX_FA.md
             BANKMOVIE_TV_FOCUS_FLOW_V2_FIX_FA.md
+            BANKMOVIE_TV_FOCUS_FLOW_V5_ROOT_REGISTRY_FIX_FA.md
+            BANKMOVIE_TV_FOCUS_FLOW_V6_LIFECYCLE_ROOT_FIX_FA.md
             verify_tv_right_sidenav_focus_fix.sh
             verify_tv_global_focus_bootstrap_fix.sh
             verify_tv_focus_flow_v2.sh
+            verify_tv_focus_flow_v5.sh
+            verify_tv_focus_flow_v6.sh
           )
           for required in "${required_files[@]}"; do
             if [[ ! -s "$project_dir/$required" ]]; then
@@ -230,15 +234,20 @@ jobs:
           require_fixed 'private fun wireHomePosterRows()' "$main"
           require_fixed 'Archive 1 -> newest/rightmost poster -> remaining posters -> View all.' "$main"
           require_fixed 'private fun restoreTvFocusAfterMutation(' "$main"
+          require_fixed 'TV ROOT FOCUS V6: MainActivity is singleTask.' "$main"
+          require_fixed 'private fun rebindHomeTvFocusAfterLifecycle()' "$main"
+          require_fixed 'resetHomeTvRailViewportsToNewest()' "$main"
+          require_fixed 'Do not consume a direction that failed to move real focus.' "$main"
 
           bash verify_tv_right_sidenav_focus_fix.sh
           bash verify_tv_global_focus_bootstrap_fix.sh
           bash verify_tv_focus_flow_v2.sh
+          bash verify_tv_focus_flow_v6.sh
 
           # Reject the experimental Home streaming focus-chain builds that broke global TV navigation.
           stale_focus='HOME STREAMING FOCUS CHAIN|homeFirstStreaming|firstStreamingFocus|streamingFocusChain'
           if grep -n -E "$stale_focus" "$main"; then
-            echo "::error file=$main::Broken/experimental Home streaming focus-chain code detected. Use GLOBAL-FOCUS-FIX source."
+            echo "::error file=$main::Broken/experimental Home streaming focus-chain code detected. Use GLOBAL-FOCUS-V6-LIFECYCLE-ROOT source."
             exit 1
           fi
 
@@ -302,7 +311,7 @@ jobs:
           fi
           find server-required -type f -name '*.php' \
             -exec sh -ec 'for php_file do php -l "$php_file"; done' sh {} +
-          echo "::notice::Source, TV side navigation, global focus bootstrap, row-aware focus, controller/download separation, UI spacing, sticker, Cast removal, XML, JSON and PHP checks passed."
+          echo "::notice::Source, TV side navigation, global focus bootstrap, V6 lifecycle root focus, row-aware focus, controller/download separation, UI spacing, sticker, Cast removal, XML, JSON and PHP checks passed."
 
       - name: Build ABI2 Lite releases
         shell: bash
