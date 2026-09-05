@@ -1,4 +1,4 @@
-name: Build BankMovie 2.2 TV Global Focus Flow V2
+name: Build BankMovie 2.2 TV Global Focus Flow V3
 
 on:
   workflow_dispatch:
@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.2-TV-GLOBAL-FOCUS-FIX-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.2-TV-GLOBAL-FOCUS-V5-ROOT-REGISTRY-SOURCE.zip
 
 jobs:
   build:
