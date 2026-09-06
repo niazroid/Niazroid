@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 TV Global Focus V6.5 Strict
+name: Build BankMovie 2.3 TV Global Focus V6.6 Video Root Strict
 
 on:
   workflow_dispatch:
@@ -13,8 +13,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V6.5-FOUR-SURFACE-ROOT-SOURCE.zip
-  SOURCE_SHA256: 849ca8c1e99ff6331bf0566caa9b4637ae02d06652d71650fe5f85499eef6807
+  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V6.6-VIDEO-ROOT-SOURCE.zip
+  SOURCE_SHA256: 77d511533f86a62be14ab6bfcdcaac3c0c0142b04048da221a01fef974eb69b2
 
 jobs:
   build:
@@ -242,6 +242,7 @@ jobs:
           bash verify_tv_focus_flow_v2.sh
           bash verify_tv_focus_flow_v6.sh
           bash verify_tv_focus_surfaces_v65.sh
+          bash verify_tv_focus_v66_video_root.sh
 
           # Reject the experimental Home streaming focus-chain builds that broke global TV navigation.
           stale_focus='HOME STREAMING FOCUS CHAIN|homeFirstStreaming|firstStreamingFocus|streamingFocusChain'
@@ -266,8 +267,8 @@ jobs:
           require_fixed 'versionName "2.3"' app/build.gradle
           require_fixed 'versionCode 5400000 + runNumber' app/build.gradle
           require_fixed 'versionName=2.3' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'focusPatch=V6.5 FOUR SURFACE ROOT' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'sourceTag=BANKMOVIE-TV-2.3-V65-20260906' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'focusPatch=V6.6 VIDEO ROOT' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'sourceTag=BANKMOVIE-TV-2.3-V66-20260906' BANKMOVIE_BUILD_SOURCE_2_3.txt
           require_fixed 'TV_FOCUS_SURFACES_V65_ROOT_OK' verify_tv_focus_surfaces_v65.sh
           expected_keystore_sha='b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39'
           actual_keystore_sha="$(sha256sum bankmovie_update.jks | awk '{print $1}')"
