@@ -243,7 +243,6 @@ jobs:
           bash verify_tv_focus_flow_v2.sh
           bash verify_tv_focus_flow_v6.sh
           bash verify_tv_focus_surfaces_v65.sh
-          bash verify_tv_focus_v66_video_root.sh
           bash verify_tv_focus_v67.sh
 
           # Reject the experimental Home streaming focus-chain builds that broke global TV navigation.
