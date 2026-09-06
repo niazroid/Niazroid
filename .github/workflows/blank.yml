@@ -265,7 +265,9 @@ jobs:
           require_fixed 'targetSdk 35' app/build.gradle
           require_fixed 'versionName "2.3"' app/build.gradle
           require_fixed 'versionCode 5400000 + runNumber' app/build.gradle
-          require_fixed 'BankMovie 2.3' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'versionName=2.3' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'focusPatch=V6.5 FOUR SURFACE ROOT' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'sourceTag=BANKMOVIE-TV-2.3-V65-20260906' BANKMOVIE_BUILD_SOURCE_2_3.txt
           require_fixed 'TV_FOCUS_SURFACES_V65_ROOT_OK' verify_tv_focus_surfaces_v65.sh
           expected_keystore_sha='b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39'
           actual_keystore_sha="$(sha256sum bankmovie_update.jks | awk '{print $1}')"
