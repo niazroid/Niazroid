@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 TV Global Focus V6.7 Native First Strict
+name: Build BankMovie 2.3 TV Global Focus V6.7.1 Verifier Fix Strict
 
 on:
   workflow_dispatch:
@@ -9,12 +9,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-tv-global-focus-v6-7-strict-${{ github.ref }}
+  group: bankmovie-2.3-tv-global-focus-v6-7-1-strict-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V6.7-NATIVE-FIRST-ROOT-SOURCE.zip
-  SOURCE_SHA256: 7b9119f1f117336b9a3db9d126df4e25fad37a1c9f26ced84eb26ad1af187580
+  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V6.7.1-VERIFIER-FIX-SOURCE.zip
+  SOURCE_SHA256: 26a0a9f7d9944a57cf0cabffb9fca1a1eddca5eb5cdaa09abca5ae7ba503f465
 
 jobs:
   build:
@@ -84,6 +84,7 @@ jobs:
             BANKMOVIE_TV_FOCUS_FLOW_V6_LIFECYCLE_ROOT_FIX_FA.md
             BANKMOVIE_TV_FOCUS_SURFACES_V6_5_ROOT_FIX_FA.md
             BANKMOVIE_BUILD_SOURCE_2_3.txt
+            BANKMOVIE_TV_FOCUS_V6_7_1_VERIFIER_COMPAT_FIX_FA.md
             verify_tv_right_sidenav_focus_fix.sh
             verify_tv_global_focus_bootstrap_fix.sh
             verify_tv_focus_flow_v2.sh
@@ -269,9 +270,14 @@ jobs:
           require_fixed 'versionCode 5400000 + runNumber' app/build.gradle
           require_fixed 'versionName=2.3' BANKMOVIE_BUILD_SOURCE_2_3.txt
           require_fixed 'focusPatch=V6.7 NATIVE-FIRST ROOT' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'sourceTag=BANKMOVIE-TV-2.3-V67-20260906' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'verifierPatch=V6.7.1 COMPAT CHAIN FIX' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'sourceTag=BANKMOVIE-TV-2.3-V671-20260906' BANKMOVIE_BUILD_SOURCE_2_3.txt
           require_fixed 'TV_FOCUS_SURFACES_V65_ROOT_OK' verify_tv_focus_surfaces_v65.sh
           require_fixed 'TV_FOCUS_V67_NATIVE_FIRST_ROOT_OK' verify_tv_focus_v67.sh
+          if grep -Fq 'bash verify_tv_focus_v66_video_root.sh' verify_tv_focus_flow_v2.sh && ! grep -Fq 'elif [[ -x verify_tv_focus_v66_video_root.sh ]]' verify_tv_focus_flow_v2.sh; then
+            echo '::error::Stale direct V6.6 verifier chain detected in verify_tv_focus_flow_v2.sh'
+            exit 1
+          fi
           expected_keystore_sha='b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39'
           actual_keystore_sha="$(sha256sum bankmovie_update.jks | awk '{print $1}')"
           if [[ "$actual_keystore_sha" != "$expected_keystore_sha" ]]; then
