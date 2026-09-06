@@ -1,4 +1,4 @@
-name: Build BankMovie 2.2 TV Global Focus V6 Lifecycle Root
+name: Build BankMovie 2.3 TV Global Focus V6 Lifecycle Root
 
 on:
   workflow_dispatch:
@@ -9,11 +9,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.2-tv-global-focus-v6-lifecycle-root-${{ github.ref }}
+  group: bankmovie-2.3-tv-global-focus-v6-lifecycle-root-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.2-TV-GLOBAL-FOCUS-V6-LIFECYCLE-ROOT-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V6-LIFECYCLE-ROOT-SOURCE.zip
 
 jobs:
   build:
@@ -264,7 +264,7 @@ jobs:
           require_fixed "applicationId 'ir.bankmoviee.app'" app/build.gradle
           require_fixed 'compileSdk 35' app/build.gradle
           require_fixed 'targetSdk 35' app/build.gradle
-          require_fixed 'versionName "2.2"' app/build.gradle
+          require_fixed 'versionName "2.3"' app/build.gradle
           expected_keystore_sha='b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39'
           actual_keystore_sha="$(sha256sum bankmovie_update.jks | awk '{print $1}')"
           if [[ "$actual_keystore_sha" != "$expected_keystore_sha" ]]; then
@@ -373,7 +373,7 @@ jobs:
                 exit 1
                 ;;
             esac
-            target="output/Bankmovie-v2.2-$edition-$abi.apk"
+            target="output/Bankmovie-v2.3-$edition-$abi.apk"
             if [[ -e "$target" ]]; then
               echo "::error::More than one APK maps to output file: $target"
               exit 1
@@ -383,14 +383,14 @@ jobs:
           done
 
           expected=(
-            Bankmovie-v2.2-ABI2-Lite-Universal.apk
-            Bankmovie-v2.2-ABI2-Lite-Armeabi-v7a.apk
-            Bankmovie-v2.2-ABI2-Lite-Arm64-v8a.apk
-            Bankmovie-v2.2-ABI4-Full-Universal.apk
-            Bankmovie-v2.2-ABI4-Full-Armeabi-v7a.apk
-            Bankmovie-v2.2-ABI4-Full-Arm64-v8a.apk
-            Bankmovie-v2.2-ABI4-Full-X86.apk
-            Bankmovie-v2.2-ABI4-Full-X86_64.apk
+            Bankmovie-v2.3-ABI2-Lite-Universal.apk
+            Bankmovie-v2.3-ABI2-Lite-Armeabi-v7a.apk
+            Bankmovie-v2.3-ABI2-Lite-Arm64-v8a.apk
+            Bankmovie-v2.3-ABI4-Full-Universal.apk
+            Bankmovie-v2.3-ABI4-Full-Armeabi-v7a.apk
+            Bankmovie-v2.3-ABI4-Full-Arm64-v8a.apk
+            Bankmovie-v2.3-ABI4-Full-X86.apk
+            Bankmovie-v2.3-ABI4-Full-X86_64.apk
           )
           for apk in "${expected[@]}"; do
             if [[ ! -s "output/$apk" ]]; then
@@ -424,7 +424,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Bankmovie-2.2-ABI2-Lite-Universal
-          path: output/Bankmovie-v2.2-ABI2-Lite-Universal.apk
+          path: output/Bankmovie-v2.3-ABI2-Lite-Universal.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -432,7 +432,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Bankmovie-2.2-ABI2-Lite-Armeabi-v7a
-          path: output/Bankmovie-v2.2-ABI2-Lite-Armeabi-v7a.apk
+          path: output/Bankmovie-v2.3-ABI2-Lite-Armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -440,7 +440,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Bankmovie-2.2-ABI2-Lite-Arm64-v8a
-          path: output/Bankmovie-v2.2-ABI2-Lite-Arm64-v8a.apk
+          path: output/Bankmovie-v2.3-ABI2-Lite-Arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -448,7 +448,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Bankmovie-2.2-ABI4-Full-Universal
-          path: output/Bankmovie-v2.2-ABI4-Full-Universal.apk
+          path: output/Bankmovie-v2.3-ABI4-Full-Universal.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -456,7 +456,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Bankmovie-2.2-ABI4-Full-Armeabi-v7a
-          path: output/Bankmovie-v2.2-ABI4-Full-Armeabi-v7a.apk
+          path: output/Bankmovie-v2.3-ABI4-Full-Armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -464,7 +464,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Bankmovie-2.2-ABI4-Full-Arm64-v8a
-          path: output/Bankmovie-v2.2-ABI4-Full-Arm64-v8a.apk
+          path: output/Bankmovie-v2.3-ABI4-Full-Arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -472,7 +472,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Bankmovie-2.2-ABI4-Full-X86
-          path: output/Bankmovie-v2.2-ABI4-Full-X86.apk
+          path: output/Bankmovie-v2.3-ABI4-Full-X86.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -480,7 +480,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Bankmovie-2.2-ABI4-Full-X86_64
-          path: output/Bankmovie-v2.2-ABI4-Full-X86_64.apk
+          path: output/Bankmovie-v2.3-ABI4-Full-X86_64.apk
           if-no-files-found: error
           retention-days: 30
 
