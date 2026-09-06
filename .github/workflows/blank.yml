@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 TV Global Focus V6 Lifecycle Root
+name: Build BankMovie 2.3 TV Global Focus V6.5 Strict
 
 on:
   workflow_dispatch:
@@ -9,11 +9,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-tv-global-focus-v6-lifecycle-root-${{ github.ref }}
+  group: bankmovie-2.3-tv-global-focus-v6-5-strict-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V6-LIFECYCLE-ROOT-SOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V6.5-FOUR-SURFACE-ROOT-SOURCE.zip
+  SOURCE_SHA256: 849ca8c1e99ff6331bf0566caa9b4637ae02d06652d71650fe5f85499eef6807
 
 jobs:
   build:
@@ -32,48 +33,42 @@ jobs:
           project_dir=""
           source_zip=""
 
-          # The exact hotfix archive always wins over stale extracted source.
-          if [[ -s "$workspace/$SOURCE_ZIP" ]]; then
-            source_zip="$workspace/$SOURCE_ZIP"
-          else
-            # Also support a normal repository or a project nested one level deeper.
-            build_file="$(find "$workspace" -maxdepth 6 -type f -path '*/app/build.gradle' \
-              ! -path '*/app/build/*' -print -quit || true)"
-            if [[ -n "$build_file" ]]; then
-              project_dir="$(dirname "$(dirname "$build_file")")"
-              echo "::notice::Android project found in repository: $project_dir"
-            else
-              source_zip="$(find "$workspace" -maxdepth 6 -type f \
-                -iname '*Bankmovie*SOURCE*.zip' -print -quit || true)"
-            fi
-          fi
-
-          if [[ -n "$source_zip" ]]; then
-            echo "::notice::Using source archive: ${source_zip#$workspace/}"
-            if ! unzip -tq "$source_zip" >/dev/null; then
-              echo "::error::The source archive is damaged or is not a valid ZIP: $source_zip"
-              exit 1
-            fi
-            extract_dir="$RUNNER_TEMP/bankmovie-source-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
-            mkdir -p "$extract_dir"
-            unzip -q "$source_zip" -d "$extract_dir"
-            build_file="$(find "$extract_dir" -type f -path '*/app/build.gradle' \
-              ! -path '*/app/build/*' -print -quit || true)"
-            if [[ -z "$build_file" ]]; then
-              echo "::error::The ZIP does not contain an Android app/build.gradle file."
-              unzip -Z1 "$source_zip" | head -n 120
-              exit 1
-            fi
-            project_dir="$(dirname "$(dirname "$build_file")")"
-            echo "::notice::Android project extracted to: $project_dir"
-          fi
-
-          if [[ -z "$project_dir" ]]; then
-            echo "::error::Android project and Bankmovie SOURCE ZIP were not found. Upload the exact $SOURCE_ZIP or commit the extracted GLOBAL-FOCUS-V6-LIFECYCLE-ROOT project."
-            echo "Files found in repository:"
-            find "$workspace" -maxdepth 3 -type f -printf '%P\n' | sort | sed -n '1,120p'
+          # STRICT V2.3 SOURCE SELECTION: never fall back to any older Bankmovie SOURCE ZIP.
+          source_zip="$workspace/$SOURCE_ZIP"
+          if [[ ! -s "$source_zip" ]]; then
+            echo "::error::Exact BankMovie 2.3 source archive is missing: $SOURCE_ZIP"
+            echo "::error::No fallback archive will be selected. Remove/ignore old 2.2 ZIPs and upload the exact 2.3 V6.5 ZIP."
+            echo "Bankmovie SOURCE archives currently in repository:"
+            find "$workspace" -maxdepth 6 -type f -iname '*Bankmovie*SOURCE*.zip' -printf '%P\n' | sort || true
             exit 1
           fi
+
+          echo "::notice::Using exact source archive: ${source_zip#$workspace/}"
+          actual_source_sha="$(sha256sum "$source_zip" | awk '{print $1}')"
+          if [[ "$actual_source_sha" != "$SOURCE_SHA256" ]]; then
+            echo "::error::Source ZIP checksum mismatch. Expected $SOURCE_SHA256, got $actual_source_sha"
+            echo "::error::This prevents GitHub Actions from silently building a stale file with the same name."
+            exit 1
+          fi
+          echo "::notice::Source ZIP SHA-256 verified: $actual_source_sha"
+
+          if ! unzip -tq "$source_zip" >/dev/null; then
+            echo "::error::The source archive is damaged or is not a valid ZIP: $source_zip"
+            exit 1
+          fi
+          extract_dir="$RUNNER_TEMP/bankmovie-source-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          rm -rf "$extract_dir"
+          mkdir -p "$extract_dir"
+          unzip -q "$source_zip" -d "$extract_dir"
+          build_file="$(find "$extract_dir" -type f -path '*/app/build.gradle' \
+            ! -path '*/app/build/*' -print -quit || true)"
+          if [[ -z "$build_file" ]]; then
+            echo "::error::The exact 2.3 ZIP does not contain Android app/build.gradle."
+            unzip -Z1 "$source_zip" | head -n 120
+            exit 1
+          fi
+          project_dir="$(dirname "$(dirname "$build_file")")"
+          echo "::notice::Android 2.3 project extracted to: $project_dir"
 
           required_files=(
             app/build.gradle
@@ -87,11 +82,14 @@ jobs:
             BANKMOVIE_TV_FOCUS_FLOW_V2_FIX_FA.md
             BANKMOVIE_TV_FOCUS_FLOW_V5_ROOT_REGISTRY_FIX_FA.md
             BANKMOVIE_TV_FOCUS_FLOW_V6_LIFECYCLE_ROOT_FIX_FA.md
+            BANKMOVIE_TV_FOCUS_SURFACES_V6_5_ROOT_FIX_FA.md
+            BANKMOVIE_BUILD_SOURCE_2_3.txt
             verify_tv_right_sidenav_focus_fix.sh
             verify_tv_global_focus_bootstrap_fix.sh
             verify_tv_focus_flow_v2.sh
             verify_tv_focus_flow_v5.sh
             verify_tv_focus_flow_v6.sh
+            verify_tv_focus_surfaces_v65.sh
           )
           for required in "${required_files[@]}"; do
             if [[ ! -s "$project_dir/$required" ]]; then
@@ -243,11 +241,12 @@ jobs:
           bash verify_tv_global_focus_bootstrap_fix.sh
           bash verify_tv_focus_flow_v2.sh
           bash verify_tv_focus_flow_v6.sh
+          bash verify_tv_focus_surfaces_v65.sh
 
           # Reject the experimental Home streaming focus-chain builds that broke global TV navigation.
           stale_focus='HOME STREAMING FOCUS CHAIN|homeFirstStreaming|firstStreamingFocus|streamingFocusChain'
           if grep -n -E "$stale_focus" "$main"; then
-            echo "::error file=$main::Broken/experimental Home streaming focus-chain code detected. Use GLOBAL-FOCUS-V6-LIFECYCLE-ROOT source."
+            echo "::error file=$main::Broken/experimental Home streaming focus-chain code detected. Use GLOBAL-FOCUS-V6.5-FOUR-SURFACE-ROOT source."
             exit 1
           fi
 
@@ -265,6 +264,9 @@ jobs:
           require_fixed 'compileSdk 35' app/build.gradle
           require_fixed 'targetSdk 35' app/build.gradle
           require_fixed 'versionName "2.3"' app/build.gradle
+          require_fixed 'versionCode 5400000 + runNumber' app/build.gradle
+          require_fixed 'BankMovie 2.3' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'TV_FOCUS_SURFACES_V65_ROOT_OK' verify_tv_focus_surfaces_v65.sh
           expected_keystore_sha='b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39'
           actual_keystore_sha="$(sha256sum bankmovie_update.jks | awk '{print $1}')"
           if [[ "$actual_keystore_sha" != "$expected_keystore_sha" ]]; then
@@ -423,7 +425,7 @@ jobs:
       - name: Upload ABI2 Lite Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.2-ABI2-Lite-Universal
+          name: Bankmovie-2.3-ABI2-Lite-Universal
           path: output/Bankmovie-v2.3-ABI2-Lite-Universal.apk
           if-no-files-found: error
           retention-days: 30
@@ -431,7 +433,7 @@ jobs:
       - name: Upload ABI2 Lite Armeabi-v7a
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.2-ABI2-Lite-Armeabi-v7a
+          name: Bankmovie-2.3-ABI2-Lite-Armeabi-v7a
           path: output/Bankmovie-v2.3-ABI2-Lite-Armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
@@ -439,7 +441,7 @@ jobs:
       - name: Upload ABI2 Lite Arm64-v8a
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.2-ABI2-Lite-Arm64-v8a
+          name: Bankmovie-2.3-ABI2-Lite-Arm64-v8a
           path: output/Bankmovie-v2.3-ABI2-Lite-Arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
@@ -447,7 +449,7 @@ jobs:
       - name: Upload ABI4 Full Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.2-ABI4-Full-Universal
+          name: Bankmovie-2.3-ABI4-Full-Universal
           path: output/Bankmovie-v2.3-ABI4-Full-Universal.apk
           if-no-files-found: error
           retention-days: 30
@@ -455,7 +457,7 @@ jobs:
       - name: Upload ABI4 Full Armeabi-v7a
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.2-ABI4-Full-Armeabi-v7a
+          name: Bankmovie-2.3-ABI4-Full-Armeabi-v7a
           path: output/Bankmovie-v2.3-ABI4-Full-Armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
@@ -463,7 +465,7 @@ jobs:
       - name: Upload ABI4 Full Arm64-v8a
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.2-ABI4-Full-Arm64-v8a
+          name: Bankmovie-2.3-ABI4-Full-Arm64-v8a
           path: output/Bankmovie-v2.3-ABI4-Full-Arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
@@ -471,7 +473,7 @@ jobs:
       - name: Upload ABI4 Full X86
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.2-ABI4-Full-X86
+          name: Bankmovie-2.3-ABI4-Full-X86
           path: output/Bankmovie-v2.3-ABI4-Full-X86.apk
           if-no-files-found: error
           retention-days: 30
@@ -479,7 +481,7 @@ jobs:
       - name: Upload ABI4 Full X86_64
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.2-ABI4-Full-X86_64
+          name: Bankmovie-2.3-ABI4-Full-X86_64
           path: output/Bankmovie-v2.3-ABI4-Full-X86_64.apk
           if-no-files-found: error
           retention-days: 30
@@ -487,7 +489,7 @@ jobs:
       - name: Upload APK checksums
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.2-APK-SHA256SUMS
+          name: Bankmovie-2.3-APK-SHA256SUMS
           path: output/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
