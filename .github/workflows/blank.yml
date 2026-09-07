@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 TV Global Focus V6.7.1 Verifier Fix Strict
+name: Build BankMovie 2.3 TV Focus V6.8 Surface Rebuild Strict
 
 on:
   workflow_dispatch:
@@ -9,12 +9,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-tv-global-focus-v6-7-1-strict-${{ github.ref }}
+  group: bankmovie-2.3-tv-focus-v6-8-surface-rebuild-strict-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V6.7.1-VERIFIER-FIX-SOURCE.zip
-  SOURCE_SHA256: 26a0a9f7d9944a57cf0cabffb9fca1a1eddca5eb5cdaa09abca5ae7ba503f465
+  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V6.8-SURFACE-REBUILD-ROOT-SOURCE.zip
+  SOURCE_SHA256: 72fb180f0f89d302b1b9dc35ee0ab9f5a06135c89b501ade1e38dfd611e1ff0f
 
 jobs:
   build:
@@ -37,7 +37,7 @@ jobs:
           source_zip="$workspace/$SOURCE_ZIP"
           if [[ ! -s "$source_zip" ]]; then
             echo "::error::Exact BankMovie 2.3 source archive is missing: $SOURCE_ZIP"
-            echo "::error::No fallback archive will be selected. Remove/ignore old 2.2 ZIPs and upload the exact 2.3 V6.7 ZIP."
+            echo "::error::No fallback archive will be selected. Remove/ignore old 2.2 ZIPs and upload the exact 2.3 V6.8 Surface Rebuild ZIP."
             echo "Bankmovie SOURCE archives currently in repository:"
             find "$workspace" -maxdepth 6 -type f -iname '*Bankmovie*SOURCE*.zip' -printf '%P\n' | sort || true
             exit 1
@@ -85,6 +85,7 @@ jobs:
             BANKMOVIE_TV_FOCUS_SURFACES_V6_5_ROOT_FIX_FA.md
             BANKMOVIE_BUILD_SOURCE_2_3.txt
             BANKMOVIE_TV_FOCUS_V6_7_1_VERIFIER_COMPAT_FIX_FA.md
+            BANKMOVIE_TV_FOCUS_V6_8_SURFACE_REBUILD_FA.md
             verify_tv_right_sidenav_focus_fix.sh
             verify_tv_global_focus_bootstrap_fix.sh
             verify_tv_focus_flow_v2.sh
@@ -92,6 +93,7 @@ jobs:
             verify_tv_focus_flow_v6.sh
             verify_tv_focus_surfaces_v65.sh
             verify_tv_focus_v67.sh
+            verify_tv_focus_v68_surface_rebuild.sh
           )
           for required in "${required_files[@]}"; do
             if [[ ! -s "$project_dir/$required" ]]; then
@@ -245,11 +247,12 @@ jobs:
           bash verify_tv_focus_flow_v6.sh
           bash verify_tv_focus_surfaces_v65.sh
           bash verify_tv_focus_v67.sh
+          bash verify_tv_focus_v68_surface_rebuild.sh
 
           # Reject the experimental Home streaming focus-chain builds that broke global TV navigation.
           stale_focus='HOME STREAMING FOCUS CHAIN|homeFirstStreaming|firstStreamingFocus|streamingFocusChain'
           if grep -n -E "$stale_focus" "$main"; then
-            echo "::error file=$main::Broken/experimental Home streaming focus-chain code detected. Use GLOBAL-FOCUS-V6.7-NATIVE-FIRST-ROOT source."
+            echo "::error file=$main::Broken/experimental Home streaming focus-chain code detected. Use the V6.8 SURFACE-REBUILD-ROOT source."
             exit 1
           fi
 
@@ -269,13 +272,20 @@ jobs:
           require_fixed 'versionName "2.3"' app/build.gradle
           require_fixed 'versionCode 5400000 + runNumber' app/build.gradle
           require_fixed 'versionName=2.3' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'focusPatch=V6.7 NATIVE-FIRST ROOT' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'verifierPatch=V6.7.1 COMPAT CHAIN FIX' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'sourceTag=BANKMOVIE-TV-2.3-V671-20260906' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'focusPatch=V6.8 SURFACE REBUILD ROOT' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'verifierPatch=V6.8 MANAGED SURFACES' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'sourceTag=BANKMOVIE-TV-2.3-V68-20260907' BANKMOVIE_BUILD_SOURCE_2_3.txt
           require_fixed 'TV_FOCUS_SURFACES_V65_ROOT_OK' verify_tv_focus_surfaces_v65.sh
-          require_fixed 'TV_FOCUS_V67_NATIVE_FIRST_ROOT_OK' verify_tv_focus_v67.sh
-          if grep -Fq 'bash verify_tv_focus_v66_video_root.sh' verify_tv_focus_flow_v2.sh && ! grep -Fq 'elif [[ -x verify_tv_focus_v66_video_root.sh ]]' verify_tv_focus_flow_v2.sh; then
-            echo '::error::Stale direct V6.6 verifier chain detected in verify_tv_focus_flow_v2.sh'
+          require_fixed 'TV_FOCUS_V68_SURFACE_REBUILD_ROOT_OK' verify_tv_focus_v68_surface_rebuild.sh
+          require_fixed 'private fun handleV68ManagedSurfaceDirectionalFocus(focused: View, keyCode: Int): Boolean?' "$main"
+          require_fixed 'tag = "bm_v68_surface_boxoffice"' "$main"
+          require_fixed 'view.tag = "bm_v68_weekly_tab_$index"' "$main"
+          require_fixed 'view.tag = "bm_v68_weekly_item_$index"' "$main"
+          require_fixed 'tag = "bm_v68_continue_full_item_$index"' "$main"
+          require_fixed 'fun wireAdvancedFiltersTvV68()' "$main"
+          require_fixed 'applyTvFocusToClickableTree(body, buildDirectionalGraph = genericTvRouting)' "$main"
+          if ! grep -Fq 'focusPatch=V6.8 SURFACE REBUILD ROOT' verify_tv_focus_surfaces_v65.sh; then
+            echo '::error::V6.8 compatibility guard is missing from the verifier chain.'
             exit 1
           fi
           expected_keystore_sha='b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39'
@@ -324,7 +334,7 @@ jobs:
           fi
           find server-required -type f -name '*.php' \
             -exec sh -ec 'for php_file do php -l "$php_file"; done' sh {} +
-          echo "::notice::Source, TV side navigation, global focus bootstrap, V6 lifecycle root focus, row-aware focus, controller/download separation, UI spacing, sticker, Cast removal, XML, JSON and PHP checks passed."
+          echo "::notice::Source, V6.8 managed TV focus surfaces, V6 lifecycle compatibility, side navigation, UI, security, XML, JSON and PHP checks passed."
 
       - name: Build ABI2 Lite releases
         shell: bash
