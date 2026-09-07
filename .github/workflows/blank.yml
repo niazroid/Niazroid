@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 TV Focus V7.0 Weekly Profile Root Strict
+name: Build BankMovie 2.3 TV Focus V7.1 Profile About Drawer Preview Strict
 
 on:
   workflow_dispatch:
@@ -9,12 +9,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-tv-focus-v7-0-weekly-profile-root-strict-${{ github.ref }}
+  group: bankmovie-2.3-tv-focus-v7-1-profile-about-drawer-preview-strict-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V7.0-WEEKLY-PROFILE-ROOT-SOURCE.zip
-  SOURCE_SHA256: a48d5fc9f720ae6f083dd94abc1dc0cee57df519f843d6a1c1677592c276f6e9
+  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V7.1-PROFILE-ABOUT-DRAWER-PREVIEW-SOURCE.zip
+  SOURCE_SHA256: b59597a3b4d601f86508810e3b8db1bbc0001d75874318aeda3a23a892e5cf30
 
 jobs:
   build:
@@ -37,7 +37,7 @@ jobs:
           source_zip="$workspace/$SOURCE_ZIP"
           if [[ ! -s "$source_zip" ]]; then
             echo "::error::Exact BankMovie 2.3 source archive is missing: $SOURCE_ZIP"
-            echo "::error::No fallback archive will be selected. Remove/ignore old 2.2 ZIPs and upload the exact 2.3 V7.0 Weekly Profile Root ZIP."
+            echo "::error::No fallback archive will be selected. Remove/ignore old 2.2 ZIPs and upload the exact 2.3 V7.1 Profile/About Drawer Preview ZIP."
             echo "Bankmovie SOURCE archives currently in repository:"
             find "$workspace" -maxdepth 6 -type f -iname '*Bankmovie*SOURCE*.zip' -printf '%P\n' | sort || true
             exit 1
@@ -87,6 +87,13 @@ jobs:
             BANKMOVIE_TV_FOCUS_V6_7_1_VERIFIER_COMPAT_FIX_FA.md
             BANKMOVIE_TV_FOCUS_V6_8_SURFACE_REBUILD_FA.md
             BANKMOVIE_TV_FOCUS_V7_0_WEEKLY_PROFILE_ROOT_FA.md
+            BANKMOVIE_TV_FOCUS_V7_1_PROFILE_ABOUT_DRAWER_PREVIEW_FA.md
+            app/src/main/res/drawable/ic_tv_nav_home_preview.xml
+            app/src/main/res/drawable/ic_tv_nav_search_preview.xml
+            app/src/main/res/drawable/ic_tv_nav_boxoffice_preview.xml
+            app/src/main/res/drawable/ic_tv_nav_download_preview.xml
+            app/src/main/res/drawable/ic_tv_nav_profile_preview.xml
+            app/src/main/res/drawable/ic_tv_nav_favorites_preview.xml
             verify_tv_right_sidenav_focus_fix.sh
             verify_tv_global_focus_bootstrap_fix.sh
             verify_tv_focus_flow_v2.sh
@@ -96,6 +103,7 @@ jobs:
             verify_tv_focus_v67.sh
             verify_tv_focus_v68_surface_rebuild.sh
             verify_tv_focus_v70_weekly_profile.sh
+            verify_tv_focus_v71_profile_about_drawer.sh
           )
           for required in "${required_files[@]}"; do
             if [[ ! -s "$project_dir/$required" ]]; then
@@ -232,7 +240,8 @@ jobs:
           require_fixed 'private fun requestTvInitialScreenFocus' "$main"
           require_fixed 'releaseTvFocusScrollGuards(content)' "$main"
           require_fixed '"search" -> content.findViewWithTag<View>("bm_tv_search_input")' "$main"
-          require_fixed '"profile" -> content.findViewWithTag<View>("bm_tv_profile_primary")' "$main"
+          require_fixed '"profile" -> content.findViewWithTag<View>("bm_v71_about_row_0")' "$main"
+          require_fixed '?: content.findViewWithTag<View>("bm_tv_profile_primary")' "$main"
           require_fixed 'tag = "bm_tv_search_input"' "$main"
           require_fixed 'tag = "bm_tv_profile_primary"' "$main"
           require_fixed 'private fun wireHomePosterRows()' "$main"
@@ -251,11 +260,12 @@ jobs:
           bash verify_tv_focus_v67.sh
           bash verify_tv_focus_v68_surface_rebuild.sh
           bash verify_tv_focus_v70_weekly_profile.sh
+          bash verify_tv_focus_v71_profile_about_drawer.sh
 
           # Reject the experimental Home streaming focus-chain builds that broke global TV navigation.
           stale_focus='HOME STREAMING FOCUS CHAIN|homeFirstStreaming|firstStreamingFocus|streamingFocusChain'
           if grep -n -E "$stale_focus" "$main"; then
-            echo "::error file=$main::Broken/experimental Home streaming focus-chain code detected. Use the V7.0 WEEKLY-PROFILE-ROOT source."
+            echo "::error file=$main::Broken/experimental Home streaming focus-chain code detected. Use the V7.1 PROFILE-ABOUT-DRAWER-PREVIEW source."
             exit 1
           fi
 
@@ -275,11 +285,21 @@ jobs:
           require_fixed 'versionName "2.3"' app/build.gradle
           require_fixed 'versionCode 5400000 + runNumber' app/build.gradle
           require_fixed 'versionName=2.3' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'focusPatch=V7.0 WEEKLY PROFILE ROOT' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'verifierPatch=V7.0 LIVE-WEEKLY + RTL-PROFILE ROUTER' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'sourceTag=BANKMOVIE-TV-2.3-V70-20260907' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'focusPatch=V7.1 PROFILE ABOUT DRAWER PREVIEW ROOT' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'verifierPatch=V7.1 FIRST-FOCUS BOOTSTRAP + ABOUT LIST + TV DRAWER SVG PREVIEW' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'sourceTag=BANKMOVIE-TV-2.3-V71-20260907' BANKMOVIE_BUILD_SOURCE_2_3.txt
           require_fixed 'TV_FOCUS_SURFACES_V65_ROOT_OK' verify_tv_focus_surfaces_v65.sh
-          require_fixed 'TV_FOCUS_V70_WEEKLY_PROFILE_ROOT_OK' verify_tv_focus_v70_weekly_profile.sh
+          require_fixed 'TV_FOCUS_V71_PROFILE_ABOUT_DRAWER_PREVIEW_OK' verify_tv_focus_v71_profile_about_drawer.sh
+          require_fixed 'private fun wireV71ProfileBootstrapSurface(page: View)' "$main"
+          require_fixed 'private fun activateV71ProfileBootstrap(page: View)' "$main"
+          require_fixed 'private fun wireV71AboutSurface(page: View)' "$main"
+          require_fixed 'tag = "bm_v71_about_row_0"' "$main"
+          require_fixed 'Pair("home", R.drawable.ic_tv_nav_home_preview)' "$main"
+          require_fixed 'Pair("search", R.drawable.ic_tv_nav_search_preview)' "$main"
+          require_fixed 'Pair("boxoffice", R.drawable.ic_tv_nav_boxoffice_preview)' "$main"
+          require_fixed 'Pair("downloads", R.drawable.ic_tv_nav_download_preview)' "$main"
+          require_fixed 'Pair("profile", R.drawable.ic_tv_nav_profile_preview)' "$main"
+          require_fixed 'Pair("favorites", R.drawable.ic_tv_nav_favorites_preview)' "$main"
           require_fixed 'private fun handleV70WeeklyProfileDirectionalFocus(focused: View, keyCode: Int): Boolean?' "$main"
           require_fixed 'registration.section.tag = "bm_v70_surface_weekly"' "$main"
           require_fixed 'tab.tag = "bm_v70_weekly_tab_$index"' "$main"
@@ -292,8 +312,8 @@ jobs:
           require_fixed 'fun wireAdvancedFiltersTvV68()' "$main"
           require_fixed 'tag = "bm_v68_surface_boxoffice"' "$main"
           require_fixed 'applyTvFocusToClickableTree(body, buildDirectionalGraph = genericTvRouting)' "$main"
-          if ! grep -Fq 'focusPatch=V7.0 WEEKLY PROFILE ROOT' verify_tv_focus_surfaces_v65.sh; then
-            echo '::error::V7.0 compatibility guard is missing from the verifier chain.'
+          if ! grep -Fq 'focusPatch=V7.1 PROFILE ABOUT DRAWER PREVIEW ROOT' verify_tv_focus_surfaces_v65.sh; then
+            echo '::error::V7.1 compatibility guard is missing from the verifier chain.'
             exit 1
           fi
           expected_keystore_sha='b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39'
@@ -342,7 +362,7 @@ jobs:
           fi
           find server-required -type f -name '*.php' \
             -exec sh -ec 'for php_file do php -l "$php_file"; done' sh {} +
-          echo "::notice::Source, V7.0 Weekly/Profile root focus, V6 lifecycle compatibility, side navigation, UI, security, XML, JSON and PHP checks passed."
+          echo "::notice::Source, V7.1 Profile/About first-focus bootstrap, TV drawer SVG preview, V7.0 Weekly/Profile compatibility, V6 lifecycle, UI, security, XML, JSON and PHP checks passed."
 
       - name: Build ABI2 Lite releases
         shell: bash
