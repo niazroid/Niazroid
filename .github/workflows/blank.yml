@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 TV Focus V6.8 Surface Rebuild Strict
+name: Build BankMovie 2.3 TV Focus V6.9 Weekly Continue Root Strict
 
 on:
   workflow_dispatch:
@@ -9,12 +9,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-tv-focus-v6-8-surface-rebuild-strict-${{ github.ref }}
+  group: bankmovie-2.3-tv-focus-v6-9-weekly-continue-root-strict-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V6.8-SURFACE-REBUILD-ROOT-SOURCE.zip
-  SOURCE_SHA256: 72fb180f0f89d302b1b9dc35ee0ab9f5a06135c89b501ade1e38dfd611e1ff0f
+  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V6.9-WEEKLY-CONTINUE-ROOT-SOURCE.zip
+  SOURCE_SHA256: 04cd9f1a3ca8784cd07588059c6e495061e37763d086e8a64fd100d4648bdc73
 
 jobs:
   build:
@@ -37,7 +37,7 @@ jobs:
           source_zip="$workspace/$SOURCE_ZIP"
           if [[ ! -s "$source_zip" ]]; then
             echo "::error::Exact BankMovie 2.3 source archive is missing: $SOURCE_ZIP"
-            echo "::error::No fallback archive will be selected. Remove/ignore old 2.2 ZIPs and upload the exact 2.3 V6.8 Surface Rebuild ZIP."
+            echo "::error::No fallback archive will be selected. Remove/ignore old 2.2 ZIPs and upload the exact 2.3 V6.9 Weekly Continue Root ZIP."
             echo "Bankmovie SOURCE archives currently in repository:"
             find "$workspace" -maxdepth 6 -type f -iname '*Bankmovie*SOURCE*.zip' -printf '%P\n' | sort || true
             exit 1
@@ -86,6 +86,7 @@ jobs:
             BANKMOVIE_BUILD_SOURCE_2_3.txt
             BANKMOVIE_TV_FOCUS_V6_7_1_VERIFIER_COMPAT_FIX_FA.md
             BANKMOVIE_TV_FOCUS_V6_8_SURFACE_REBUILD_FA.md
+            BANKMOVIE_TV_FOCUS_V6_9_WEEKLY_CONTINUE_ROOT_FA.md
             verify_tv_right_sidenav_focus_fix.sh
             verify_tv_global_focus_bootstrap_fix.sh
             verify_tv_focus_flow_v2.sh
@@ -94,6 +95,7 @@ jobs:
             verify_tv_focus_surfaces_v65.sh
             verify_tv_focus_v67.sh
             verify_tv_focus_v68_surface_rebuild.sh
+            verify_tv_focus_v69_weekly_continue.sh
           )
           for required in "${required_files[@]}"; do
             if [[ ! -s "$project_dir/$required" ]]; then
@@ -248,11 +250,12 @@ jobs:
           bash verify_tv_focus_surfaces_v65.sh
           bash verify_tv_focus_v67.sh
           bash verify_tv_focus_v68_surface_rebuild.sh
+          bash verify_tv_focus_v69_weekly_continue.sh
 
           # Reject the experimental Home streaming focus-chain builds that broke global TV navigation.
           stale_focus='HOME STREAMING FOCUS CHAIN|homeFirstStreaming|firstStreamingFocus|streamingFocusChain'
           if grep -n -E "$stale_focus" "$main"; then
-            echo "::error file=$main::Broken/experimental Home streaming focus-chain code detected. Use the V6.8 SURFACE-REBUILD-ROOT source."
+            echo "::error file=$main::Broken/experimental Home streaming focus-chain code detected. Use the V6.9 WEEKLY-CONTINUE-ROOT source."
             exit 1
           fi
 
@@ -272,20 +275,21 @@ jobs:
           require_fixed 'versionName "2.3"' app/build.gradle
           require_fixed 'versionCode 5400000 + runNumber' app/build.gradle
           require_fixed 'versionName=2.3' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'focusPatch=V6.8 SURFACE REBUILD ROOT' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'verifierPatch=V6.8 MANAGED SURFACES' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'sourceTag=BANKMOVIE-TV-2.3-V68-20260907' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'focusPatch=V6.9 WEEKLY CONTINUE ROOT' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'verifierPatch=V6.9 WEEKLY+CONTINUE DIRECT ROUTER' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'sourceTag=BANKMOVIE-TV-2.3-V69-20260907' BANKMOVIE_BUILD_SOURCE_2_3.txt
           require_fixed 'TV_FOCUS_SURFACES_V65_ROOT_OK' verify_tv_focus_surfaces_v65.sh
-          require_fixed 'TV_FOCUS_V68_SURFACE_REBUILD_ROOT_OK' verify_tv_focus_v68_surface_rebuild.sh
-          require_fixed 'private fun handleV68ManagedSurfaceDirectionalFocus(focused: View, keyCode: Int): Boolean?' "$main"
-          require_fixed 'tag = "bm_v68_surface_boxoffice"' "$main"
-          require_fixed 'view.tag = "bm_v68_weekly_tab_$index"' "$main"
-          require_fixed 'view.tag = "bm_v68_weekly_item_$index"' "$main"
-          require_fixed 'tag = "bm_v68_continue_full_item_$index"' "$main"
+          require_fixed 'TV_FOCUS_V69_WEEKLY_CONTINUE_ROOT_OK' verify_tv_focus_v69_weekly_continue.sh
+          require_fixed 'private fun handleV69WeeklyContinueDirectionalFocus(focused: View, keyCode: Int): Boolean?' "$main"
+          require_fixed 'tag == "bm_v69_surface_weekly"' "$main"
+          require_fixed 'tab.tag = "bm_v69_weekly_tab_$index"' "$main"
+          require_fixed 'item.tag = "bm_v69_weekly_item_$index"' "$main"
+          require_fixed 'card.tag = "bm_v69_continue_rail_item_$index"' "$main"
           require_fixed 'fun wireAdvancedFiltersTvV68()' "$main"
+          require_fixed 'tag = "bm_v68_surface_boxoffice"' "$main"
           require_fixed 'applyTvFocusToClickableTree(body, buildDirectionalGraph = genericTvRouting)' "$main"
-          if ! grep -Fq 'focusPatch=V6.8 SURFACE REBUILD ROOT' verify_tv_focus_surfaces_v65.sh; then
-            echo '::error::V6.8 compatibility guard is missing from the verifier chain.'
+          if ! grep -Fq 'focusPatch=V6.9 WEEKLY CONTINUE ROOT' verify_tv_focus_surfaces_v65.sh; then
+            echo '::error::V6.9 compatibility guard is missing from the verifier chain.'
             exit 1
           fi
           expected_keystore_sha='b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39'
@@ -334,7 +338,7 @@ jobs:
           fi
           find server-required -type f -name '*.php' \
             -exec sh -ec 'for php_file do php -l "$php_file"; done' sh {} +
-          echo "::notice::Source, V6.8 managed TV focus surfaces, V6 lifecycle compatibility, side navigation, UI, security, XML, JSON and PHP checks passed."
+          echo "::notice::Source, V6.9 Weekly/Continue root focus, V6 lifecycle compatibility, side navigation, UI, security, XML, JSON and PHP checks passed."
 
       - name: Build ABI2 Lite releases
         shell: bash
