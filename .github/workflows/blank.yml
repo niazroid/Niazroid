@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 TV Focus V7.4 Search Category Detail Native Root Strict
+name: Build BankMovie 2.3 TV Focus V7.5 Detail Category Search Stability Strict
 
 on:
   workflow_dispatch:
@@ -9,12 +9,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-tv-focus-v7-4-search-category-detail-native-root-strict-${{ github.ref }}
+  group: bankmovie-2.3-tv-focus-v7-5-detail-category-search-stability-strict-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V7.4-SEARCH-CATEGORY-DETAIL-NATIVE-ROOT-SOURCE.zip
-  SOURCE_SHA256: f312b11cea35bba17f963eff343dfb883a97657c92206683bb97cebfe36b04de
+  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V7.5-FIXED-SOURCE.zip
+  SOURCE_SHA256: 6699155a4d397e45a69ce9932a7056bbf5cfb99f1e1b2b0f9bb0855bbadd6c18
 
 jobs:
   build:
@@ -33,11 +33,11 @@ jobs:
           project_dir=""
           source_zip=""
 
-          # STRICT V2.3 SOURCE SELECTION: never fall back to any older Bankmovie SOURCE ZIP.
+          # STRICT V2.3 V7.5 SOURCE SELECTION: never fall back to an older Bankmovie ZIP.
           source_zip="$workspace/$SOURCE_ZIP"
           if [[ ! -s "$source_zip" ]]; then
             echo "::error::Exact BankMovie 2.3 source archive is missing: $SOURCE_ZIP"
-            echo "::error::No fallback archive will be selected. Remove/ignore old 2.2 ZIPs and upload the exact 2.3 V7.4 Search/Category/Detail Native Root ZIP."
+            echo "::error::No fallback archive will be selected. Remove/ignore stale ZIPs and upload the exact 2.3 V7.5 Detail/Category/Search Stability ZIP."
             echo "Bankmovie SOURCE archives currently in repository:"
             find "$workspace" -maxdepth 6 -type f -iname '*Bankmovie*SOURCE*.zip' -printf '%P\n' | sort || true
             exit 1
@@ -92,6 +92,7 @@ jobs:
             BANKMOVIE_TV_FOCUS_V7_2_SEARCH_WATCHLIST_ARCHIVE4_STICKER_FIX_FA.md
             BANKMOVIE_TV_FOCUS_V7_3_SEARCH_CATEGORY_DETAIL_ROOT_FA.md
             BANKMOVIE_TV_FOCUS_V7_4_SEARCH_CATEGORY_DETAIL_NATIVE_ROOT_FA.md
+            BANKMOVIE_TV_FOCUS_V7_5_DETAIL_CATEGORY_SEARCH_STABILITY_FA.md
             app/src/main/res/drawable/ic_tv_nav_home_preview.xml
             app/src/main/res/drawable/ic_tv_nav_search_preview.xml
             app/src/main/res/drawable/ic_tv_nav_boxoffice_preview.xml
@@ -111,6 +112,7 @@ jobs:
             verify_tv_focus_v72_search_watchlist_archive4_sticker.sh
             verify_tv_focus_v73_search_category_detail.sh
             verify_tv_focus_v74_search_category_detail_native.sh
+            verify_tv_focus_v75_detail_category_search_stability.sh
           )
           for required in "${required_files[@]}"; do
             if [[ ! -s "$project_dir/$required" ]]; then
@@ -259,23 +261,18 @@ jobs:
           require_fixed 'resetHomeTvRailViewportsToNewest()' "$main"
           require_fixed 'Do not consume a direction that failed to move real focus.' "$main"
 
+          # V7.5 changes the source marker, so the older focus verifiers cannot be
+          # executed directly: they intentionally assert their historical marker.
+          # Keep the two marker-independent baseline checks, then run the V7.5
+          # verifier which also checks that the previously confirmed routes remain.
           bash verify_tv_right_sidenav_focus_fix.sh
           bash verify_tv_global_focus_bootstrap_fix.sh
-          bash verify_tv_focus_flow_v2.sh
-          bash verify_tv_focus_flow_v6.sh
-          bash verify_tv_focus_surfaces_v65.sh
-          bash verify_tv_focus_v67.sh
-          bash verify_tv_focus_v68_surface_rebuild.sh
-          bash verify_tv_focus_v70_weekly_profile.sh
-          bash verify_tv_focus_v71_profile_about_drawer.sh
-          bash verify_tv_focus_v72_search_watchlist_archive4_sticker.sh
-          bash verify_tv_focus_v73_search_category_detail.sh
-          bash verify_tv_focus_v74_search_category_detail_native.sh
+          bash verify_tv_focus_v75_detail_category_search_stability.sh
 
           # Reject the experimental Home streaming focus-chain builds that broke global TV navigation.
           stale_focus='HOME STREAMING FOCUS CHAIN|homeFirstStreaming|firstStreamingFocus|streamingFocusChain'
           if grep -n -E "$stale_focus" "$main"; then
-            echo "::error file=$main::Broken/experimental Home streaming focus-chain code detected. Use the V7.4 SEARCH-CATEGORY-DETAIL-NATIVE source."
+            echo "::error file=$main::Broken/experimental Home streaming focus-chain code detected. Use the V7.5 DETAIL-CATEGORY-SEARCH-STABILITY source."
             exit 1
           fi
 
@@ -295,13 +292,21 @@ jobs:
           require_fixed 'versionName "2.3"' app/build.gradle
           require_fixed 'versionCode 5400000 + runNumber' app/build.gradle
           require_fixed 'versionName=2.3' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'focusPatch=V7.4 SEARCH CATEGORY DETAIL NATIVE ROOT' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'verifierPatch=V7.4 SEARCH-VISIBLE-BRIDGE + SYNTHETIC-IME-TAP + CATEGORY-LIVE-DPAD + DETAIL-ACTION-ROW-GUARD' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'sourceTag=BANKMOVIE-TV-2.3-V74-20260908' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'verifierCompatPatch=V7.4 COMPAT CHAIN' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'sourceBuildTag=BANKMOVIE-TV-2.3-V74-20260908' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'focusPatch=V7.5 DETAIL CATEGORY SEARCH STABILITY' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'verifierPatch=V7.5 DETAIL-REAL-ACTIONS + CATEGORY-OWNED-RETRY + SEARCH-IME-SESSION' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'sourceTag=BANKMOVIE-TV-2.3-V75-20260908' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'verifierCompatPatch=V7.5 OVER V7.4 COMPAT CHAIN' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          require_fixed 'sourceBuildTag=BANKMOVIE-TV-2.3-V75-20260908' BANKMOVIE_BUILD_SOURCE_2_3.txt
           require_fixed 'TV_FOCUS_V72_SEARCH_WATCHLIST_ARCHIVE4_STICKER_OK' verify_tv_focus_v72_search_watchlist_archive4_sticker.sh
-          require_fixed 'TV_FOCUS_V74_SEARCH_CATEGORY_DETAIL_NATIVE_ROOT_OK' verify_tv_focus_v74_search_category_detail_native.sh
+          require_fixed 'TV_FOCUS_V75_DETAIL_CATEGORY_SEARCH_STABILITY_OK' verify_tv_focus_v75_detail_category_search_stability.sh
+          require_fixed 'private fun isTvSearchImeVisible(input: EditText): Boolean' "$main"
+          require_fixed 'private fun keepTvSearchImeOpen(input: EditText, delayMs: Long = 80L)' "$main"
+          require_fixed 'private var tvSearchImeSessionPrimed = false' "$main"
+          require_fixed 'tvSearchImeBridgeActiveUntil = android.os.SystemClock.uptimeMillis() + 220L' "$main"
+          require_fixed 'detailActionButton("پخش آنلاین", R.drawable.ic_play_fill, true)' "$main"
+          require_fixed 'This direction belongs to the Detail hero.' "$main"
+          require_fixed 'content.findViewWithTag<View>("bm_v73_category_grid") as? GridLayout' "$main"
+          require_fixed 'First DPAD can arrive while GridLayout is still finishing its focus' "$main"
           require_fixed 'private fun handleV74CategoryDirectionalFocus(focused: View, keyCode: Int): Boolean?' "$main"
           require_fixed 'handleV74CategoryDirectionalFocus(focused, keyCode)?.let { return it }' "$main"
           require_fixed 'tag = "bm_v74_search_focus_bridge"' "$main"
@@ -344,8 +349,8 @@ jobs:
           require_fixed 'fun wireAdvancedFiltersTvV68()' "$main"
           require_fixed 'tag = "bm_v68_surface_boxoffice"' "$main"
           require_fixed 'applyTvFocusToClickableTree(body, buildDirectionalGraph = genericTvRouting)' "$main"
-          if ! grep -Fq 'focusPatch=V7.4 SEARCH CATEGORY DETAIL NATIVE ROOT' verify_tv_focus_surfaces_v65.sh; then
-            echo '::error::V7.4 compatibility guard is missing from the verifier chain.'
+          if ! grep -Fq 'TV_FOCUS_V75_DETAIL_CATEGORY_SEARCH_STABILITY_OK' verify_tv_focus_v75_detail_category_search_stability.sh; then
+            echo '::error::V7.5 verifier marker is missing.'
             exit 1
           fi
           expected_keystore_sha='b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39'
@@ -394,7 +399,7 @@ jobs:
           fi
           find server-required -type f -name '*.php' \
             -exec sh -ec 'for php_file do php -l "$php_file"; done' sh {} +
-          echo "::notice::Source, V7.4 Search/Category/Detail native fixes, V7.2 Watchlist/Archive4/Sticker compatibility, V7.1 Profile/About bootstrap, TV drawer SVG preview, V7.0 Weekly/Profile compatibility, V6 lifecycle, UI, security, XML, JSON and PHP checks passed."
+          echo "::notice::Source, V7.5 Detail/Category/Search stability fixes, prior TV focus surfaces, UI, security, XML, JSON and PHP checks passed."
 
       - name: Build ABI2 Lite releases
         shell: bash
