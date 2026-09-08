@@ -121,41 +121,168 @@ jobs:
           cd "$PROJECT_DIR"
           gradle --no-daemon --stacktrace assembleAbi4FullRelease
 
-      - name: Collect APKs and checksums
+      - name: Collect and verify signed APKs
         shell: bash
         run: |
           set -euo pipefail
-
-          rm -rf output
           mkdir -p output
+          rm -f output/*
 
           apk_root="$PROJECT_DIR/app/build/outputs/apk"
           if [[ ! -d "$apk_root" ]]; then
             echo "::error::Gradle produced no APK output directory: $apk_root"
+            find "$PROJECT_DIR/app/build/outputs" -maxdepth 5 -type f -printf '%P\n' 2>/dev/null | sort | head -n 120 || true
             exit 1
           fi
 
-          while IFS= read -r -d '' apk; do
-            rel="${apk#"$apk_root"/}"
-            safe_name="${rel//\//-}"
-            cp "$apk" "output/$safe_name"
-          done < <(find "$apk_root" -type f -name '*.apk' -print0)
+          mapfile -d '' built_apks < <(find "$apk_root" -type f -iname '*.apk' -print0)
+          if [[ ${#built_apks[@]} -eq 0 ]]; then
+            echo "::error::Gradle completed but no APK files were found below: $apk_root"
+            exit 1
+          fi
+
+          for apk in "${built_apks[@]}"; do
+            full_lower="${apk,,}"
+            base="$(basename "$apk")"
+            base_lower="${base,,}"
+
+            case "$full_lower" in
+              *abi2lite*) edition="ABI2-Lite" ;;
+              *abi4full*) edition="ABI4-Full" ;;
+              *)
+                echo "::warning::Skipping APK with unknown edition: $apk"
+                continue
+                ;;
+            esac
+
+            case "$base_lower" in
+              *universal*) abi="Universal" ;;
+              *arm64-v8a*) abi="Arm64-v8a" ;;
+              *armeabi-v7a*) abi="Armeabi-v7a" ;;
+              *x86_64*) abi="X86_64" ;;
+              *x86*) abi="X86" ;;
+              *)
+                echo "::error::Cannot identify APK ABI from filename: $base"
+                exit 1
+                ;;
+            esac
+
+            target="output/Bankmovie-v2.3-$edition-$abi.apk"
+            if [[ -e "$target" ]]; then
+              echo "::error::More than one APK maps to output file: $target"
+              exit 1
+            fi
+            cp "$apk" "$target"
+            echo "Collected: ${apk#$PROJECT_DIR/} -> $target"
+          done
+
+          expected=(
+            Bankmovie-v2.3-ABI2-Lite-Universal.apk
+            Bankmovie-v2.3-ABI2-Lite-Armeabi-v7a.apk
+            Bankmovie-v2.3-ABI2-Lite-Arm64-v8a.apk
+            Bankmovie-v2.3-ABI4-Full-Universal.apk
+            Bankmovie-v2.3-ABI4-Full-Armeabi-v7a.apk
+            Bankmovie-v2.3-ABI4-Full-Arm64-v8a.apk
+            Bankmovie-v2.3-ABI4-Full-X86.apk
+            Bankmovie-v2.3-ABI4-Full-X86_64.apk
+          )
+
+          for apk in "${expected[@]}"; do
+            if [[ ! -s "output/$apk" ]]; then
+              echo "::error::Expected APK was not generated: $apk"
+              find "$apk_root" -type f -iname '*.apk' -printf '%P\n' | sort
+              exit 1
+            fi
+          done
 
           apk_count="$(find output -maxdepth 1 -type f -name '*.apk' | wc -l)"
-          if [[ "$apk_count" -eq 0 ]]; then
-            echo "::error::No APK was generated"
+          if [[ "$apk_count" -ne 8 ]]; then
+            echo "::error::Expected exactly 8 APKs, collected $apk_count."
+            find output -maxdepth 1 -type f -name '*.apk' -printf '%f\n' | sort
             exit 1
           fi
 
-          sha256sum output/*.apk | tee output/SHA256SUMS.txt
-          echo "::notice::Collected $apk_count APK file(s)."
+          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          if [[ -z "$apksigner" || ! -x "$apksigner" ]]; then
+            echo "::error::Android apksigner was not found below $ANDROID_HOME/build-tools."
+            exit 1
+          fi
 
-      - name: Upload APKs
+          while IFS= read -r apk; do
+            "$apksigner" verify --verbose --print-certs "$apk"
+          done < <(find output -type f -name '*.apk' | sort)
+
+          sha256sum output/*.apk | tee output/SHA256SUMS.txt
+          echo "::notice::All 8 APK files were found and their signatures verified."
+
+      - name: Upload ABI2 Lite Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.6.1-APKs
-          path: |
-            output/*.apk
-            output/SHA256SUMS.txt
+          name: Bankmovie-2.3-ABI2-Lite-Universal
+          path: output/Bankmovie-v2.3-ABI2-Lite-Universal.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ABI2 Lite Armeabi-v7a
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.3-ABI2-Lite-Armeabi-v7a
+          path: output/Bankmovie-v2.3-ABI2-Lite-Armeabi-v7a.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ABI2 Lite Arm64-v8a
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.3-ABI2-Lite-Arm64-v8a
+          path: output/Bankmovie-v2.3-ABI2-Lite-Arm64-v8a.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ABI4 Full Universal
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.3-ABI4-Full-Universal
+          path: output/Bankmovie-v2.3-ABI4-Full-Universal.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ABI4 Full Armeabi-v7a
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.3-ABI4-Full-Armeabi-v7a
+          path: output/Bankmovie-v2.3-ABI4-Full-Armeabi-v7a.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ABI4 Full Arm64-v8a
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.3-ABI4-Full-Arm64-v8a
+          path: output/Bankmovie-v2.3-ABI4-Full-Arm64-v8a.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ABI4 Full X86
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.3-ABI4-Full-X86
+          path: output/Bankmovie-v2.3-ABI4-Full-X86.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ABI4 Full X86_64
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.3-ABI4-Full-X86_64
+          path: output/Bankmovie-v2.3-ABI4-Full-X86_64.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload APK checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.3-APK-SHA256SUMS
+          path: output/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
