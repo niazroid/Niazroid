@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 TV Focus V7.6.1 Video Root Fix
+name: Build BankMovie 2.3 TV Focus V7.7 Video Native FocusSearch Fix
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-tv-focus-v761-${{ github.ref }}
+  group: bankmovie-2.3-tv-focus-v77-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V7.6.1-VIDEO-ROOT-FIXED-SOURCE.zip
-  SOURCE_SHA256: 1b83327be1268982dbc43e7647537e0fa3356c16f20782ed304202fd9774c310
+  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V7.7-VIDEO-NATIVE-FOCUSSEARCH-FIXED-SOURCE.zip
+  SOURCE_SHA256: 96d28c2baf550cd36f57f71cf0b5347fad1bfea029024955457f9bd4bd116291
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.6.1 source
+      - name: Locate and verify exact V7.7 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v761-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v77-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,23 +85,24 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.6.1 video fixes
+      - name: Verify V7.7 video native focus fixes
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_tv_focus_v761_video_first_char.sh || {
-            echo "::error::V7.6.1 verifier is missing"
+          test -s verify_tv_focus_v77_video_native_focussearch.sh || {
+            echo "::error::V7.7 verifier is missing"
             exit 1
           }
 
-          bash verify_tv_focus_v761_video_first_char.sh
+          bash verify_tv_focus_v77_video_native_focussearch.sh
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
-          grep -Fq 'V7.6.1 FIRST-CHAR FIX' "$main"
-          grep -Fq 'wireV76DetailActionRow(actions, primaryAction, trailerAction, favoriteAction)' "$main"
-          grep -Fq 'wireV76CategoryHubGrid(grid)' "$main"
+          grep -Fq 'V7.7 NATIVE FOCUSSEARCH + TV SEARCH SUBMIT' "$main"
+          grep -Fq 'tag = "bm_v77_category_hub_grid"' "$main"
+          grep -Fq 'tag = "bm_v77_detail_actions"' "$main"
+          grep -Fq 'suppressTvDetailBackFocus' "$main"
 
       - name: Build ABI2 Lite releases
         shell: bash
