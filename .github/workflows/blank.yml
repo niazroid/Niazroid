@@ -3,13 +3,14 @@ name: Build BankMovie 2.3 TV Focus V7.6.1 Video Root Fix
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
 
 permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-tv-focus-v761-\4{{ github.ref }}
+  group: bankmovie-2.3-tv-focus-v761-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -20,6 +21,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,17 +30,39 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          source_zip="\4GITHUB_WORKSPACE/\4SOURCE_ZIP"
-          test -s "\4source_zip" || { echo "::error::Missing \4SOURCE_ZIP"; exit 1; }
-          actual="\4(sha256sum "\4source_zip" | awk '{print \41}')"
-          [[ "\4actual" == "\4SOURCE_SHA256" ]] || { echo "::error::SHA mismatch: \4actual"; exit 1; }
-          unzip -tq "\4source_zip" >/dev/null
-          extract="\4RUNNER_TEMP/bankmovie-v761"
-          rm -rf "\4extract" && mkdir -p "\4extract"
-          unzip -q "\4source_zip" -d "\4extract"
-          project="\4extract/bankmovie_src"
-          test -s "\4project/app/build.gradle" || { echo "::error::app/build.gradle missing"; exit 1; }
-          echo "PROJECT_DIR=\4project" >> "\4GITHUB_ENV"
+
+          source_zip="$GITHUB_WORKSPACE/$SOURCE_ZIP"
+
+          if [[ ! -s "$source_zip" ]]; then
+            echo "::error::Missing source ZIP: $SOURCE_ZIP"
+            echo "Files in repository root:"
+            find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -printf '%f\n' | sort
+            exit 1
+          fi
+
+          actual_sha="$(sha256sum "$source_zip" | awk '{print $1}')"
+          if [[ "$actual_sha" != "$SOURCE_SHA256" ]]; then
+            echo "::error::Source SHA-256 mismatch. Expected $SOURCE_SHA256, got $actual_sha"
+            exit 1
+          fi
+
+          unzip -tq "$source_zip" >/dev/null
+
+          extract_dir="$RUNNER_TEMP/bankmovie-v761-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          rm -rf "$extract_dir"
+          mkdir -p "$extract_dir"
+          unzip -q "$source_zip" -d "$extract_dir"
+
+          build_file="$(find "$extract_dir" -type f -path '*/app/build.gradle' ! -path '*/app/build/*' -print -quit || true)"
+          if [[ -z "$build_file" ]]; then
+            echo "::error::app/build.gradle was not found inside $SOURCE_ZIP"
+            exit 1
+          fi
+
+          project_dir="$(dirname "$(dirname "$build_file")")"
+          echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
+          echo "::notice::Using Android project: $project_dir"
+          echo "::notice::Source SHA-256 verified: $actual_sha"
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -52,6 +76,7 @@ jobs:
       - name: Install Android SDK 35
         shell: bash
         run: |
+          set -euo pipefail
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
 
@@ -64,11 +89,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cd "\4PROJECT_DIR"
+          cd "$PROJECT_DIR"
+
+          test -s verify_tv_focus_v761_video_first_char.sh || {
+            echo "::error::V7.6.1 verifier is missing"
+            exit 1
+          }
+
           bash verify_tv_focus_v761_video_first_char.sh
-          grep -Fq 'V7.6.1 FIRST-CHAR FIX' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -Fq 'wireV76DetailActionRow(actions, primaryAction, trailerAction, favoriteAction)' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -Fq 'wireV76CategoryHubGrid(grid)' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+
+          main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
+          grep -Fq 'V7.6.1 FIRST-CHAR FIX' "$main"
+          grep -Fq 'wireV76DetailActionRow(actions, primaryAction, trailerAction, favoriteAction)' "$main"
+          grep -Fq 'wireV76CategoryHubGrid(grid)' "$main"
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -76,7 +109,7 @@ jobs:
           BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a
         run: |
           set -euo pipefail
-          cd "\4PROJECT_DIR"
+          cd "$PROJECT_DIR"
           gradle --no-daemon --stacktrace clean assembleAbi2LiteRelease
 
       - name: Build ABI4 Full releases
@@ -85,18 +118,37 @@ jobs:
           BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a,x86,x86_64
         run: |
           set -euo pipefail
-          cd "\4PROJECT_DIR"
+          cd "$PROJECT_DIR"
           gradle --no-daemon --stacktrace assembleAbi4FullRelease
 
       - name: Collect APKs and checksums
         shell: bash
         run: |
           set -euo pipefail
+
+          rm -rf output
           mkdir -p output
-          find "\4PROJECT_DIR/app/build/outputs/apk" -type f -name '*.apk' -exec cp {} output/ \;
-          count="\4(find output -type f -name '*.apk' | wc -l)"
-          [[ "\4count" -gt 0 ]] || { echo '::error::No APK generated'; exit 1; }
+
+          apk_root="$PROJECT_DIR/app/build/outputs/apk"
+          if [[ ! -d "$apk_root" ]]; then
+            echo "::error::Gradle produced no APK output directory: $apk_root"
+            exit 1
+          fi
+
+          while IFS= read -r -d '' apk; do
+            rel="${apk#"$apk_root"/}"
+            safe_name="${rel//\//-}"
+            cp "$apk" "output/$safe_name"
+          done < <(find "$apk_root" -type f -name '*.apk' -print0)
+
+          apk_count="$(find output -maxdepth 1 -type f -name '*.apk' | wc -l)"
+          if [[ "$apk_count" -eq 0 ]]; then
+            echo "::error::No APK was generated"
+            exit 1
+          fi
+
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
+          echo "::notice::Collected $apk_count APK file(s)."
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4
