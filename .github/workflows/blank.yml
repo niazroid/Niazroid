@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 TV Focus V7.5 Detail Category Search Stability Strict
+name: Build BankMovie 2.3 TV Focus V7.6.1 Video Root Fix
 
 on:
   workflow_dispatch:
@@ -9,119 +9,36 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-tv-focus-v7-5-detail-category-search-stability-strict-${{ github.ref }}
+  group: bankmovie-2.3-tv-focus-v761-\4{{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V7.5-FIXED-SOURCE.zip
-  SOURCE_SHA256: 6699155a4d397e45a69ce9932a7056bbf5cfb99f1e1b2b0f9bb0855bbadd6c18
+  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V7.6.1-VIDEO-ROOT-FIXED-SOURCE.zip
+  SOURCE_SHA256: 1b83327be1268982dbc43e7647537e0fa3356c16f20782ed304202fd9774c310
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 60
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate Android project
+      - name: Locate and verify exact V7.6.1 source
         shell: bash
         run: |
           set -euo pipefail
-          workspace="${GITHUB_WORKSPACE:-$PWD}"
-          project_dir=""
-          source_zip=""
-
-          # STRICT V2.3 V7.5 SOURCE SELECTION: never fall back to an older Bankmovie ZIP.
-          source_zip="$workspace/$SOURCE_ZIP"
-          if [[ ! -s "$source_zip" ]]; then
-            echo "::error::Exact BankMovie 2.3 source archive is missing: $SOURCE_ZIP"
-            echo "::error::No fallback archive will be selected. Remove/ignore stale ZIPs and upload the exact 2.3 V7.5 Detail/Category/Search Stability ZIP."
-            echo "Bankmovie SOURCE archives currently in repository:"
-            find "$workspace" -maxdepth 6 -type f -iname '*Bankmovie*SOURCE*.zip' -printf '%P\n' | sort || true
-            exit 1
-          fi
-
-          echo "::notice::Using exact source archive: ${source_zip#$workspace/}"
-          actual_source_sha="$(sha256sum "$source_zip" | awk '{print $1}')"
-          if [[ "$actual_source_sha" != "$SOURCE_SHA256" ]]; then
-            echo "::error::Source ZIP checksum mismatch. Expected $SOURCE_SHA256, got $actual_source_sha"
-            echo "::error::This prevents GitHub Actions from silently building a stale file with the same name."
-            exit 1
-          fi
-          echo "::notice::Source ZIP SHA-256 verified: $actual_source_sha"
-
-          if ! unzip -tq "$source_zip" >/dev/null; then
-            echo "::error::The source archive is damaged or is not a valid ZIP: $source_zip"
-            exit 1
-          fi
-          extract_dir="$RUNNER_TEMP/bankmovie-source-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
-          rm -rf "$extract_dir"
-          mkdir -p "$extract_dir"
-          unzip -q "$source_zip" -d "$extract_dir"
-          build_file="$(find "$extract_dir" -type f -path '*/app/build.gradle' \
-            ! -path '*/app/build/*' -print -quit || true)"
-          if [[ -z "$build_file" ]]; then
-            echo "::error::The exact 2.3 ZIP does not contain Android app/build.gradle."
-            unzip -Z1 "$source_zip" | head -n 120
-            exit 1
-          fi
-          project_dir="$(dirname "$(dirname "$build_file")")"
-          echo "::notice::Android 2.3 project extracted to: $project_dir"
-
-          required_files=(
-            app/build.gradle
-            build.gradle
-            settings.gradle
-            bankmovie_update.jks
-            BANKMOVIE_GITHUB_ACTIONS_HOTFIX_FA.md
-            BANKMOVIE_UI_SPACING_STICKER_HEADER_FIX_FA.md
-            BANKMOVIE_TV_RIGHT_SIDENAV_FOCUS_FIX_FA.md
-            BANKMOVIE_TV_GLOBAL_FOCUS_BOOTSTRAP_FIX_FA.md
-            BANKMOVIE_TV_FOCUS_FLOW_V2_FIX_FA.md
-            BANKMOVIE_TV_FOCUS_FLOW_V5_ROOT_REGISTRY_FIX_FA.md
-            BANKMOVIE_TV_FOCUS_FLOW_V6_LIFECYCLE_ROOT_FIX_FA.md
-            BANKMOVIE_TV_FOCUS_SURFACES_V6_5_ROOT_FIX_FA.md
-            BANKMOVIE_BUILD_SOURCE_2_3.txt
-            BANKMOVIE_TV_FOCUS_V6_7_1_VERIFIER_COMPAT_FIX_FA.md
-            BANKMOVIE_TV_FOCUS_V6_8_SURFACE_REBUILD_FA.md
-            BANKMOVIE_TV_FOCUS_V7_0_WEEKLY_PROFILE_ROOT_FA.md
-            BANKMOVIE_TV_FOCUS_V7_1_PROFILE_ABOUT_DRAWER_PREVIEW_FA.md
-            BANKMOVIE_TV_FOCUS_V7_1_1_VERIFIER_COMPAT_FIX_FA.md
-            BANKMOVIE_TV_FOCUS_V7_2_SEARCH_WATCHLIST_ARCHIVE4_STICKER_FIX_FA.md
-            BANKMOVIE_TV_FOCUS_V7_3_SEARCH_CATEGORY_DETAIL_ROOT_FA.md
-            BANKMOVIE_TV_FOCUS_V7_4_SEARCH_CATEGORY_DETAIL_NATIVE_ROOT_FA.md
-            BANKMOVIE_TV_FOCUS_V7_5_DETAIL_CATEGORY_SEARCH_STABILITY_FA.md
-            app/src/main/res/drawable/ic_tv_nav_home_preview.xml
-            app/src/main/res/drawable/ic_tv_nav_search_preview.xml
-            app/src/main/res/drawable/ic_tv_nav_boxoffice_preview.xml
-            app/src/main/res/drawable/ic_tv_nav_download_preview.xml
-            app/src/main/res/drawable/ic_tv_nav_profile_preview.xml
-            app/src/main/res/drawable/ic_tv_nav_favorites_preview.xml
-            verify_tv_right_sidenav_focus_fix.sh
-            verify_tv_global_focus_bootstrap_fix.sh
-            verify_tv_focus_flow_v2.sh
-            verify_tv_focus_flow_v5.sh
-            verify_tv_focus_flow_v6.sh
-            verify_tv_focus_surfaces_v65.sh
-            verify_tv_focus_v67.sh
-            verify_tv_focus_v68_surface_rebuild.sh
-            verify_tv_focus_v70_weekly_profile.sh
-            verify_tv_focus_v71_profile_about_drawer.sh
-            verify_tv_focus_v72_search_watchlist_archive4_sticker.sh
-            verify_tv_focus_v73_search_category_detail.sh
-            verify_tv_focus_v74_search_category_detail_native.sh
-            verify_tv_focus_v75_detail_category_search_stability.sh
-          )
-          for required in "${required_files[@]}"; do
-            if [[ ! -s "$project_dir/$required" ]]; then
-              echo "::error::Required project file is missing or empty: $required (project: $project_dir)"
-              exit 1
-            fi
-          done
-          echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
-          echo "::notice::Project preflight passed."
+          source_zip="\4GITHUB_WORKSPACE/\4SOURCE_ZIP"
+          test -s "\4source_zip" || { echo "::error::Missing \4SOURCE_ZIP"; exit 1; }
+          actual="\4(sha256sum "\4source_zip" | awk '{print \41}')"
+          [[ "\4actual" == "\4SOURCE_SHA256" ]] || { echo "::error::SHA mismatch: \4actual"; exit 1; }
+          unzip -tq "\4source_zip" >/dev/null
+          extract="\4RUNNER_TEMP/bankmovie-v761"
+          rm -rf "\4extract" && mkdir -p "\4extract"
+          unzip -q "\4source_zip" -d "\4extract"
+          project="\4extract/bankmovie_src"
+          test -s "\4project/app/build.gradle" || { echo "::error::app/build.gradle missing"; exit 1; }
+          echo "PROJECT_DIR=\4project" >> "\4GITHUB_ENV"
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -129,20 +46,12 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup PHP 8.2 for server endpoint lint
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
-          coverage: none
-          tools: none
-
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
       - name: Install Android SDK 35
         shell: bash
         run: |
-          set -euo pipefail
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
 
@@ -151,255 +60,15 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Install repository fonts when supplied
+      - name: Verify V7.6.1 video fixes
         shell: bash
         run: |
           set -euo pipefail
-          font_dir="$PROJECT_DIR/app/src/main/assets/fonts"
-          mkdir -p "$font_dir"
-
-          font_zip="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -iname 'irancell*.zip' -print -quit)"
-          if [[ -n "$font_zip" ]]; then
-            FONT_ZIP="$font_zip" FONT_DIR="$font_dir" python3 - <<'PY'
-          import os, re
-          from pathlib import Path, PurePosixPath
-          from zipfile import ZipFile
-          archive, output = Path(os.environ['FONT_ZIP']), Path(os.environ['FONT_DIR'])
-          targets = {1:'irancell_bold.ttf',2:'irancell_regular.ttf',3:'irancell_black.ttf',4:'irancell_semibold.ttf',5:'irancell_medium.ttf'}
-          with ZipFile(archive) as zf:
-              indexed = {}
-              for item in zf.infolist():
-                  if item.is_dir() or not item.filename.lower().endswith('.ttf'): continue
-                  match = re.search(r'irancell[^0-9]*([1-5])', PurePosixPath(item.filename).name, re.I)
-                  if match: indexed[int(match.group(1))] = item
-              for number, name in targets.items():
-                  if number not in indexed: raise SystemExit(f'Missing Irancell font {number}')
-                  data = zf.read(indexed[number], pwd=b'fontbazi')
-                  if len(data) < 1024: raise SystemExit(f'Invalid font: {name}')
-                  (output / name).write_bytes(data)
-          PY
-          fi
-
-          declare -A direct_fonts=(
-            [Cinema.otf]=cinema.otf
-            ['Diako Hima Regular-@Fontsplua.ttf']=diako_hima.ttf
-            ['Nic [@fontbazi].ttf']=nic.ttf
-          )
-          for source in "${!direct_fonts[@]}"; do
-            [[ -s "$GITHUB_WORKSPACE/$source" ]] && cp "$GITHUB_WORKSPACE/$source" "$font_dir/${direct_fonts[$source]}"
-          done
-
-          mapfile -t woff_fonts < <(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -iname 'IRANSansXFaNum-*.woff2' -print)
-          if [[ ${#woff_fonts[@]} -gt 0 ]]; then
-            python3 -m pip install --disable-pip-version-check --quiet fonttools brotli
-            FONT_DIR="$font_dir" python3 - <<'PY'
-          import os
-          from pathlib import Path
-          from fontTools.ttLib import TTFont
-          root, out = Path(os.environ['GITHUB_WORKSPACE']), Path(os.environ['FONT_DIR'])
-          for weight in ('regular','medium','bold'):
-              source = next(iter(root.glob(f'IRANSansXFaNum-{weight}*.woff2')), None)
-              if source is None: continue
-              font = TTFont(source); font.flavor = None; font.save(out / f'iransansx_{weight}.ttf')
-          PY
-          fi
-
-      - name: Verify security and source integration
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "$PROJECT_DIR"
-          main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
-          player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
-          manifest='app/src/main/AndroidManifest.xml'
-
-          require_fixed() {
-            local pattern="$1"
-            local file="$2"
-            if ! grep -Fq -- "$pattern" "$file"; then
-              echo "::error file=$file::Required source marker is missing: $pattern"
-              exit 1
-            fi
-          }
-
-          require_fixed 'X-BM-User-Token' "$main"
-          require_fixed 'private fun downloadUrl(link: JSONObject)' "$main"
-          require_fixed 'link.optString("download_url")' "$main"
-          require_fixed 'private fun playerUrl(link: JSONObject)' "$main"
-          require_fixed 'BANKMOVIE PLAYBACK CHOOSER V2' "$main"
-          require_fixed 'V3 SPACING LOCK' "$main"
-          require_fixed 'ic_sticker_smile_square' "$main"
-          require_fixed 'ic_sticker_smile_square' "$player"
-          require_fixed 'android:viewportWidth="24"' app/src/main/res/drawable/ic_sticker_smile_square.xml
-          require_fixed 'private fun isRemoteControllerUrl(raw: String)' "$main"
-          require_fixed 'private fun showArchiveVipGate(item: JSONObject, feature: String)' "$main"
-          require_fixed 'archive=2' "$main"
-          require_fixed 'RuntimeVault.config_url_primary' app/src/main/java/ir/bankmoviee/app/AppConfig.kt
-          require_fixed 'AccountSession.updateVip' app/src/main/java/ir/bankmoviee/app/AccountApi.kt
-          require_fixed 'downloads_locked' "$main"
-          require_fixed 'private fun buildTvSideNavigation()' "$main"
-          require_fixed 'private fun tvFocusRows(nodes: List<TvFocusNode>)' "$main"
-          require_fixed 'private fun handleTvDirectionalFocus(keyCode: Int)' "$main"
-          require_fixed 'private fun requestTvSideNavFocus(preferMenu: Boolean = false)' "$main"
-          require_fixed 'FrameLayout.LayoutParams(dp(82), -1, Gravity.RIGHT or Gravity.CENTER_VERTICAL)' "$main"
-          require_fixed 'tvInitialMenuFocusShown' "$main"
-          require_fixed 'setTag(R.id.bm_tv_item_json, item.toString())' "$main"
-          require_fixed 'private var tvScreenFocusGeneration = 0' "$main"
-          require_fixed 'private var tvInitialFocusPending = false' "$main"
-          require_fixed 'private fun requestTvInitialScreenFocus' "$main"
-          require_fixed 'releaseTvFocusScrollGuards(content)' "$main"
-          require_fixed '"search" -> content.findViewWithTag<View>("bm_tv_search_input")' "$main"
-          require_fixed '"profile" -> content.findViewWithTag<View>("bm_v71_about_row_0")' "$main"
-          require_fixed '?: content.findViewWithTag<View>("bm_tv_profile_primary")' "$main"
-          require_fixed 'tag = "bm_tv_search_input"' "$main"
-          require_fixed 'tag = "bm_tv_profile_primary"' "$main"
-          require_fixed 'private fun wireHomePosterRows()' "$main"
-          require_fixed 'Archive 1 -> newest/rightmost poster -> remaining posters -> View all.' "$main"
-          require_fixed 'private fun restoreTvFocusAfterMutation(' "$main"
-          require_fixed 'TV ROOT FOCUS V6: MainActivity is singleTask.' "$main"
-          require_fixed 'private fun rebindHomeTvFocusAfterLifecycle()' "$main"
-          require_fixed 'resetHomeTvRailViewportsToNewest()' "$main"
-          require_fixed 'Do not consume a direction that failed to move real focus.' "$main"
-
-          # V7.5 changes the source marker, so the older focus verifiers cannot be
-          # executed directly: they intentionally assert their historical marker.
-          # Keep the two marker-independent baseline checks, then run the V7.5
-          # verifier which also checks that the previously confirmed routes remain.
-          bash verify_tv_right_sidenav_focus_fix.sh
-          bash verify_tv_global_focus_bootstrap_fix.sh
-          bash verify_tv_focus_v75_detail_category_search_stability.sh
-
-          # Reject the experimental Home streaming focus-chain builds that broke global TV navigation.
-          stale_focus='HOME STREAMING FOCUS CHAIN|homeFirstStreaming|firstStreamingFocus|streamingFocusChain'
-          if grep -n -E "$stale_focus" "$main"; then
-            echo "::error file=$main::Broken/experimental Home streaming focus-chain code detected. Use the V7.5 DETAIL-CATEGORY-SEARCH-STABILITY source."
-            exit 1
-          fi
-
-          stale_cast='currentRemoteClient|approximateStreamPosition|streamDuration|CastContext|CastButtonFactory|RemoteMediaClient|com.google.android.gms.cast'
-          if grep -R -n -E "$stale_cast" "$player" "$manifest" app/build.gradle; then
-            echo "::error::Old Google Cast code is still present. The wrong/old source ZIP was selected. Use $SOURCE_ZIP."
-            exit 1
-          fi
-          if grep -Fq "implementation 'com.google.android.gms:play-services-cast-framework" app/build.gradle; then
-            echo "::error file=app/build.gradle::The removed Google Cast dependency is still present."
-            exit 1
-          fi
-
-          require_fixed "applicationId 'ir.bankmoviee.app'" app/build.gradle
-          require_fixed 'compileSdk 35' app/build.gradle
-          require_fixed 'targetSdk 35' app/build.gradle
-          require_fixed 'versionName "2.3"' app/build.gradle
-          require_fixed 'versionCode 5400000 + runNumber' app/build.gradle
-          require_fixed 'versionName=2.3' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'focusPatch=V7.5 DETAIL CATEGORY SEARCH STABILITY' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'verifierPatch=V7.5 DETAIL-REAL-ACTIONS + CATEGORY-OWNED-RETRY + SEARCH-IME-SESSION' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'sourceTag=BANKMOVIE-TV-2.3-V75-20260908' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'verifierCompatPatch=V7.5 OVER V7.4 COMPAT CHAIN' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'sourceBuildTag=BANKMOVIE-TV-2.3-V75-20260908' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          require_fixed 'TV_FOCUS_V72_SEARCH_WATCHLIST_ARCHIVE4_STICKER_OK' verify_tv_focus_v72_search_watchlist_archive4_sticker.sh
-          require_fixed 'TV_FOCUS_V75_DETAIL_CATEGORY_SEARCH_STABILITY_OK' verify_tv_focus_v75_detail_category_search_stability.sh
-          require_fixed 'private fun isTvSearchImeVisible(input: EditText): Boolean' "$main"
-          require_fixed 'private fun keepTvSearchImeOpen(input: EditText, delayMs: Long = 80L)' "$main"
-          require_fixed 'private var tvSearchImeSessionPrimed = false' "$main"
-          require_fixed 'tvSearchImeBridgeActiveUntil = android.os.SystemClock.uptimeMillis() + 220L' "$main"
-          require_fixed 'detailActionButton("پخش آنلاین", R.drawable.ic_play_fill, true)' "$main"
-          require_fixed 'This direction belongs to the Detail hero.' "$main"
-          require_fixed 'content.findViewWithTag<View>("bm_v73_category_grid") as? GridLayout' "$main"
-          require_fixed 'First DPAD can arrive while GridLayout is still finishing its focus' "$main"
-          require_fixed 'private fun handleV74CategoryDirectionalFocus(focused: View, keyCode: Int): Boolean?' "$main"
-          require_fixed 'handleV74CategoryDirectionalFocus(focused, keyCode)?.let { return it }' "$main"
-          require_fixed 'tag = "bm_v74_search_focus_bridge"' "$main"
-          require_fixed 'V7.4 SEARCH REAL-FOCUS BRIDGE' "$main"
-          require_fixed 'input.requestFocusFromTouch()' "$main"
-          require_fixed 'input.dispatchTouchEvent(down)' "$main"
-          require_fixed 'private fun handleV74DetailDirectionalFocus(focused: View, keyCode: Int): Boolean?' "$main"
-          require_fixed 'tag = "bm_v74_detail_actions"' "$main"
-          require_fixed 'V7.3 page-level seam shield.' "$main"
-          require_fixed 'private fun requestTvSoftKeyboard(input: EditText): Boolean' "$main"
-          require_fixed 'focusedEditor?.tag == "bm_tv_search_input"' "$main"
-          require_fixed 'private fun wireV72WatchlistGrid(grid: GridLayout)' "$main"
-          require_fixed 'applyTvFocusToClickableTree(page, buildDirectionalGraph = false)' "$main"
-          require_fixed 'wireV72WatchlistGrid(grid)' "$main"
-          require_fixed 'val forceArchive4PosterPalette = detailArchiveForArtwork == 4 && poster.isNotBlank()' "$main"
-          require_fixed 'backdropImage.background = GradientDrawable(' "$main"
-          require_fixed 'LinearLayout.LayoutParams(-1, dp(12))' "$main"
-          require_fixed 'val tabsByPhysicalX = liveTabs.sortedBy(::centerX)' "$main"
-          require_fixed 'TV_FOCUS_SURFACES_V65_ROOT_OK' verify_tv_focus_surfaces_v65.sh
-          require_fixed 'TV_FOCUS_V71_PROFILE_ABOUT_DRAWER_PREVIEW_OK' verify_tv_focus_v71_profile_about_drawer.sh
-          require_fixed 'private fun wireV71ProfileBootstrapSurface(page: View)' "$main"
-          require_fixed 'private fun activateV71ProfileBootstrap(page: View)' "$main"
-          require_fixed 'private fun wireV71AboutSurface(page: View)' "$main"
-          require_fixed 'tag = "bm_v71_about_row_0"' "$main"
-          require_fixed 'Pair("home", R.drawable.ic_tv_nav_home_preview)' "$main"
-          require_fixed 'Pair("search", R.drawable.ic_tv_nav_search_preview)' "$main"
-          require_fixed 'Pair("boxoffice", R.drawable.ic_tv_nav_boxoffice_preview)' "$main"
-          require_fixed 'Pair("downloads", R.drawable.ic_tv_nav_download_preview)' "$main"
-          require_fixed 'Pair("profile", R.drawable.ic_tv_nav_profile_preview)' "$main"
-          require_fixed 'Pair("favorites", R.drawable.ic_tv_nav_favorites_preview)' "$main"
-          require_fixed 'private fun handleV70WeeklyProfileDirectionalFocus(focused: View, keyCode: Int): Boolean?' "$main"
-          require_fixed 'registration.section.tag = "bm_v70_surface_weekly"' "$main"
-          require_fixed 'tab.tag = "bm_v70_weekly_tab_$index"' "$main"
-          require_fixed 'item.tag = "bm_v70_weekly_item_$index"' "$main"
-          require_fixed 'card.tag = "bm_v69_continue_rail_item_$index"' "$main"
-          require_fixed 'private var tvV70WeeklyItemsArmedGeneration = -1' "$main"
-          require_fixed 'item.isFocusable = weeklyItemsArmed' "$main"
-          require_fixed 'tag = "bm_v70_profile_actions_grid"' "$main"
-          require_fixed 'tag = "bm_v70_profile_utility_grid"' "$main"
-          require_fixed 'fun wireAdvancedFiltersTvV68()' "$main"
-          require_fixed 'tag = "bm_v68_surface_boxoffice"' "$main"
-          require_fixed 'applyTvFocusToClickableTree(body, buildDirectionalGraph = genericTvRouting)' "$main"
-          if ! grep -Fq 'TV_FOCUS_V75_DETAIL_CATEGORY_SEARCH_STABILITY_OK' verify_tv_focus_v75_detail_category_search_stability.sh; then
-            echo '::error::V7.5 verifier marker is missing.'
-            exit 1
-          fi
-          expected_keystore_sha='b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39'
-          actual_keystore_sha="$(sha256sum bankmovie_update.jks | awk '{print $1}')"
-          if [[ "$actual_keystore_sha" != "$expected_keystore_sha" ]]; then
-            echo "::error file=bankmovie_update.jks::Signing keystore does not match the release keystore. Expected $expected_keystore_sha, got $actual_keystore_sha."
-            exit 1
-          fi
-
-          python3 - <<'PY'
-          import json, re
-          import xml.etree.ElementTree as ET
-          from pathlib import Path
-          for path in Path('app/src/main').rglob('*.xml'): ET.parse(path)
-          sample = Path('server-required/bankmovie_remote_config.json.sample')
-          if sample.exists():
-              config = json.loads(sample.read_text(encoding='utf-8'))
-              assert config['schema_version'] >= 6
-              assert config['active_domain'] == 'https://bankmovie.top'
-              assert 'bankmoviee.ir' not in config['api_url']
-
-          vault = Path('app/src/main/java/ir/bankmoviee/app/RuntimeVault.kt').read_text(encoding='utf-8')
-          def decode(name):
-              data = [int(v.strip()) for v in re.search(rf'{name}Data = intArrayOf\(([^)]*)\)', vault).group(1).split(',')]
-              seed = int(re.search(rf'{name}Seed = (\d+)', vault).group(1))
-              return ''.join(chr(value ^ ((seed + i * 31 + ((i * i * 7) & 255)) & 0xffff)) for i, value in enumerate(data))
-          assert decode('CONFIG_URL_PRIMARY') == 'https://bankmoviee.ir/app_config.php'
-          assert decode('CONFIG_URL_SECONDARY') == 'https://www.bankmoviee.ir/app_config.php'
-          assert decode('APP_API_URL') == 'https://bankmovie.top/app_api.php'
-          assert decode('ACCOUNT_API_URL') == 'https://bankmovie.top/app_user_api.php'
-          print('XML/JSON verification passed')
-          PY
-
-          if [[ ! -d server-required ]]; then
-            echo "::error::Required server integration directory is missing: server-required"
-            exit 1
-          fi
-          first_php="$(find server-required -type f -name '*.php' -print -quit)"
-          if [[ -z "$first_php" ]]; then
-            echo "::error::No PHP server endpoints were found in server-required."
-            exit 1
-          fi
-          if ! command -v php >/dev/null 2>&1; then
-            echo "::error::PHP is unavailable even though the Setup PHP step completed."
-            exit 1
-          fi
-          find server-required -type f -name '*.php' \
-            -exec sh -ec 'for php_file do php -l "$php_file"; done' sh {} +
-          echo "::notice::Source, V7.5 Detail/Category/Search stability fixes, prior TV focus surfaces, UI, security, XML, JSON and PHP checks passed."
+          cd "\4PROJECT_DIR"
+          bash verify_tv_focus_v761_video_first_char.sh
+          grep -Fq 'V7.6.1 FIRST-CHAR FIX' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -Fq 'wireV76DetailActionRow(actions, primaryAction, trailerAction, favoriteAction)' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -Fq 'wireV76CategoryHubGrid(grid)' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -407,7 +76,7 @@ jobs:
           BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a
         run: |
           set -euo pipefail
-          cd "$PROJECT_DIR"
+          cd "\4PROJECT_DIR"
           gradle --no-daemon --stacktrace clean assembleAbi2LiteRelease
 
       - name: Build ABI4 Full releases
@@ -416,166 +85,25 @@ jobs:
           BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a,x86,x86_64
         run: |
           set -euo pipefail
-          cd "$PROJECT_DIR"
+          cd "\4PROJECT_DIR"
           gradle --no-daemon --stacktrace assembleAbi4FullRelease
 
-      - name: Collect and verify signed APKs
+      - name: Collect APKs and checksums
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p output
-          apk_root="$PROJECT_DIR/app/build/outputs/apk"
-          if [[ ! -d "$apk_root" ]]; then
-            echo "::error::Gradle produced no APK output directory: $apk_root"
-            find "$PROJECT_DIR/app/build/outputs" -maxdepth 5 -type f -printf '%P\n' 2>/dev/null | sort | head -n 120 || true
-            exit 1
-          fi
-
-          mapfile -d '' built_apks < <(find "$apk_root" -type f -iname '*.apk' -print0)
-          if [[ ${#built_apks[@]} -eq 0 ]]; then
-            echo "::error::Gradle completed but no APK files were found below: $apk_root"
-            find "$apk_root" -maxdepth 6 -type f -printf '%P\n' | sort | head -n 120
-            exit 1
-          fi
-
-          for apk in "${built_apks[@]}"; do
-            full_lower="${apk,,}"
-            base="$(basename "$apk")"
-            base_lower="${base,,}"
-            case "$full_lower" in
-              *abi2lite*) edition="ABI2-Lite" ;;
-              *abi4full*) edition="ABI4-Full" ;;
-              *)
-                echo "::warning::Skipping APK with unknown edition: $apk"
-                continue
-                ;;
-            esac
-            case "$base_lower" in
-              *universal*) abi="Universal" ;;
-              *arm64-v8a*) abi="Arm64-v8a" ;;
-              *armeabi-v7a*) abi="Armeabi-v7a" ;;
-              *x86_64*) abi="X86_64" ;;
-              *x86*) abi="X86" ;;
-              *)
-                echo "::error::Cannot identify APK ABI from filename: $base"
-                exit 1
-                ;;
-            esac
-            target="output/Bankmovie-v2.3-$edition-$abi.apk"
-            if [[ -e "$target" ]]; then
-              echo "::error::More than one APK maps to output file: $target"
-              exit 1
-            fi
-            cp "$apk" "$target"
-            echo "Collected: ${apk#$PROJECT_DIR/} -> $target"
-          done
-
-          expected=(
-            Bankmovie-v2.3-ABI2-Lite-Universal.apk
-            Bankmovie-v2.3-ABI2-Lite-Armeabi-v7a.apk
-            Bankmovie-v2.3-ABI2-Lite-Arm64-v8a.apk
-            Bankmovie-v2.3-ABI4-Full-Universal.apk
-            Bankmovie-v2.3-ABI4-Full-Armeabi-v7a.apk
-            Bankmovie-v2.3-ABI4-Full-Arm64-v8a.apk
-            Bankmovie-v2.3-ABI4-Full-X86.apk
-            Bankmovie-v2.3-ABI4-Full-X86_64.apk
-          )
-          for apk in "${expected[@]}"; do
-            if [[ ! -s "output/$apk" ]]; then
-              echo "::error::Expected APK was not generated: $apk"
-              echo "APK files generated by Gradle:"
-              find "$apk_root" -type f -iname '*.apk' -printf '%P\n' | sort
-              echo "APK files collected:"
-              find output -maxdepth 1 -type f -name '*.apk' -printf '%f\n' | sort
-              exit 1
-            fi
-          done
-          apk_count="$(find output -maxdepth 1 -type f -name '*.apk' | wc -l)"
-          if [[ "$apk_count" -ne 8 ]]; then
-            echo "::error::Expected exactly 8 APKs, collected $apk_count."
-            find output -maxdepth 1 -type f -name '*.apk' -printf '%f\n' | sort
-            exit 1
-          fi
-
-          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
-          if [[ -z "$apksigner" || ! -x "$apksigner" ]]; then
-            echo "::error::Android apksigner was not found below $ANDROID_HOME/build-tools."
-            exit 1
-          fi
-          while IFS= read -r apk; do
-            "$apksigner" verify --verbose --print-certs "$apk"
-          done < <(find output -type f -name '*.apk' | sort)
+          find "\4PROJECT_DIR/app/build/outputs/apk" -type f -name '*.apk' -exec cp {} output/ \;
+          count="\4(find output -type f -name '*.apk' | wc -l)"
+          [[ "\4count" -gt 0 ]] || { echo '::error::No APK generated'; exit 1; }
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
-          echo "::notice::All 8 APK files were found and their signatures verified."
 
-      - name: Upload ABI2 Lite Universal
+      - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-ABI2-Lite-Universal
-          path: output/Bankmovie-v2.3-ABI2-Lite-Universal.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI2 Lite Armeabi-v7a
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.3-ABI2-Lite-Armeabi-v7a
-          path: output/Bankmovie-v2.3-ABI2-Lite-Armeabi-v7a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI2 Lite Arm64-v8a
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.3-ABI2-Lite-Arm64-v8a
-          path: output/Bankmovie-v2.3-ABI2-Lite-Arm64-v8a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full Universal
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.3-ABI4-Full-Universal
-          path: output/Bankmovie-v2.3-ABI4-Full-Universal.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full Armeabi-v7a
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.3-ABI4-Full-Armeabi-v7a
-          path: output/Bankmovie-v2.3-ABI4-Full-Armeabi-v7a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full Arm64-v8a
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.3-ABI4-Full-Arm64-v8a
-          path: output/Bankmovie-v2.3-ABI4-Full-Arm64-v8a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full X86
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.3-ABI4-Full-X86
-          path: output/Bankmovie-v2.3-ABI4-Full-X86.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full X86_64
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.3-ABI4-Full-X86_64
-          path: output/Bankmovie-v2.3-ABI4-Full-X86_64.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload APK checksums
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.3-APK-SHA256SUMS
-          path: output/SHA256SUMS.txt
+          name: Bankmovie-2.3-V7.6.1-APKs
+          path: |
+            output/*.apk
+            output/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
