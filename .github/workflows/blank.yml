@@ -100,7 +100,7 @@ jobs:
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
           grep -Fq 'V7.7 NATIVE FOCUSSEARCH + TV SEARCH SUBMIT' "$main"
-          grep -Fq 'V7.8 TV FOCUS REBUILD' "$main"
+          grep -Fq 'focusPatchSecondFollowup=V7.9 LIVE SEARCH + CATEGORY VERTICAL + DETAIL TRAILER ROUTING' BANKMOVIE_BUILD_SOURCE_2_3.txt
           grep -Fq 'V7.9 LIVE TV SEARCH' "$main"
           grep -Fq 'bm_v79_category_hub_' "$main"
           grep -Fq 'primary -> trailer ?: favorite ?: primary' "$main"
