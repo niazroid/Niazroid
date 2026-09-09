@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 TV Focus V7.14 VIP Drawer Auth Focus Fix
+name: Build BankMovie 2.3 TV Focus V7.15 Auth Download No-Reorder Fix
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-tv-focus-v714-${{ github.ref }}
+  group: bankmovie-2.3-tv-focus-v715-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V7.14-VIP-DRAWER-AUTH-FIXED_20260909.zip
-  SOURCE_SHA256: 5451139807d69da1ba960a9cd21971d5258eee4477948dcb106266c6875e2f77
+  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V7.15-AUTH-DOWNLOAD-NO-REORDER-FIXED_20260909.zip
+  SOURCE_SHA256: ce8982b40ede163532fd185220c7df07df807be8bec0fc478c399c7e58e33461
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.14 source
+      - name: Locate and verify exact V7.15 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v714-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v715-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,26 +85,28 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.14 VIP drawer auth focus fix
+      - name: Verify V7.15 auth/download no-reorder focus fix
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_tv_focus_v714_vip_drawer_auth.sh || {
-            echo "::error::V7.14 verifier is missing"
+          test -s verify_tv_focus_v715_auth_download_no_reorder.sh || {
+            echo "::error::V7.15 verifier is missing"
             exit 1
           }
 
-          bash verify_tv_focus_v714_vip_drawer_auth.sh
+          bash verify_tv_focus_v715_auth_download_no_reorder.sh
 
-          main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
           auth='app/src/main/java/ir/bankmoviee/app/AuthActivity.kt'
-          grep -Fq 'focusPatchSeventhFollowup=V7.14 VIP BOOTSTRAP + SIDENAV SVG GAP + AUTH MODE ANCHOR' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'sourceBuildSeventhFollowupTag=BANKMOVIE-TV-2.3-V714-20260909' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'handleV714VipDirectionalFocus(focusedOrNull, keyCode)' "$main"
-          grep -Fq 'marginStart = dp(18)' "$main"
-          grep -Fq 'bm_v714_auth_mode_switch' "$auth"
+          downloads='app/src/main/java/ir/bankmoviee/app/DownloadsActivity.kt'
+          grep -Fq 'focusPatchEighthFollowup=V7.15 AUTH/DOWNLOAD FOCUS VISUAL-ONLY NO CHILD REORDER' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'sourceBuildEighthFollowupTag=BANKMOVIE-TV-2.3-V715-20260909' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          ! grep -Fq '.bringToFront()' "$auth"
+          ! grep -Fq '.bringToFront()' "$downloads"
+          grep -Fq 'val focusChain = listOfNotNull<View>(identity, username, email, password, confirm, submit, switch)' "$auth"
+          grep -Fq 'bindDownloadActionVerticalFocus(actions)' "$downloads"
+          echo WORKFLOW_VERIFY_V715_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
