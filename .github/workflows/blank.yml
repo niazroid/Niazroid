@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 TV Focus V7.8 Rebuild Fix
+name: Build BankMovie 2.3 TV Focus V7.9 Live Search + Navigation Fix
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-tv-focus-v78-${{ github.ref }}
+  group: bankmovie-2.3-tv-focus-v79-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V7.8-FIXED_20260909.zip
-  SOURCE_SHA256: 87269c86f2ed49da4e2502236ced225a6c0adf6aae54c7ec879d5df4e1d34ad6
+  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V7.9-LIVE-NAV-FIXED_20260909.zip
+  SOURCE_SHA256: 2afbec35cc39fb1e9fefeddc05cbc23ac65874c4c7dbd7fcab6ed5eabe5f9f50
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.8 source
+      - name: Locate and verify exact V7.9 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v78-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v79-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,22 +85,25 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.8 TV focus rebuild
+      - name: Verify V7.9 TV live search and navigation fixes
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_tv_focus_v78_rebuild.sh || {
-            echo "::error::V7.8 verifier is missing"
+          test -s verify_tv_focus_v79_live_nav.sh || {
+            echo "::error::V7.9 verifier is missing"
             exit 1
           }
 
-          bash verify_tv_focus_v78_rebuild.sh
+          bash verify_tv_focus_v79_live_nav.sh
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
           grep -Fq 'V7.7 NATIVE FOCUSSEARCH + TV SEARCH SUBMIT' "$main"
           grep -Fq 'V7.8 TV FOCUS REBUILD' "$main"
+          grep -Fq 'V7.9 LIVE TV SEARCH' "$main"
+          grep -Fq 'bm_v79_category_hub_' "$main"
+          grep -Fq 'primary -> trailer ?: favorite ?: primary' "$main"
           grep -Fq 'tag = "bm_v77_category_hub_grid"' "$main"
           grep -Fq 'tag = "bm_v77_detail_actions"' "$main"
           grep -Fq 'suppressTvDetailBackFocus' "$main"
