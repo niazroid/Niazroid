@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 TV Focus V7.11 Category Bootstrap Focus Fix
+name: Build BankMovie 2.3 TV Focus V7.13 Detail First-Press Single-Step Fix
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-tv-focus-v711-${{ github.ref }}
+  group: bankmovie-2.3-tv-focus-v713-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V7.11-CATEGORY-BOOTSTRAP-FIXED_20260909.zip
-  SOURCE_SHA256: 8c5d1b64cd6ac5dd82271712a3cd1e8549c72b9ac5daf51f0be84d6b09dad574
+  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V7.13-DETAIL-FIRST-PRESS-FIXED_20260909.zip
+  SOURCE_SHA256: d427b105a23390958f38eb50a81b9856391871b4b5c6d19c1a7057714f7e707e
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.11 source
+      - name: Locate and verify exact V7.13 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v711-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v713-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,25 +85,28 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.11 category bootstrap focus fix
+      - name: Verify V7.13 detail first-press single-step fix
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_tv_focus_v711_category_bootstrap.sh || {
-            echo "::error::V7.11 verifier is missing"
+          test -s verify_tv_focus_v713_detail_first_press.sh || {
+            echo "::error::V7.13 verifier is missing"
             exit 1
           }
 
-          bash verify_tv_focus_v711_category_bootstrap.sh
+          bash verify_tv_focus_v713_detail_first_press.sh
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
-          grep -Fq 'focusPatchFourthFollowup=V7.11 CATEGORY SINGLE-OWNER BOOTSTRAP FOCUS' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'focusPatchSixthFollowup=V7.13 DETAIL FIRST-PRESS SINGLE-STEP GUARD' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'sourceBuildSixthFollowupTag=BANKMOVIE-TV-2.3-V713-20260909' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'V7.13 DETAIL FIRST-PRESS GUARD' "$main"
+          grep -Fq 'tvDetailConsumedDirectionalKeyCode' "$main"
+          grep -Fq 'source.setOnKeyListener' "$main"
+          grep -Fq 'handleV712DetailActionDirectionalFocus(focusedOrNull, keyCode)' "$main"
           grep -Fq 'handleV711CategoryHubDirectionalFocus' "$main"
-          grep -Fq 'bm_v711_category_hub_grid' "$main"
           grep -Fq 'V7.10 LIVE TV SEARCH: submit automatically after a short' "$main"
-          grep -Fq 'primary -> trailer ?: favorite ?: primary' "$main"
 
       - name: Build ABI2 Lite releases
         shell: bash
