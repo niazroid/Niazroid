@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 TV Focus V7.19 History Watchlist Compact Bootstrap Fix
+name: Build BankMovie 2.3 V7.20 Main Search State + Real Cast Renderer
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-tv-focus-v719-${{ github.ref }}
+  group: bankmovie-2.3-v720-main-cast-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V7.19-HISTORY-WATCHLIST-COMPACT-FIXED_20260910.zip
-  SOURCE_SHA256: e961d55deb721a6e4b96e00c7d54e79aa3edba944f5ac25f7f92519e3fb1600a
+  SOURCE_ZIP: Bankmovie-v2.3-MAIN-V7.20-SEARCH-STATE-REAL-CAST-FIXED_20260910.zip
+  SOURCE_SHA256: 2c6b4e3b38460b53c2509c8feb8ae9cd39bd59f4407cfd147f69a4edfabcb21d
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.19 source
+      - name: Locate and verify exact V7.20 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v719-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v720-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,25 +85,28 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.19 History and Watchlist compact bootstrap
+      - name: Verify V7.20 search state and real Cast renderer
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_tv_focus_v719_history_watchlist_compact_bootstrap.sh || {
-            echo "::error::V7.19 verifier is missing"
+          test -s verify_v720_main_update.sh || {
+            echo "::error::V7.20 verifier is missing"
             exit 1
           }
 
+          bash verify_v720_main_update.sh
           bash verify_tv_focus_v719_history_watchlist_compact_bootstrap.sh
+          bash verify_release.sh
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
-          grep -Fq 'focusPatchTwelfthFollowup=V7.19 HISTORY+WATCHLIST COMPACT TV GRID + FIRST-PRESS BOOTSTRAP' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'sourceBuildTwelfthFollowupTag=BANKMOVIE-TV-2.3-V719-20260910' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'V7.19: History View-All and Watchlist are poster catalogues on TV' "$main"
-          grep -Fq 'armV716CatalogueGridBootstrap(grid)' "$main"
-          echo WORKFLOW_VERIFY_V719_OK
+          player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
+          grep -Fq 'sourceMainUpdateTag=BANKMOVIE-2.3-V720-20260910' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'restoreSnapshot = true' "$main"
+          grep -Fq 'private lateinit var castButton: MediaRouteButton' "$player"
+          grep -Fq 'SetAVTransportURI' app/src/main/java/ir/bankmoviee/app/DlnaController.kt
+          echo WORKFLOW_VERIFY_V720_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -215,6 +218,10 @@ jobs:
           done < <(find output -type f -name '*.apk' | sort)
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
+          {
+            echo "BankMovie 2.3 V7.20 release APK sizes (bytes)"
+            find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
+          } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
 
       - name: Upload ABI2 Lite Universal
@@ -286,5 +293,13 @@ jobs:
         with:
           name: Bankmovie-2.3-APK-SHA256SUMS
           path: output/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload APK size report
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.3-V7.20-APK-SIZES
+          path: output/APK-SIZES.txt
           if-no-files-found: error
           retention-days: 30
