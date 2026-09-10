@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.21 Retained State + Cast Safe
+name: Build BankMovie 2.3 V7.21.1 Cast Chooser AppCompat Hotfix
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v721-main-${{ github.ref }}
+  group: bankmovie-2.3-v7211-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-MAIN-V7.21-RETAINED-STATE-CAST-SAFE-FIXED_20260910.zip
-  SOURCE_SHA256: d1fcd8f2600ad8ed2e697d769f52b8f3b1c67be2684cb6d675e626c608c11e0f
+  SOURCE_ZIP: Bankmovie-v2.3-MAIN-V7.21.1-CAST-CHOOSER-APPCOMPAT-HOTFIX_20260910.zip
+  SOURCE_SHA256: daeed19a3b1f62fbfc1b87e6ef045aad42ccc9ed1110a5f8d4add874d9cc65af
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.21 source
+      - name: Locate and verify exact V7.21.1 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v721-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7211-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,7 +85,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.21 retained state and Cast-safe startup
+      - name: Verify V7.21.1 retained state + Cast chooser classpath
         shell: bash
         run: |
           set -euo pipefail
@@ -99,18 +99,21 @@ jobs:
           bash verify_v720_main_update.sh
           bash verify_v7201_cast_compile_hotfix.sh
           bash verify_v721_retained_state_cast_safe.sh
+          bash verify_v7211_cast_chooser_appcompat_hotfix.sh
           bash verify_tv_focus_v719_history_watchlist_compact_bootstrap.sh
           bash verify_release.sh
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
           player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
           grep -Fq 'sourceMainUpdateSecondHotfixTag=BANKMOVIE-2.3-V721-20260910' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'sourceMainUpdateThirdHotfixTag=BANKMOVIE-2.3-V7211-20260910' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq "implementation 'androidx.appcompat:appcompat:1.7.1'" app/build.gradle
           grep -Fq 'BANKMOVIE_V721_RETAINED_BACKSTACK' "$main"
           grep -Fq 'class PlayerActivity : Activity()' "$player"
           grep -Fq 'MediaRouteChooserDialog(this).apply {' "$player"
           grep -Fq 'handler.postDelayed({ runCatching { initCastRenderer() } }, 450L)' "$player"
           grep -Fq 'SetAVTransportURI' app/src/main/java/ir/bankmoviee/app/DlnaController.kt
-          echo WORKFLOW_VERIFY_V721_OK
+          echo WORKFLOW_VERIFY_V7211_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
