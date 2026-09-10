@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.20.1 Cast Compile Hotfix
+name: Build BankMovie 2.3 V7.21 Retained State + Cast Safe
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7201-main-cast-${{ github.ref }}
+  group: bankmovie-2.3-v721-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-MAIN-V7.20.1-CAST-COMPILE-HOTFIX_20260910.zip
-  SOURCE_SHA256: 7702cd7f80c1fa4d01ae30d81a70b1ad0ffc6fd322ac66c2cc7c455803f4e331
+  SOURCE_ZIP: Bankmovie-v2.3-MAIN-V7.21-RETAINED-STATE-CAST-SAFE-FIXED_20260910.zip
+  SOURCE_SHA256: d1fcd8f2600ad8ed2e697d769f52b8f3b1c67be2684cb6d675e626c608c11e0f
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.20.1 source
+      - name: Locate and verify exact V7.21 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v7201-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v721-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,34 +85,32 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.20.1 Cast compile hotfix
+      - name: Verify V7.21 retained state and Cast-safe startup
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v720_main_update.sh || {
-            echo "::error::V7.20 verifier is missing"
+          test -s verify_v721_retained_state_cast_safe.sh || {
+            echo "::error::V7.21 verifier is missing"
             exit 1
           }
 
           bash verify_v720_main_update.sh
-          test -s verify_v7201_cast_compile_hotfix.sh || {
-            echo "::error::V7.20.1 compile-hotfix verifier is missing"
-            exit 1
-          }
           bash verify_v7201_cast_compile_hotfix.sh
+          bash verify_v721_retained_state_cast_safe.sh
           bash verify_tv_focus_v719_history_watchlist_compact_bootstrap.sh
           bash verify_release.sh
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
           player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
-          grep -Fq 'sourceMainUpdateTag=BANKMOVIE-2.3-V720-20260910' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'sourceMainUpdateHotfixTag=BANKMOVIE-2.3-V7201-20260910' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'restoreSnapshot = true' "$main"
-          grep -Fq 'private lateinit var castButton: MediaRouteButton' "$player"
+          grep -Fq 'sourceMainUpdateSecondHotfixTag=BANKMOVIE-2.3-V721-20260910' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'BANKMOVIE_V721_RETAINED_BACKSTACK' "$main"
+          grep -Fq 'class PlayerActivity : Activity()' "$player"
+          grep -Fq 'MediaRouteChooserDialog(this).apply {' "$player"
+          grep -Fq 'handler.postDelayed({ runCatching { initCastRenderer() } }, 450L)' "$player"
           grep -Fq 'SetAVTransportURI' app/src/main/java/ir/bankmoviee/app/DlnaController.kt
-          echo WORKFLOW_VERIFY_V7201_OK
+          echo WORKFLOW_VERIFY_V721_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
