@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.21.1 Cast Chooser AppCompat Hotfix
+name: Build BankMovie 2.3 V7.24 Search Scroll + SVG Refresh
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7211-main-${{ github.ref }}
+  group: bankmovie-2.3-v724-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-MAIN-V7.21.1-CAST-CHOOSER-APPCOMPAT-HOTFIX_20260910.zip
-  SOURCE_SHA256: daeed19a3b1f62fbfc1b87e6ef045aad42ccc9ed1110a5f8d4add874d9cc65af
+  SOURCE_ZIP: Bankmovie-v2.3-MAIN-V7.24-SEARCH-SCROLL-SVG-REFRESH-FIXED_20260910.zip
+  SOURCE_SHA256: fb1d33609a1c5255a4b454732b14de52b10b2e8e55f8393fe12372ca4e3f7b6a
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.21.1 source
+      - name: Locate and verify exact V7.24 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v7211-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v724-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,35 +85,34 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.21.1 retained state + Cast chooser classpath
+      - name: Verify V7.24 search scroll + SVG refresh + player regressions
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v721_retained_state_cast_safe.sh || {
-            echo "::error::V7.21 verifier is missing"
+          test -s verify_v724_search_scroll_svg_refresh.sh || {
+            echo "::error::V7.24 verifier is missing"
             exit 1
           }
 
-          bash verify_v720_main_update.sh
-          bash verify_v7201_cast_compile_hotfix.sh
-          bash verify_v721_retained_state_cast_safe.sh
-          bash verify_v7211_cast_chooser_appcompat_hotfix.sh
+          bash verify_v724_search_scroll_svg_refresh.sh
           bash verify_tv_focus_v719_history_watchlist_compact_bootstrap.sh
           bash verify_release.sh
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
           player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
-          grep -Fq 'sourceMainUpdateSecondHotfixTag=BANKMOVIE-2.3-V721-20260910' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'sourceMainUpdateThirdHotfixTag=BANKMOVIE-2.3-V7211-20260910' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq "implementation 'androidx.appcompat:appcompat:1.7.1'" app/build.gradle
-          grep -Fq 'BANKMOVIE_V721_RETAINED_BACKSTACK' "$main"
-          grep -Fq 'class PlayerActivity : Activity()' "$player"
-          grep -Fq 'MediaRouteChooserDialog(this).apply {' "$player"
-          grep -Fq 'handler.postDelayed({ runCatching { initCastRenderer() } }, 450L)' "$player"
-          grep -Fq 'SetAVTransportURI' app/src/main/java/ir/bankmoviee/app/DlnaController.kt
-          echo WORKFLOW_VERIFY_V7211_OK
+          manifest='app/src/main/AndroidManifest.xml'
+          grep -Fq 'sourceMainUpdateFifthHotfixTag=BANKMOVIE-2.3-V724-20260910' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'val scrollY: Int,' "$main"
+          grep -Fq 'scrollY = savedY,' "$main"
+          grep -Fq 'retainedScroll.scrollTo(0, targetY)' "$main"
+          grep -Fq 'PLAYER_BACKGROUND_RETAIN_MS = 180_000L' "$player"
+          grep -Fq 'PixelCopy.request(surface, bitmap' "$player"
+          ! grep -Eq 'CastContext|RemoteMediaClient|MediaRoute|DlnaController|Chromecast' "$player"
+          ! grep -Eq 'play-services-cast|androidx\.mediarouter' app/build.gradle
+          ! grep -Eq 'OPTIONS_PROVIDER_CLASS_NAME|CHANGE_WIFI_MULTICAST_STATE' "$manifest"
+          echo WORKFLOW_VERIFY_V724_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -226,7 +225,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.20 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.22 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
