@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 TV Focus V7.17 Collection Catalogue Bootstrap Fix
+name: Build BankMovie 2.3 TV Focus V7.19 History Watchlist Compact Bootstrap Fix
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-tv-focus-v717-${{ github.ref }}
+  group: bankmovie-2.3-tv-focus-v719-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V7.17-COLLECTION-CATALOGUE-FIXED_20260909.zip
-  SOURCE_SHA256: 0feaab0dccdd3c70753d4cf9b7ba969a15c943826d15e2b268d3c938c77b0bcd
+  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V7.19-HISTORY-WATCHLIST-COMPACT-FIXED_20260910.zip
+  SOURCE_SHA256: e961d55deb721a6e4b96e00c7d54e79aa3edba944f5ac25f7f92519e3fb1600a
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.17 source
+      - name: Locate and verify exact V7.19 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v717-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v719-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,26 +85,25 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.17 collection/catalogue bootstrap fix
+      - name: Verify V7.19 History and Watchlist compact bootstrap
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_tv_focus_v717_collection_catalogue_bootstrap.sh || {
-            echo "::error::V7.17 verifier is missing"
+          test -s verify_tv_focus_v719_history_watchlist_compact_bootstrap.sh || {
+            echo "::error::V7.19 verifier is missing"
             exit 1
           }
 
-          bash verify_tv_focus_v717_collection_catalogue_bootstrap.sh
+          bash verify_tv_focus_v719_history_watchlist_compact_bootstrap.sh
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
-          grep -Fq 'focusPatchTenthFollowup=V7.17 COLLECTION + COLLECTION-TITLES + NON-SEARCH CATALOGUE BOOTSTRAP' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'sourceBuildTenthFollowupTag=BANKMOVIE-TV-2.3-V717-20260909' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'V7.17: Collections is a catalogue grid too.' "$main"
-          grep -Fq 'V7.17: collection titles use the same physical first-press' "$main"
-          grep -Fq 'V7.17: keep every non-search catalogue list on the same' "$main"
-          echo WORKFLOW_VERIFY_V717_OK
+          grep -Fq 'focusPatchTwelfthFollowup=V7.19 HISTORY+WATCHLIST COMPACT TV GRID + FIRST-PRESS BOOTSTRAP' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'sourceBuildTwelfthFollowupTag=BANKMOVIE-TV-2.3-V719-20260910' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'V7.19: History View-All and Watchlist are poster catalogues on TV' "$main"
+          grep -Fq 'armV716CatalogueGridBootstrap(grid)' "$main"
+          echo WORKFLOW_VERIFY_V719_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
