@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 TV Focus V7.16 Profile Slider Catalogue Bootstrap Fix
+name: Build BankMovie 2.3 TV Focus V7.17 Collection Catalogue Bootstrap Fix
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-tv-focus-v716-${{ github.ref }}
+  group: bankmovie-2.3-tv-focus-v717-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V7.16-PROFILE-SLIDER-CATALOGUE-FIXED_20260909.zip
-  SOURCE_SHA256: 4104870a12baf9f77932b4c25e8db1f572b476506e981a349908a48534806fcf
+  SOURCE_ZIP: Bankmovie-v2.3-TV-GLOBAL-FOCUS-V7.17-COLLECTION-CATALOGUE-FIXED_20260909.zip
+  SOURCE_SHA256: 0feaab0dccdd3c70753d4cf9b7ba969a15c943826d15e2b268d3c938c77b0bcd
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.16 source
+      - name: Locate and verify exact V7.17 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v716-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v717-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,26 +85,26 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.16 profile/slider/catalogue bootstrap fix
+      - name: Verify V7.17 collection/catalogue bootstrap fix
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_tv_focus_v716_profile_slider_catalogue_bootstrap.sh || {
-            echo "::error::V7.16 verifier is missing"
+          test -s verify_tv_focus_v717_collection_catalogue_bootstrap.sh || {
+            echo "::error::V7.17 verifier is missing"
             exit 1
           }
 
-          bash verify_tv_focus_v716_profile_slider_catalogue_bootstrap.sh
+          bash verify_tv_focus_v717_collection_catalogue_bootstrap.sh
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
-          grep -Fq 'focusPatchNinthFollowup=V7.16 VIP BIDI+SVG GAP + SLIDER IMDB GAP + CATALOGUE FIRST-PRESS BOOTSTRAP' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'sourceBuildNinthFollowupTag=BANKMOVIE-TV-2.3-V716-20260909' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'grid.tag = "bm_v716_catalogue_grid"' "$main"
-          grep -Fq 'tag = "bm_v716_slider_imdb_gap"' "$main"
-          grep -Fq 'val dayLabel = if (isFa()) persianDigits(days.toString()) else days.toString()' "$main"
-          echo WORKFLOW_VERIFY_V716_OK
+          grep -Fq 'focusPatchTenthFollowup=V7.17 COLLECTION + COLLECTION-TITLES + NON-SEARCH CATALOGUE BOOTSTRAP' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'sourceBuildTenthFollowupTag=BANKMOVIE-TV-2.3-V717-20260909' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'V7.17: Collections is a catalogue grid too.' "$main"
+          grep -Fq 'V7.17: collection titles use the same physical first-press' "$main"
+          grep -Fq 'V7.17: keep every non-search catalogue list on the same' "$main"
+          echo WORKFLOW_VERIFY_V717_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
