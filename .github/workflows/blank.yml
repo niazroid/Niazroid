@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.26 Mobile Nav Personalization + Player Polish
+name: Build BankMovie 2.3 V7.27 Mobile Comments + Icon Refresh + Collection Art Restore
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v726-main-${{ github.ref }}
+  group: bankmovie-2.3-v727-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-MAIN-V7.26-MOBILE-NAV-PLAYER-POLISH-FIXED_20260911.zip
-  SOURCE_SHA256: 6279703bd4a67a872ccf6ef95beca32fd36adac984eb7ae119db0635890ec75c
+  SOURCE_ZIP: Bankmovie-v2.3-MAIN-V7.27-COMMENTS-ICONS-COLLECTION-FIXED_20260911.zip
+  SOURCE_SHA256: ad484efcecfb3e5c10476c808b092726c70f034d2127ced84959707e7e052ccd
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.26 source
+      - name: Locate and verify exact V7.27 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v726-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v727-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,18 +85,18 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.26 mobile nav + player polish + regressions
+      - name: Verify V7.27 mobile comments + icons + regressions
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v726_mobile_nav_player_polish.sh || {
-            echo "::error::V7.26 verifier is missing"
+          test -s verify_v727_comment_social_ui_icon_refresh.sh || {
+            echo "::error::V7.27 verifier is missing"
             exit 1
           }
 
-          bash verify_v726_mobile_nav_player_polish.sh
+          bash verify_v727_comment_social_ui_icon_refresh.sh
           bash verify_release.sh
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
@@ -104,19 +104,21 @@ jobs:
           prefs='app/src/main/java/ir/bankmoviee/app/UiPreferences.kt'
           manifest='app/src/main/AndroidManifest.xml'
 
-          grep -Fq 'sourceMainUpdateSeventhHotfixTag=BANKMOVIE-2.3-V726-20260911' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'BANKMOVIE_V7_26_MOBILE_NAV_PERSONALIZATION' "$main"
-          grep -Fq 'KEY_MOBILE_NAV_STYLE = "ui_mobile_nav_style"' "$prefs"
-          grep -Fq 'private fun mobileNavStylePreview(' "$main"
-          grep -Fq 'شخصی‌سازی منوی موبایل' "$main"
+          grep -Fq 'sourceMainUpdateEighthHotfixTag=BANKMOVIE-2.3-V727-20260911' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'V7.27 — mobile comment UI rebuilt' "$main"
+          grep -Fq 'private fun mobileCommentCardV727(' "$main"
+          grep -Fq 'private fun renderMobileCommentsSectionV727(' "$main"
+          grep -Fq 'R.drawable.bm_category_collections){ showCollections() }' "$main"
           grep -Fq 'PLAYER_UTILITY_ICON_DP = 24' "$player"
+          test -s app/src/main/res/drawable/ic_notifications_ui.xml
+          test -s app/src/main/res/drawable/ic_edit_avatar.xml
           grep -Fq 'play.addView(playIcon, FrameLayout.LayoutParams(dp(42), dp(42), Gravity.CENTER))' "$player"
           grep -Fq 'PLAYER_FRAME_PROBE_TIMEOUT_MS = 12_000L' "$player"
           grep -Fq 'lifecycleFrameProbeReadySamples >= 2' "$player"
           ! grep -Eq 'CastContext|RemoteMediaClient|MediaRoute|DlnaController|Chromecast' "$player"
           ! grep -Eq 'play-services-cast|androidx\.mediarouter' app/build.gradle
           ! grep -Eq 'OPTIONS_PROVIDER_CLASS_NAME|CHANGE_WIFI_MULTICAST_STATE' "$manifest"
-          echo WORKFLOW_VERIFY_V726_OK
+          echo WORKFLOW_VERIFY_V727_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
