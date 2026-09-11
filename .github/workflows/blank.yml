@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.31 Orbital Drawer Comments Weekly Telegram
+name: Build BankMovie 2.3 V7.32 Uiverse Modals Downloader Settings
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v731-main-${{ github.ref }}
+  group: bankmovie-2.3-v732-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-MAIN-V7.31-ORBITAL-DRAWER-COMMENTS-WEEKLY-TELEGRAM-FIXED_20260911.zip
-  SOURCE_SHA256: 7d1cd5bf931bf46b1af3cc5a2bc12f093c61faba6a3c200387bd7d250673ee66
+  SOURCE_ZIP: Bankmovie-v2.3-MAIN-V7.32-UIVERSE-MODALS-DOWNLOADER-SETTINGS_20260911.zip
+  SOURCE_SHA256: e5348ab1e93b081ea5d02ad455b6175e91aeb7892a11a34dc537734d57696bdd
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.31 source
+      - name: Locate and verify exact V7.32 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v731-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v732-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,27 +85,30 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.31 UI + pagination + regressions
+      - name: Verify V7.32 loader + sheets + downloader settings + regressions
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v731_orbital_drawer_comments_weekly_telegram.sh || {
-            echo "::error::V7.31 verifier is missing"
+          test -s verify_v732_uiverse_downloader_settings.sh || {
+            echo "::error::V7.32 verifier is missing"
             exit 1
           }
 
-          bash verify_v731_orbital_drawer_comments_weekly_telegram.sh
-          bash verify_release.sh
+          bash verify_v732_uiverse_downloader_settings.sh
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
           player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
           manifest='app/src/main/AndroidManifest.xml'
           draw='app/src/main/res/drawable'
 
-          grep -Fq 'sourceMainUpdateTwelfthHotfixTag=BANKMOVIE-2.3-V731-20260911' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'sourceMainUpdateThirteenthHotfixTag=BANKMOVIE-2.3-V732-20260911' BANKMOVIE_BUILD_SOURCE_2_3.txt
           grep -Fq 'OrbitalGlowLoaderView(this@MainActivity)' "$main"
+          grep -Fq 'duration = 3000L' app/src/main/java/ir/bankmoviee/app/OrbitalGlowLoaderView.kt
+          grep -Fq 'DashPathEffect(floatArrayOf(44f, 1111f), dashOffset)' app/src/main/java/ir/bankmoviee/app/OrbitalGlowLoaderView.kt
+          grep -Fq 'showDownloadSettingsSheet()' app/src/main/java/ir/bankmoviee/app/DownloadsActivity.kt
+          grep -Fq 'DownloadPreferences.connectionsPerFile(this).coerceIn(1, 8)' app/src/main/java/ir/bankmoviee/app/InternalDownloadService.kt
           grep -Fq 'requestedPage, 5, selectedSort' "$main"
           grep -Fq 'requestedPage, 5, apiSort' "$main"
           grep -Fq 'private fun showCommentActionsSheetV731' "$main"
@@ -120,7 +123,7 @@ jobs:
           ! grep -Eq 'play-services-cast|androidx\.mediarouter' app/build.gradle
           ! grep -Eq 'OPTIONS_PROVIDER_CLASS_NAME|CHANGE_WIFI_MULTICAST_STATE' "$manifest"
 
-          echo WORKFLOW_VERIFY_V731_OK
+          echo WORKFLOW_VERIFY_V732_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -233,7 +236,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.31 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.32 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -305,7 +308,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.31-Manifests
+          name: Bankmovie-2.3-V7.32-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
