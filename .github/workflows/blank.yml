@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.30 Comment Icons Weekly Palette
+name: Build BankMovie 2.3 V7.31 Orbital Drawer Comments Weekly Telegram
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v730-main-${{ github.ref }}
+  group: bankmovie-2.3-v731-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-MAIN-V7.30-COMMENT-ICONS-WEEKLY-PALETTE-FIXED_20260911.zip
-  SOURCE_SHA256: 7d04af86bd628b78a12f85bc69f374a412f829644ca2e5417e876f6c30ce9a1d
+  SOURCE_ZIP: Bankmovie-v2.3-MAIN-V7.31-ORBITAL-DRAWER-COMMENTS-WEEKLY-TELEGRAM-FIXED_20260911.zip
+  SOURCE_SHA256: 7d1cd5bf931bf46b1af3cc5a2bc12f093c61faba6a3c200387bd7d250673ee66
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.30 source
+      - name: Locate and verify exact V7.31 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v730-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v731-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,18 +85,18 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.30 comment icons + weekly palette + regressions
+      - name: Verify V7.31 UI + pagination + regressions
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v730_comment_icons_weekly_palette.sh || {
-            echo "::error::V7.30 verifier is missing"
+          test -s verify_v731_orbital_drawer_comments_weekly_telegram.sh || {
+            echo "::error::V7.31 verifier is missing"
             exit 1
           }
 
-          bash verify_v730_comment_icons_weekly_palette.sh
+          bash verify_v731_orbital_drawer_comments_weekly_telegram.sh
           bash verify_release.sh
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
@@ -104,27 +104,23 @@ jobs:
           manifest='app/src/main/AndroidManifest.xml'
           draw='app/src/main/res/drawable'
 
-          grep -Fq 'sourceMainUpdateTenthHotfixTag=BANKMOVIE-2.3-V729-20260911' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'sourceMainUpdateEleventhHotfixTag=BANKMOVIE-2.3-V730-20260911' BANKMOVIE_BUILD_SOURCE_2_3.txt
-
-          for f in ic_comment_like.xml ic_comment_dislike.xml ic_comment_reply.xml ic_comment_pin.xml ic_comment_delete.xml; do
-            test -s "$draw/$f"
-          done
-
-          grep -Fq 'R.drawable.ic_comment_pin' "$main"
-          grep -Fq 'R.drawable.ic_comment_delete' "$main"
-          grep -Fq 'val accent = p.primary' "$main"
-          grep -Fq 'background = rounded(p.panel, dp(24), p.stroke)' "$main"
-          grep -Fq 'intArrayOf(p.primary2, p.primary)' "$main"
-          grep -Fq 'background = rounded(palette.card, dp(15), palette.stroke)' "$main"
-          grep -Fq 'V7.29: restore the proven compact two-column weekly grid on phones.' "$main"
-          grep -Fq 'PLAYER_UTILITY_ICON_DP = 24' "$player"
-
+          grep -Fq 'sourceMainUpdateTwelfthHotfixTag=BANKMOVIE-2.3-V731-20260911' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'OrbitalGlowLoaderView(this@MainActivity)' "$main"
+          grep -Fq 'requestedPage, 5, selectedSort' "$main"
+          grep -Fq 'requestedPage, 5, apiSort' "$main"
+          grep -Fq 'private fun showCommentActionsSheetV731' "$main"
+          grep -Fq 'R.drawable.ic_weekly_schedule' "$main"
+          grep -Fq 'tabsScroll.smoothScrollTo(targetX, 0)' "$main"
+          grep -Fq 'return telegramJoinButton()' "$main"
+          grep -Fq 'R.drawable.ic_logout' "$main"
+          test -s "$draw/ic_weekly_schedule.xml"
+          test -s "$draw/ic_logout.xml"
+          ! grep -Fq 'android.widget.PopupMenu' "$main"
           ! grep -Eq 'CastContext|RemoteMediaClient|MediaRoute|DlnaController|Chromecast' "$player"
           ! grep -Eq 'play-services-cast|androidx\.mediarouter' app/build.gradle
           ! grep -Eq 'OPTIONS_PROVIDER_CLASS_NAME|CHANGE_WIFI_MULTICAST_STATE' "$manifest"
 
-          echo WORKFLOW_VERIFY_V730_OK
+          echo WORKFLOW_VERIFY_V731_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -237,7 +233,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.22 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.31 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -306,18 +302,12 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload APK checksums
+      - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-APK-SHA256SUMS
-          path: output/SHA256SUMS.txt
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload APK size report
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.3-V7.28-APK-SIZES
-          path: output/APK-SIZES.txt
+          name: Bankmovie-2.3-V7.31-Manifests
+          path: |
+            output/SHA256SUMS.txt
+            output/APK-SIZES.txt
           if-no-files-found: error
           retention-days: 30
