@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.28 Social TV Comments + Loader + Draggable Sheets + Weekly UI
+name: Build BankMovie 2.3 V7.28.1 Comments Nullable JSON Compile Hotfix
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v728-main-${{ github.ref }}
+  group: bankmovie-2.3-v7281-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-MAIN-V7.28-SOCIAL-TV-LOADER-SHEETS-WEEKLY-FIXED_20260911.zip
-  SOURCE_SHA256: 9c41a8ded075fb91f98b39a4df09732a7c38278bfa31a48d5e0823740960c06b
+  SOURCE_ZIP: Bankmovie-v2.3-MAIN-V7.28.1-COMMENTS-NULLABLE-JSON-COMPILE-HOTFIX_20260911.zip
+  SOURCE_SHA256: 2f2058888a3f22e5378afdc23c2280ea392e5558d7ce27d2acd517a93b80e491
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.28 source
+      - name: Locate and verify exact V7.28.1 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v728-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7281-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,18 +85,18 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.28 social TV comments + loader + sheets + regressions
+      - name: Verify V7.28.1 compile hotfix + V7.28 regressions
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v728_social_tv_loader_sheets_weekly.sh || {
-            echo "::error::V7.28 verifier is missing"
+          test -s verify_v7281_comments_nullable_json_compile_hotfix.sh || {
+            echo "::error::V7.28.1 verifier is missing"
             exit 1
           }
 
-          bash verify_v728_social_tv_loader_sheets_weekly.sh
+          bash verify_v7281_comments_nullable_json_compile_hotfix.sh
           bash verify_release.sh
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
@@ -105,6 +105,9 @@ jobs:
           manifest='app/src/main/AndroidManifest.xml'
 
           grep -Fq 'sourceMainUpdateNinthHotfixTag=BANKMOVIE-2.3-V728-20260911' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'sourceMainUpdateNinthHotfixCompileTag=BANKMOVIE-2.3-V7281-20260911' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'val commentsPayload = result.json' "$main"
+          grep -Fq 'val mobileCommentsPayload = result.json' "$main"
           grep -Fq 'V7.28: the same social-card comment language is used on phone and TV.' "$main"
           grep -Fq 'private fun wireV728DraggableBottomSheet(' "$main"
           grep -Fq 'private fun addWeeklyScheduleSectionMobileV728(' "$main"
@@ -121,7 +124,7 @@ jobs:
           ! grep -Eq 'CastContext|RemoteMediaClient|MediaRoute|DlnaController|Chromecast' "$player"
           ! grep -Eq 'play-services-cast|androidx\.mediarouter' app/build.gradle
           ! grep -Eq 'OPTIONS_PROVIDER_CLASS_NAME|CHANGE_WIFI_MULTICAST_STATE' "$manifest"
-          echo WORKFLOW_VERIFY_V728_OK
+          echo WORKFLOW_VERIFY_V7281_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
