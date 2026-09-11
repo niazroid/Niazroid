@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.24 Search Scroll + SVG Refresh
+name: Build BankMovie 2.3 V7.25 Player Frame Bridge + Icons
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v724-main-${{ github.ref }}
+  group: bankmovie-2.3-v725-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-MAIN-V7.24-SEARCH-SCROLL-SVG-REFRESH-FIXED_20260910.zip
-  SOURCE_SHA256: fb1d33609a1c5255a4b454732b14de52b10b2e8e55f8393fe12372ca4e3f7b6a
+  SOURCE_ZIP: Bankmovie-v2.3-MAIN-V7.25-PLAYER-FRAME-BRIDGE-ICONS-FIXED_20260911.zip
+  SOURCE_SHA256: d162812142689eb91948ba3b1d630789467a020627c4d1c7d50626e523d7d04f
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.24 source
+      - name: Locate and verify exact V7.25 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v724-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v725-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,34 +85,39 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.24 search scroll + SVG refresh + player regressions
+      - name: Verify V7.25 player frame bridge + icons + regressions
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v724_search_scroll_svg_refresh.sh || {
-            echo "::error::V7.24 verifier is missing"
+          test -s verify_v725_player_frame_bridge_icons.sh || {
+            echo "::error::V7.25 verifier is missing"
             exit 1
           }
 
-          bash verify_v724_search_scroll_svg_refresh.sh
+          bash verify_v725_player_frame_bridge_icons.sh
           bash verify_tv_focus_v719_history_watchlist_compact_bootstrap.sh
           bash verify_release.sh
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
           player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
           manifest='app/src/main/AndroidManifest.xml'
-          grep -Fq 'sourceMainUpdateFifthHotfixTag=BANKMOVIE-2.3-V724-20260910' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'sourceMainUpdateSixthHotfixTag=BANKMOVIE-2.3-V725-20260911' BANKMOVIE_BUILD_SOURCE_2_3.txt
           grep -Fq 'val scrollY: Int,' "$main"
           grep -Fq 'scrollY = savedY,' "$main"
           grep -Fq 'retainedScroll.scrollTo(0, targetY)' "$main"
           grep -Fq 'PLAYER_BACKGROUND_RETAIN_MS = 180_000L' "$player"
           grep -Fq 'PixelCopy.request(surface, bitmap' "$player"
+          grep -Fq 'PLAYER_FRAME_PROBE_TIMEOUT_MS = 12_000L' "$player"
+          grep -Fq 'lifecycleFrameProbeReadySamples >= 2' "$player"
+          grep -Fq 'PLAYER_UTILITY_ICON_DP = 28' "$player"
+          grep -Fq 'M5,10H7C9,10 10,9 10,7V5C10,3 9,2 7,2H5C3,2 2,3 2,5V7C2,9 3,10 5,10Z' app/src/main/res/drawable/ic_nav_grid.xml
+          grep -Fq 'M4,6H20V8H4ZM8,11H20V13H8ZM13,16H20V18H13Z' app/src/main/res/drawable/ic_menu_bars.xml
           ! grep -Eq 'CastContext|RemoteMediaClient|MediaRoute|DlnaController|Chromecast' "$player"
           ! grep -Eq 'play-services-cast|androidx\.mediarouter' app/build.gradle
           ! grep -Eq 'OPTIONS_PROVIDER_CLASS_NAME|CHANGE_WIFI_MULTICAST_STATE' "$manifest"
-          echo WORKFLOW_VERIFY_V724_OK
+          echo WORKFLOW_VERIFY_V725_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -305,7 +310,7 @@ jobs:
       - name: Upload APK size report
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.20-APK-SIZES
+          name: Bankmovie-2.3-V7.25-APK-SIZES
           path: output/APK-SIZES.txt
           if-no-files-found: error
           retention-days: 30
