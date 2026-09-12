@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.39 Website Auth Security Themed Update
+name: Build BankMovie 2.3 V7.40 Player Auth Notifications Polish
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v739-main-${{ github.ref }}
+  group: bankmovie-2.3-v740-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.39-WEBSITE-AUTH-SECURITY-THEMED-UPDATE-FULLSOURCE_20260912.zip
-  SOURCE_SHA256: 8c516544dfc1809e2635e87dedb2824e81abeeaced3ab74c62febb725f8cdcb9
+  SOURCE_ZIP: Bankmovie-v2.3-V7.40-PLAYER-AUTH-NOTIFICATIONS-POLISH-FULLSOURCE_20260912.zip
+  SOURCE_SHA256: 817306403fdefaabc4adc8620d58dcb35ad0655dd9fe796f4554f5c9e46374b2
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.39 source
+      - name: Locate and verify exact V7.40 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v739-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v740-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,18 +85,18 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.39 website auth + security + themed update + regressions
+      - name: Verify V7.40 player + auth + notification polish + regressions
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v739_website_auth_security_update.sh || {
-            echo "::error::V7.39 verifier is missing"
+          test -s verify_v740_player_auth_notification_polish.sh || {
+            echo "::error::V7.40 verifier is missing"
             exit 1
           }
-          test -s verify_v738_profile_vip_boxoffice_micro_polish.sh || {
-            echo "::error::V7.38 regression verifier is missing"
+          test -s verify_v739_website_auth_security_update.sh || {
+            echo "::error::V7.39 regression verifier is missing"
             exit 1
           }
           test -s verify_v736_home_archive_gates_profile_vip_boxoffice.sh || {
@@ -112,8 +112,8 @@ jobs:
             exit 1
           }
 
+          bash verify_v740_player_auth_notification_polish.sh
           bash verify_v739_website_auth_security_update.sh
-          bash verify_v738_profile_vip_boxoffice_micro_polish.sh
           bash verify_v736_home_archive_gates_profile_vip_boxoffice.sh
           bash verify_v733_filters_notifications_archive_policy.sh
           bash verify_v732_uiverse_downloader_settings.sh
@@ -121,78 +121,29 @@ jobs:
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
           player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
-          manifest='app/src/main/AndroidManifest.xml'
-          draw='app/src/main/res/drawable'
-          admin='server-required/bm_admin.php'
-          appcfg='server-required/app_config.php'
-          policy='server-required/includes/app_archive_policy.php'
           auth='app/src/main/java/ir/bankmoviee/app/AuthActivity.kt'
-          account_api='app/src/main/java/ir/bankmoviee/app/AccountApi.kt'
-          user_api='server-required/app_user_api.php'
-          ui_prefs='app/src/main/java/ir/bankmoviee/app/UiPreferences.kt'
+          draw='app/src/main/res/drawable'
 
+          grep -Fq 'sourceMainUpdateTwentyFirstHotfixTag=BANKMOVIE-2.3-V740-20260912' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          test -s "$draw/ic_auth_refresh.xml"
+          grep -Fq 'R.drawable.ic_auth_refresh' "$auth"
+          grep -Fq 't("ثبت‌نام / ورود", "Register / Sign in")' "$main"
+          grep -Fq 'text = "قسمت بعدی آماده است"' "$player"
+          grep -Fq 'text = "▶  بله، پخش کن"' "$player"
+          grep -Fq 'UiPreferences.palette(this@PlayerActivity).onPrimary' "$player"
+          grep -Fq 'val notificationAccent = notificationPalette.primary' "$main"
+          grep -Fq 'text = t("جدید", "NEW")' "$main"
+          grep -Fq 'bottomNav.visibility = View.GONE' "$main"
           grep -Fq 'sourceMainUpdateTwentiethHotfixTag=BANKMOVIE-2.3-V739-20260912' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'sourceMainUpdateNineteenthHotfixTag=BANKMOVIE-2.3-V738-20260912' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'ساخت حساب بانک مووی' "$auth"
-          grep -Fq 'ورود به بانک مووی' "$auth"
-          grep -Fq 'تأیید امنیتی' "$auth"
           grep -Fq 'AccountApi.authChallenge(this)' "$auth"
-          grep -Fq 'challenge_token' "$account_api"
-          grep -Fq 'security_code' "$account_api"
-          grep -Fq 'syncWebsiteTheme' "$account_api"
-          grep -Fq 'fun bm_user_api_auth_challenge(): array' "$user_api" || grep -Fq 'function bm_user_api_auth_challenge(): array' "$user_api"
-          grep -Fq 'function bm_user_api_validate_auth_challenge(): void' "$user_api"
-          grep -Fq '"pink" -> Color.rgb(236, 72, 153)' "$ui_prefs"
-          grep -Fq 't("آپدیت الزامی", "Update required")' "$main"
-          grep -Fq 't("↻  آپدیت کردم، دوباره بررسی کن", "↻  I updated, check again")' "$main"
-          grep -Fq 't("خرید همین پلن در تلگرام", "Buy this plan on Telegram")' "$main"
-          grep -Fq 'Triple(R.drawable.ic_archive_database, t("آرشیوهای بیشتر"' "$main"
-          grep -Fq 'fun heroAuthButton(label: String, primary: Boolean, register: Boolean)' "$main"
-          grep -Fq 'setImageResource(R.drawable.ic_chevron_right)' "$main"
           grep -Fq 'remote_home_controls_v736' "$main"
-          grep -Fq 'last_remote_config_revision_v736' "$main"
-          grep -Fq 'cached_remote_config_v5' "$main"
-          grep -Fq 'remoteHomeSectionEnabled' "$main"
-          grep -Fq 'hasVisibilityPolicy' "$main"
-          grep -Fq 'showProfileMobileV736' "$main"
-          grep -Fq 'showVipPlansMobileV736' "$main"
-          grep -Fq 'showBoxOfficeMobileV736' "$main"
-          grep -Fq 'remoteArchiveWatchPartyScopes' "$main"
-          grep -Fq 'remoteArchiveInternalPlayerScopes' "$main"
-          grep -Fq 'remoteArchiveExternalPlayerScopes' "$main"
-          grep -Fq 'remoteArchiveAllPlayerScopes' "$main"
-          grep -Fq 'archiveRuntimeScope(item, "external_player")' "$main"
-          grep -Fq 'archiveRuntimeScope(item, "all_players")' "$main"
-          grep -Fq "'home_section_policy'=>\$homeSectionPolicy" "$admin"
-          grep -Fq 'name="archive<?= (int)$bmArchiveNumber ?>_external_player_scope"' "$admin"
-          grep -Fq 'name="archive<?= (int)$bmArchiveNumber ?>_internal_player_scope"' "$admin"
-          grep -Fq 'name="archive<?= (int)$bmArchiveNumber ?>_watch_party_scope"' "$admin"
-          grep -Fq 'name="archive<?= (int)$bmArchiveNumber ?>_all_players_scope"' "$admin"
-          grep -Fq 'V7.36: home-section visibility is authoritative per section' "$appcfg"
-          grep -Fq 'watch_party_access_scope' "$policy"
-          grep -Fq 'external_player_access_scope' "$policy"
+          grep -Fq 'showDownloadSettingsSheet()' app/src/main/java/ir/bankmoviee/app/DownloadsActivity.kt
+          grep -Fq 'DownloadPreferences.connectionsPerFile(this).coerceIn(1, 8)' app/src/main/java/ir/bankmoviee/app/InternalDownloadService.kt
           grep -Fq 'OrbitalGlowLoaderView(this@MainActivity)' "$main"
           grep -Fq 'duration = 3000L' app/src/main/java/ir/bankmoviee/app/OrbitalGlowLoaderView.kt
           grep -Fq 'DashPathEffect(floatArrayOf(44f, 1111f), dashOffset)' app/src/main/java/ir/bankmoviee/app/OrbitalGlowLoaderView.kt
-          grep -Fq 'showDownloadSettingsSheet()' app/src/main/java/ir/bankmoviee/app/DownloadsActivity.kt
-          grep -Fq 'DownloadPreferences.connectionsPerFile(this).coerceIn(1, 8)' app/src/main/java/ir/bankmoviee/app/InternalDownloadService.kt
-          grep -Fq 'private fun showCommentActionsSheetV731' "$main"
-          grep -Fq 'R.drawable.ic_weekly_schedule' "$main"
-          grep -Fq 'return telegramJoinButton()' "$main"
-          grep -Fq 'R.drawable.ic_logout' "$main"
-          test -s "$draw/ic_weekly_schedule.xml"
-          test -s "$draw/ic_logout.xml"
-          ! grep -Fq 'android.widget.PopupMenu' "$main"
-          ! grep -Eq 'CastContext|RemoteMediaClient|MediaRoute|DlnaController|Chromecast' "$player"
-          ! grep -Eq 'play-services-cast|androidx\.mediarouter' app/build.gradle
-          ! grep -Eq 'OPTIONS_PROVIDER_CLASS_NAME|CHANGE_WIFI_MULTICAST_STATE' "$manifest"
 
-          php -l "$admin" >/dev/null
-          php -l "$appcfg" >/dev/null
-          php -l "$policy" >/dev/null
-          php -l "$user_api" >/dev/null
-
-          echo WORKFLOW_VERIFY_V739_OK
+          echo WORKFLOW_VERIFY_V740_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -305,7 +256,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.39 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.40 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -377,7 +328,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.39-Manifests
+          name: Bankmovie-2.3-V7.40-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
