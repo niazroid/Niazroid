@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.33 Filters Notifications Downloader Archive Policy
+name: Build BankMovie 2.3 V7.35 Home Section Lock Persistence
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v733-main-${{ github.ref }}
+  group: bankmovie-2.3-v735-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-MAIN-V7.33-FILTERS-NOTIFICATIONS-DOWNLOADER-ARCHIVE-POLICY_20260911.zip
-  SOURCE_SHA256: c478eef5e7894fde82c3e5b6bc59d3dccbfd10b405e2460407a54d413c5b8e75
+  SOURCE_ZIP: Bankmovie-HOST-V7.35-HOME-SECTION-POLICY-PATCH_20260912.zip
+  SOURCE_SHA256: 4a7a2a9a2fc40db0cbb4b0506c576f94527dc8b52339e3d88f63c78a568d91fb
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.33 source
+      - name: Locate and verify exact V7.35 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v733-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v735-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,36 +85,61 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.33 filters + notifications + downloader + archive policy + regressions
+      - name: Verify V7.35 home section policy + VIP locks + regressions
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
+          test -s verify_v735_home_section_policy.sh || {
+            echo "::error::V7.35 verifier is missing"
+            exit 1
+          }
           test -s verify_v733_filters_notifications_archive_policy.sh || {
-            echo "::error::V7.33 verifier is missing"
+            echo "::error::V7.33 regression verifier is missing"
+            exit 1
+          }
+          test -s verify_v732_uiverse_downloader_settings.sh || {
+            echo "::error::V7.32 regression verifier is missing"
             exit 1
           }
 
+          bash verify_v735_home_section_policy.sh
           bash verify_v733_filters_notifications_archive_policy.sh
+          bash verify_v732_uiverse_downloader_settings.sh
           bash verify_release.sh
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
           player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
           manifest='app/src/main/AndroidManifest.xml'
           draw='app/src/main/res/drawable'
+          admin='server-required/bm_admin.php'
+          appcfg='server-required/app_config.php'
 
-          grep -Fq 'sourceMainUpdateFourteenthHotfixTag=BANKMOVIE-2.3-V733-20260911' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'remote_home_controls_v735' "$main"
+          grep -Fq 'home_section_policy' "$main"
+          grep -Fq 'last_remote_config_revision_v735' "$main"
+          grep -Fq 'renderHomeSectionWithPolicy' "$main"
+          grep -Fq 'collectionsEnabled' "$main"
+          grep -Fq 'VipGatePreset' "$main"
+          grep -Fq 'remoteWatchPartyScope' "$main"
+          grep -Fq 'remoteInternalPlayerScope' "$main"
+          grep -Fq 'remoteExternalPlayerScope' "$main"
+          grep -Fq 'remoteAllPlayersScope' "$main"
+          grep -Fq "'home_section_policy'=>\$homeSectionPolicy" "$admin"
+          grep -Fq "'watch_party_scope'=>\$appFeatureScopes['watch_party_scope']" "$admin"
+          grep -Fq "'internal_player_scope'=>\$appFeatureScopes['internal_player_scope']" "$admin"
+          grep -Fq "'external_player_scope'=>\$appFeatureScopes['external_player_scope']" "$admin"
+          grep -Fq "'all_players_scope'=>\$appFeatureScopes['all_players_scope']" "$admin"
+          grep -Fq "'home_section_policy' =>" "$appcfg"
+          grep -Fq 'config_revision' "$appcfg"
           grep -Fq 'OrbitalGlowLoaderView(this@MainActivity)' "$main"
           grep -Fq 'duration = 3000L' app/src/main/java/ir/bankmoviee/app/OrbitalGlowLoaderView.kt
           grep -Fq 'DashPathEffect(floatArrayOf(44f, 1111f), dashOffset)' app/src/main/java/ir/bankmoviee/app/OrbitalGlowLoaderView.kt
           grep -Fq 'showDownloadSettingsSheet()' app/src/main/java/ir/bankmoviee/app/DownloadsActivity.kt
           grep -Fq 'DownloadPreferences.connectionsPerFile(this).coerceIn(1, 8)' app/src/main/java/ir/bankmoviee/app/InternalDownloadService.kt
-          grep -Fq 'requestedPage, 5, selectedSort' "$main"
-          grep -Fq 'requestedPage, 5, apiSort' "$main"
           grep -Fq 'private fun showCommentActionsSheetV731' "$main"
           grep -Fq 'R.drawable.ic_weekly_schedule' "$main"
-          grep -Fq 'tabsScroll.smoothScrollTo(targetX, 0)' "$main"
           grep -Fq 'return telegramJoinButton()' "$main"
           grep -Fq 'R.drawable.ic_logout' "$main"
           test -s "$draw/ic_weekly_schedule.xml"
@@ -124,7 +149,10 @@ jobs:
           ! grep -Eq 'play-services-cast|androidx\.mediarouter' app/build.gradle
           ! grep -Eq 'OPTIONS_PROVIDER_CLASS_NAME|CHANGE_WIFI_MULTICAST_STATE' "$manifest"
 
-          echo WORKFLOW_VERIFY_V733_OK
+          php -l "$admin" >/dev/null
+          php -l "$appcfg" >/dev/null
+
+          echo WORKFLOW_VERIFY_V735_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -237,7 +265,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.33 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.35 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -309,7 +337,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.33-Manifests
+          name: Bankmovie-2.3-V7.35-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
