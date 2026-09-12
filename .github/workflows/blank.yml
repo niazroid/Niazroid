@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.36 Home Hard Fix Archive Gates Profile VIP BoxOffice
+name: Build BankMovie 2.3 V7.37 Profile VIP BoxOffice Polish
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v736-main-${{ github.ref }}
+  group: bankmovie-2.3-v737-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.36-HOME-HARD-FIX-ARCHIVE-GATES-PROFILE-VIP-BOXOFFICE-FULLSOURCE_20260912.zip
-  SOURCE_SHA256: 927018b7c1e7cae973d350572dae64933052d618d9e2e26959d1aef693c47d0b
+  SOURCE_ZIP: Bankmovie-v2.3-V7.37-PROFILE-VIP-BOXOFFICE-POLISH-FULLSOURCE_20260912.zip
+  SOURCE_SHA256: 19de153172af97354f5fb10cd4951f4d12b66440fa57f39a1cf1e77936276a19
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.36 source
+      - name: Locate and verify exact V7.37 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v736-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v737-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,14 +85,18 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.36 home hard fix + per-archive gates + premium mobile UI + regressions
+      - name: Verify V7.37 profile + VIP + box office polish + regressions
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
+          test -s verify_v737_profile_vip_boxoffice_polish.sh || {
+            echo "::error::V7.37 verifier is missing"
+            exit 1
+          }
           test -s verify_v736_home_archive_gates_profile_vip_boxoffice.sh || {
-            echo "::error::V7.36 verifier is missing"
+            echo "::error::V7.36 regression verifier is missing"
             exit 1
           }
           test -s verify_v733_filters_notifications_archive_policy.sh || {
@@ -104,6 +108,7 @@ jobs:
             exit 1
           }
 
+          bash verify_v737_profile_vip_boxoffice_polish.sh
           bash verify_v736_home_archive_gates_profile_vip_boxoffice.sh
           bash verify_v733_filters_notifications_archive_policy.sh
           bash verify_v732_uiverse_downloader_settings.sh
@@ -117,7 +122,7 @@ jobs:
           appcfg='server-required/app_config.php'
           policy='server-required/includes/app_archive_policy.php'
 
-          grep -Fq 'sourceMainUpdateSeventeenthHotfixTag=BANKMOVIE-2.3-V736-20260912' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'sourceMainUpdateEighteenthHotfixTag=BANKMOVIE-2.3-V737-20260912' BANKMOVIE_BUILD_SOURCE_2_3.txt
           grep -Fq 'remote_home_controls_v736' "$main"
           grep -Fq 'last_remote_config_revision_v736' "$main"
           grep -Fq 'cached_remote_config_v5' "$main"
@@ -345,7 +350,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.36-Manifests
+          name: Bankmovie-2.3-V7.37-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
