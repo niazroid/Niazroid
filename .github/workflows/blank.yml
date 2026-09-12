@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.41.1 Exact Security Refresh Icon
+name: Build BankMovie 2.3 V7.42 Skeleton Auth Update Icon Polish
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7411-main-${{ github.ref }}
+  group: bankmovie-2.3-v742-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.41.1-EXACT-SECURITY-REFRESH-ICON-FULLSOURCE_20260912.zip
-  SOURCE_SHA256: e746d3b37f9078f09f9211639a88483c32258c7bfd538f81119fb2777a771cde
+  SOURCE_ZIP: Bankmovie-v2.3-V7.42-SKELETON-AUTH-UPDATE-ICON-POLISH-FULLSOURCE_20260912.zip
+  SOURCE_SHA256: ce00a9d109f2d72d9f665bff691e94424df47637e523704e47f32e2445b07679
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.41.1 source
+      - name: Locate and verify exact V7.42 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v7411-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v742-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,39 +85,37 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.41.1 exact security refresh icon + regressions
+      - name: Verify V7.42 skeleton/auth/update icon polish + regressions
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v7411_exact_security_refresh_icon.sh || {
-            echo "::error::V7.41.1 verifier is missing"
+          test -s verify_v742_skeleton_auth_update_icon.sh || {
+            echo "::error::V7.42 verifier is missing"
             exit 1
           }
 
-          bash verify_v7411_exact_security_refresh_icon.sh
+          bash verify_v742_skeleton_auth_update_icon.sh
+          bash verify_v736_home_archive_gates_profile_vip_boxoffice.sh
+          bash verify_v733_filters_notifications_archive_policy.sh
+          bash verify_v732_uiverse_downloader_settings.sh
+          bash verify_release.sh
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
-          player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
           auth='app/src/main/java/ir/bankmoviee/app/AuthActivity.kt'
-          draw='app/src/main/res/drawable'
+          shimmer='app/src/main/java/ir/bankmoviee/app/PosterShimmerDrawable.kt'
 
-          grep -Fq 'sourceMainUpdateTwentyFourthHotfixTag=BANKMOVIE-2.3-V7411-20260912' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'page.gravity = Gravity.CENTER_HORIZONTAL or Gravity.CENTER_VERTICAL' "$auth"
-          grep -Fq 'wireDraggableAuthCard(card, dragHandle)' "$auth"
-          test -s "$draw/ic_auth_user.xml"
-          test -s "$draw/ic_auth_lock.xml"
-          test -s "$draw/ic_auth_eye.xml"
-          test -s "$draw/ic_user_settings.xml"
-          grep -Fq 'setImageResource(R.drawable.ic_play_fill)' "$player"
-          grep -Fq 'private val playableLinksCache = java.util.WeakHashMap' "$main"
-          grep -Fq 'Open the sheet first, then build the heavier quality/episode views' "$main"
-          grep -Fq 'val contentChoicesHeight = dp((labels.size * 61 + 4).coerceAtLeast(64))' "$main"
+          grep -Fq 'sourceMainUpdateTwentyFifthHotfixTag=BANKMOVIE-2.3-V742-20260912' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'V7.42: keep the original update glyph on the film-status pill AND reuse' "$main"
           grep -Fq 'setImageResource(R.drawable.ic_status_update_arrow)' "$auth"
-          grep -Fq 'the exact update-arrow drawable that used to live here was moved' "$main"
+          grep -Fq 'V7.42 cinematic skeleton shimmer.' "$shimmer"
+          grep -Fq 'private val accentColor: Int' "$shimmer"
+          grep -Fq 'V7.42 mobile skeleton mirrors the current detail screen' "$main"
+          grep -Fq 'leadingIcon.setColorFilter(if (focused) accent else idleIcon)' "$auth"
+          grep -Fq 'wireDraggableAuthCard(card, dragHandle)' "$auth"
 
-          echo WORKFLOW_VERIFY_V7411_OK
+          echo WORKFLOW_VERIFY_V742_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -230,7 +228,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.41.1 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.42 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
