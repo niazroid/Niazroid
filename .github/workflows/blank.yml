@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.35 Home Section Lock Persistence
+name: Build BankMovie 2.3 V7.35.1 Home Section Lock Persistence
 
 on:
   workflow_dispatch:
@@ -10,11 +10,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v735-main-${{ github.ref }}
+  group: bankmovie-2.3-v7351-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-HOST-V7.35-HOME-SECTION-POLICY-PATCH_20260912.zip
+  SOURCE_ZIP: Bankmovie-v2.3-V7.35.1-HOME-SECTION-LOCK-PERSISTENCE-FULLSOURCE_20260912.zip
   SOURCE_SHA256: 4a7a2a9a2fc40db0cbb4b0506c576f94527dc8b52339e3d88f63c78a568d91fb
 
 jobs:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.35 source
+      - name: Locate and verify exact V7.35.1 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v735-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7351-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,7 +85,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.35 home section policy + VIP locks + regressions
+      - name: Verify V7.35.1 home section policy + VIP locks + regressions
         shell: bash
         run: |
           set -euo pipefail
@@ -265,7 +265,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.35 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.35.1 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -337,7 +337,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.35-Manifests
+          name: Bankmovie-2.3-V7.35.1-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
