@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.37 Profile VIP BoxOffice Polish
+name: Build BankMovie 2.3 V7.38 VIP Profile Hero BoxOffice Polish
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v737-main-${{ github.ref }}
+  group: bankmovie-2.3-v738-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.37-PROFILE-VIP-BOXOFFICE-POLISH-FULLSOURCE_20260912.zip
-  SOURCE_SHA256: 19de153172af97354f5fb10cd4951f4d12b66440fa57f39a1cf1e77936276a19
+  SOURCE_ZIP: Bankmovie-v2.3-V7.38-VIP-PROFILE-HERO-BOXOFFICE-POLISH-FULLSOURCE_20260912.zip
+  SOURCE_SHA256: a8dd1e6cb7bcb318fae991e66a66d090b920cf8a51c8383f9721172b526cafc2
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.37 source
+      - name: Locate and verify exact V7.38 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v737-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v738-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,14 +85,14 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.37 profile + VIP + box office polish + regressions
+      - name: Verify V7.38 VIP + profile hero + box office polish + regressions
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v737_profile_vip_boxoffice_polish.sh || {
-            echo "::error::V7.37 verifier is missing"
+          test -s verify_v738_profile_vip_boxoffice_micro_polish.sh || {
+            echo "::error::V7.38 verifier is missing"
             exit 1
           }
           test -s verify_v736_home_archive_gates_profile_vip_boxoffice.sh || {
@@ -108,7 +108,7 @@ jobs:
             exit 1
           }
 
-          bash verify_v737_profile_vip_boxoffice_polish.sh
+          bash verify_v738_profile_vip_boxoffice_micro_polish.sh
           bash verify_v736_home_archive_gates_profile_vip_boxoffice.sh
           bash verify_v733_filters_notifications_archive_policy.sh
           bash verify_v732_uiverse_downloader_settings.sh
@@ -122,7 +122,11 @@ jobs:
           appcfg='server-required/app_config.php'
           policy='server-required/includes/app_archive_policy.php'
 
-          grep -Fq 'sourceMainUpdateEighteenthHotfixTag=BANKMOVIE-2.3-V737-20260912' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'sourceMainUpdateNineteenthHotfixTag=BANKMOVIE-2.3-V738-20260912' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 't("خرید همین پلن در تلگرام", "Buy this plan on Telegram")' "$main"
+          grep -Fq 'Triple(R.drawable.ic_archive_database, t("آرشیوهای بیشتر"' "$main"
+          grep -Fq 'fun heroAuthButton(label: String, primary: Boolean, register: Boolean)' "$main"
+          grep -Fq 'setImageResource(R.drawable.ic_chevron_right)' "$main"
           grep -Fq 'remote_home_controls_v736' "$main"
           grep -Fq 'last_remote_config_revision_v736' "$main"
           grep -Fq 'cached_remote_config_v5' "$main"
@@ -165,7 +169,7 @@ jobs:
           php -l "$appcfg" >/dev/null
           php -l "$policy" >/dev/null
 
-          echo WORKFLOW_VERIFY_V736_OK
+          echo WORKFLOW_VERIFY_V738_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -350,7 +354,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.37-Manifests
+          name: Bankmovie-2.3-V7.38-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
