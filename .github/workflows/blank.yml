@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.40 Player Auth Notifications Polish
+name: Build BankMovie 2.3 V7.40.1 Workflow Regression Hotfix
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v740-main-${{ github.ref }}
+  group: bankmovie-2.3-v7401-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.40-PLAYER-AUTH-NOTIFICATIONS-POLISH-FULLSOURCE_20260912.zip
-  SOURCE_SHA256: 817306403fdefaabc4adc8620d58dcb35ad0655dd9fe796f4554f5c9e46374b2
+  SOURCE_ZIP: Bankmovie-v2.3-V7.40.1-WORKFLOW-REGRESSION-HOTFIX-FULLSOURCE_20260912.zip
+  SOURCE_SHA256: 198a0593c6f98198b26c4b919bdc9070e71efec814b720a3e7fe9282d1eb318e
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.40 source
+      - name: Locate and verify exact V7.40.1 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v740-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7401-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,45 +85,25 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.40 player + auth + notification polish + regressions
+      - name: Verify V7.40.1 workflow regression hotfix + V7.40 features
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v740_player_auth_notification_polish.sh || {
-            echo "::error::V7.40 verifier is missing"
-            exit 1
-          }
-          test -s verify_v739_website_auth_security_update.sh || {
-            echo "::error::V7.39 regression verifier is missing"
-            exit 1
-          }
-          test -s verify_v736_home_archive_gates_profile_vip_boxoffice.sh || {
-            echo "::error::V7.36 regression verifier is missing"
-            exit 1
-          }
-          test -s verify_v733_filters_notifications_archive_policy.sh || {
-            echo "::error::V7.33 regression verifier is missing"
-            exit 1
-          }
-          test -s verify_v732_uiverse_downloader_settings.sh || {
-            echo "::error::V7.32 regression verifier is missing"
+          test -s verify_v7401_workflow_regression_hotfix.sh || {
+            echo "::error::V7.40.1 hotfix verifier is missing"
             exit 1
           }
 
-          bash verify_v740_player_auth_notification_polish.sh
-          bash verify_v739_website_auth_security_update.sh
-          bash verify_v736_home_archive_gates_profile_vip_boxoffice.sh
-          bash verify_v733_filters_notifications_archive_policy.sh
-          bash verify_v732_uiverse_downloader_settings.sh
-          bash verify_release.sh
+          bash verify_v7401_workflow_regression_hotfix.sh
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
           player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
           auth='app/src/main/java/ir/bankmoviee/app/AuthActivity.kt'
           draw='app/src/main/res/drawable'
 
+          grep -Fq 'sourceMainUpdateTwentySecondHotfixTag=BANKMOVIE-2.3-V7401-20260912' BANKMOVIE_BUILD_SOURCE_2_3.txt
           grep -Fq 'sourceMainUpdateTwentyFirstHotfixTag=BANKMOVIE-2.3-V740-20260912' BANKMOVIE_BUILD_SOURCE_2_3.txt
           test -s "$draw/ic_auth_refresh.xml"
           grep -Fq 'R.drawable.ic_auth_refresh' "$auth"
@@ -134,7 +114,6 @@ jobs:
           grep -Fq 'val notificationAccent = notificationPalette.primary' "$main"
           grep -Fq 'text = t("جدید", "NEW")' "$main"
           grep -Fq 'bottomNav.visibility = View.GONE' "$main"
-          grep -Fq 'sourceMainUpdateTwentiethHotfixTag=BANKMOVIE-2.3-V739-20260912' BANKMOVIE_BUILD_SOURCE_2_3.txt
           grep -Fq 'AccountApi.authChallenge(this)' "$auth"
           grep -Fq 'remote_home_controls_v736' "$main"
           grep -Fq 'showDownloadSettingsSheet()' app/src/main/java/ir/bankmoviee/app/DownloadsActivity.kt
@@ -143,7 +122,7 @@ jobs:
           grep -Fq 'duration = 3000L' app/src/main/java/ir/bankmoviee/app/OrbitalGlowLoaderView.kt
           grep -Fq 'DashPathEffect(floatArrayOf(44f, 1111f), dashOffset)' app/src/main/java/ir/bankmoviee/app/OrbitalGlowLoaderView.kt
 
-          echo WORKFLOW_VERIFY_V740_OK
+          echo WORKFLOW_VERIFY_V7401_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -256,7 +235,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.40 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.40.1 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -328,7 +307,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.40-Manifests
+          name: Bankmovie-2.3-V7.40.1-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
