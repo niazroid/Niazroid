@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.35.1 Home Section Lock Persistence
+name: Build BankMovie 2.3 V7.36 Home Hard Fix Archive Gates Profile VIP BoxOffice
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7351-main-${{ github.ref }}
+  group: bankmovie-2.3-v736-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.35.1-HOME-SECTION-LOCK-PERSISTENCE-FULLSOURCE_20260912.zip
-  SOURCE_SHA256: 4a7a2a9a2fc40db0cbb4b0506c576f94527dc8b52339e3d88f63c78a568d91fb
+  SOURCE_ZIP: Bankmovie-v2.3-V7.36-HOME-HARD-FIX-ARCHIVE-GATES-PROFILE-VIP-BOXOFFICE-FULLSOURCE_20260912.zip
+  SOURCE_SHA256: 927018b7c1e7cae973d350572dae64933052d618d9e2e26959d1aef693c47d0b
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.35.1 source
+      - name: Locate and verify exact V7.36 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v7351-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v736-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,14 +85,14 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.35.1 home section policy + VIP locks + regressions
+      - name: Verify V7.36 home hard fix + per-archive gates + premium mobile UI + regressions
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v735_home_section_policy.sh || {
-            echo "::error::V7.35 verifier is missing"
+          test -s verify_v736_home_archive_gates_profile_vip_boxoffice.sh || {
+            echo "::error::V7.36 verifier is missing"
             exit 1
           }
           test -s verify_v733_filters_notifications_archive_policy.sh || {
@@ -104,7 +104,7 @@ jobs:
             exit 1
           }
 
-          bash verify_v735_home_section_policy.sh
+          bash verify_v736_home_archive_gates_profile_vip_boxoffice.sh
           bash verify_v733_filters_notifications_archive_policy.sh
           bash verify_v732_uiverse_downloader_settings.sh
           bash verify_release.sh
@@ -115,24 +115,31 @@ jobs:
           draw='app/src/main/res/drawable'
           admin='server-required/bm_admin.php'
           appcfg='server-required/app_config.php'
+          policy='server-required/includes/app_archive_policy.php'
 
-          grep -Fq 'remote_home_controls_v735' "$main"
-          grep -Fq 'home_section_policy' "$main"
-          grep -Fq 'last_remote_config_revision_v735' "$main"
-          grep -Fq 'renderHomeSectionWithPolicy' "$main"
-          grep -Fq 'collectionsEnabled' "$main"
-          grep -Fq 'VipGatePreset' "$main"
-          grep -Fq 'remoteWatchPartyScope' "$main"
-          grep -Fq 'remoteInternalPlayerScope' "$main"
-          grep -Fq 'remoteExternalPlayerScope' "$main"
-          grep -Fq 'remoteAllPlayersScope' "$main"
+          grep -Fq 'sourceMainUpdateSeventeenthHotfixTag=BANKMOVIE-2.3-V736-20260912' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'remote_home_controls_v736' "$main"
+          grep -Fq 'last_remote_config_revision_v736' "$main"
+          grep -Fq 'cached_remote_config_v5' "$main"
+          grep -Fq 'remoteHomeSectionEnabled' "$main"
+          grep -Fq 'hasVisibilityPolicy' "$main"
+          grep -Fq 'showProfileMobileV736' "$main"
+          grep -Fq 'showVipPlansMobileV736' "$main"
+          grep -Fq 'showBoxOfficeMobileV736' "$main"
+          grep -Fq 'remoteArchiveWatchPartyScopes' "$main"
+          grep -Fq 'remoteArchiveInternalPlayerScopes' "$main"
+          grep -Fq 'remoteArchiveExternalPlayerScopes' "$main"
+          grep -Fq 'remoteArchiveAllPlayerScopes' "$main"
+          grep -Fq 'archiveRuntimeScope(item, "external_player")' "$main"
+          grep -Fq 'archiveRuntimeScope(item, "all_players")' "$main"
           grep -Fq "'home_section_policy'=>\$homeSectionPolicy" "$admin"
-          grep -Fq "'watch_party_scope'=>\$appFeatureScopes['watch_party_scope']" "$admin"
-          grep -Fq "'internal_player_scope'=>\$appFeatureScopes['internal_player_scope']" "$admin"
-          grep -Fq "'external_player_scope'=>\$appFeatureScopes['external_player_scope']" "$admin"
-          grep -Fq "'all_players_scope'=>\$appFeatureScopes['all_players_scope']" "$admin"
-          grep -Fq "'home_section_policy' =>" "$appcfg"
-          grep -Fq 'config_revision' "$appcfg"
+          grep -Fq 'name="archive<?= (int)$bmArchiveNumber ?>_external_player_scope"' "$admin"
+          grep -Fq 'name="archive<?= (int)$bmArchiveNumber ?>_internal_player_scope"' "$admin"
+          grep -Fq 'name="archive<?= (int)$bmArchiveNumber ?>_watch_party_scope"' "$admin"
+          grep -Fq 'name="archive<?= (int)$bmArchiveNumber ?>_all_players_scope"' "$admin"
+          grep -Fq 'V7.36: home-section visibility is authoritative per section' "$appcfg"
+          grep -Fq 'watch_party_access_scope' "$policy"
+          grep -Fq 'external_player_access_scope' "$policy"
           grep -Fq 'OrbitalGlowLoaderView(this@MainActivity)' "$main"
           grep -Fq 'duration = 3000L' app/src/main/java/ir/bankmoviee/app/OrbitalGlowLoaderView.kt
           grep -Fq 'DashPathEffect(floatArrayOf(44f, 1111f), dashOffset)' app/src/main/java/ir/bankmoviee/app/OrbitalGlowLoaderView.kt
@@ -151,8 +158,9 @@ jobs:
 
           php -l "$admin" >/dev/null
           php -l "$appcfg" >/dev/null
+          php -l "$policy" >/dev/null
 
-          echo WORKFLOW_VERIFY_V735_OK
+          echo WORKFLOW_VERIFY_V736_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -265,7 +273,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.35.1 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.36 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -337,7 +345,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.35.1-Manifests
+          name: Bankmovie-2.3-V7.36-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
