@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.42 Skeleton Auth Update Icon Polish
+name: Build BankMovie 2.3 V7.43 App API Policy Engine Repair
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v742-main-${{ github.ref }}
+  group: bankmovie-2.3-v743-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.42-SKELETON-AUTH-UPDATE-ICON-POLISH-FULLSOURCE_20260912.zip
-  SOURCE_SHA256: ce00a9d109f2d72d9f665bff691e94424df47637e523704e47f32e2445b07679
+  SOURCE_ZIP: Bankmovie-v2.3-V7.43-APP-API-POLICY-ENGINE-REPAIR-FULLSOURCE_20260912.zip
+  SOURCE_SHA256: 3c2457882d37402a7815ba65c752575080f4fec9515334d309f466e7a8107c91
 
 jobs:
   build:
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v742-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v743-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,37 +85,48 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.42 skeleton/auth/update icon polish + regressions
+      - name: Verify V7.43 App API policy engine repair
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v742_skeleton_auth_update_icon.sh || {
-            echo "::error::V7.42 verifier is missing"
+          test -s verify_v743_app_api_policy_engine_repair.sh || {
+            echo "::error::V7.43 verifier is missing"
             exit 1
           }
 
-          bash verify_v742_skeleton_auth_update_icon.sh
-          bash verify_v736_home_archive_gates_profile_vip_boxoffice.sh
-          bash verify_v733_filters_notifications_archive_policy.sh
-          bash verify_v732_uiverse_downloader_settings.sh
+          bash verify_v743_app_api_policy_engine_repair.sh
           bash verify_release.sh
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
-          auth='app/src/main/java/ir/bankmoviee/app/AuthActivity.kt'
-          shimmer='app/src/main/java/ir/bankmoviee/app/PosterShimmerDrawable.kt'
+          account='app/src/main/java/ir/bankmoviee/app/AccountApi.kt'
+          policy='server-required/includes/app_archive_policy.php'
+          config='server-required/app_config.php'
+          admin='server-required/bm_admin.php'
 
-          grep -Fq 'sourceMainUpdateTwentyFifthHotfixTag=BANKMOVIE-2.3-V742-20260912' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'V7.42: keep the original update glyph on the film-status pill AND reuse' "$main"
-          grep -Fq 'setImageResource(R.drawable.ic_status_update_arrow)' "$auth"
-          grep -Fq 'V7.42 cinematic skeleton shimmer.' "$shimmer"
-          grep -Fq 'private val accentColor: Int' "$shimmer"
-          grep -Fq 'V7.42 mobile skeleton mirrors the current detail screen' "$main"
-          grep -Fq 'leadingIcon.setColorFilter(if (focused) accent else idleIcon)' "$auth"
-          grep -Fq 'wireDraggableAuthCard(card, dragHandle)' "$auth"
+          grep -Fq 'sourceMainUpdateTwentySixthHotfixTag=BANKMOVIE-2.3-V743-20260912' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'private val canonicalAppDomain = "https://bankmovie.top"' "$main"
+          grep -Fq 'cached_remote_config_v743' "$main"
+          grep -Fq 'val canonical = "https://bankmovie.top/app_user_api.php"' "$account"
+          grep -Fq 'Only remove media URLs when BOTH capabilities' "$policy"
+          grep -Fq "\$contentDomain = 'https://bankmovie.top';" "$config"
+          grep -Fq "'home_section_policy'=>\$homeSectionPolicy" "$admin"
 
-          echo WORKFLOW_VERIFY_V742_OK
+          for f in \
+            server-required/bm_admin.php \
+            server-required/app_config.php \
+            server-required/app_api.php \
+            server-required/app_user_api.php \
+            server-required/api4.php \
+            server-required/api6.php \
+            server-required/archive1_live.php \
+            server-required/includes/app_archive_policy.php \
+            server-required/includes/archive_control.php; do
+            php -l "$f" >/dev/null
+          done
+
+          echo WORKFLOW_VERIFY_V743_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -228,7 +239,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.42 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.43 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -300,7 +311,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.41.1-Manifests
+          name: Bankmovie-2.3-V7.43-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
