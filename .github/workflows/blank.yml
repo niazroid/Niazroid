@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.42 Archive4 Auth Update Icon
+name: Build BankMovie 2.3 V7.43 Section Controls
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v742-main-${{ github.ref }}
+  group: bankmovie-2.3-v743-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.42-ARCHIVE4-AUTH-UPDATE-ICON-FULLSOURCE_20260913.zip
-  SOURCE_SHA256: 46a2e3c18a2044f89c85197ccd5bcc06eec927a45610003af4c207ca1a48d388
+  SOURCE_ZIP: Bankmovie-v2.3-V7.43-SECTION-CONTROLS-FULLSOURCE_20260913.zip
+  SOURCE_SHA256: 9cc15ce1f7bcac1559c4b5df0bc51587f97c2095dbe8ac617915277898de7d6d
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.42 source
+      - name: Locate and verify exact V7.43 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v742-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v743-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,25 +85,25 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.42 Archive4/Auth/Update Icon + regressions
+      - name: Verify V7.43 per-archive section controls + regressions
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v742_archive4_auth_update_icon.sh || {
-            echo "::error::V7.42 verifier is missing"
+          test -s verify_v743_section_controls.sh || {
+            echo "::error::V7.43 verifier is missing"
             exit 1
           }
 
-          bash verify_v742_archive4_auth_update_icon.sh
+          bash verify_v743_section_controls.sh
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
           player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
           auth='app/src/main/java/ir/bankmoviee/app/AuthActivity.kt'
           draw='app/src/main/res/drawable'
 
-          grep -Fq 'sourceMainUpdateTwentyFifthHotfixTag=BANKMOVIE-2.3-V742-20260913' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'sourceMainUpdateTwentySixthHotfixTag=BANKMOVIE-2.3-V743-20260913' BANKMOVIE_BUILD_SOURCE_2_3.txt
           grep -Fq 'page.gravity = Gravity.CENTER_HORIZONTAL or Gravity.CENTER_VERTICAL' "$auth"
           grep -Fq 'wireDraggableAuthCard(card, dragHandle)' "$auth"
           test -s "$draw/ic_auth_user.xml"
@@ -117,7 +117,7 @@ jobs:
           grep -Fq 'setImageResource(R.drawable.ic_status_update_arrow)' "$auth"
           grep -Fq 'Content update' "$main"
 
-          echo WORKFLOW_VERIFY_V742_OK
+          echo WORKFLOW_VERIFY_V743_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -230,7 +230,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.42 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.43 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -302,7 +302,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.42-Manifests
+          name: Bankmovie-2.3-V7.43-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
