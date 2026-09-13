@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.43.1 App API Policy Compile Compat
+name: Build BankMovie 2.3 V7.42 Archive4 Auth Update Icon
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7431-main-${{ github.ref }}
+  group: bankmovie-2.3-v742-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.43.1-APP-API-POLICY-COMPILE-COMPAT-FULLSOURCE_20260913.zip
-  SOURCE_SHA256: 15a227bd28563751d7e0ded13191863fc7ccc5c58d30533e79cab5f6b1d8996f
+  SOURCE_ZIP: Bankmovie-v2.3-V7.42-ARCHIVE4-AUTH-UPDATE-ICON-FULLSOURCE_20260913.zip
+  SOURCE_SHA256: 46a2e3c18a2044f89c85197ccd5bcc06eec927a45610003af4c207ca1a48d388
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.43.1 source
+      - name: Locate and verify exact V7.42 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v7431-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v742-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,62 +85,39 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.43.1 compile fix and legacy compatibility
+      - name: Verify V7.42 Archive4/Auth/Update Icon + regressions
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v7431_compile_legacy_compat.sh || {
-            echo "::error::V7.43.1 verifier is missing"
-            exit 1
-          }
-          test -s verify_v743_app_api_policy_engine_repair.sh || {
-            echo "::error::V7.43 regression verifier is missing"
+          test -s verify_v742_archive4_auth_update_icon.sh || {
+            echo "::error::V7.42 verifier is missing"
             exit 1
           }
 
-          bash verify_v7431_compile_legacy_compat.sh
-          bash verify_v743_app_api_policy_engine_repair.sh
-          bash verify_release.sh
+          bash verify_v742_archive4_auth_update_icon.sh
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
-          account='app/src/main/java/ir/bankmoviee/app/AccountApi.kt'
-          policy='server-required/includes/app_archive_policy.php'
-          config='server-required/app_config.php'
-          admin='server-required/bm_admin.php'
+          player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
+          auth='app/src/main/java/ir/bankmoviee/app/AuthActivity.kt'
+          draw='app/src/main/res/drawable'
 
-          grep -Fq 'sourceMainUpdateTwentySeventhHotfixTag=BANKMOVIE-2.3-V7431-20260913' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'private val canonicalAppDomain = "https://bankmovie.top"' "$main"
-          grep -Fq 'cached_remote_config_v743' "$main"
-          grep -Fq 'val canonical = "https://bankmovie.top/app_user_api.php"' "$account"
-          grep -Fq 'Only remove media URLs when BOTH capabilities' "$policy"
-          grep -Fq "\$contentDomain = 'https://bankmovie.top';" "$config"
-          grep -Fq "'home_section_policy'=>\$homeSectionPolicy" "$admin"
+          grep -Fq 'sourceMainUpdateTwentyFifthHotfixTag=BANKMOVIE-2.3-V742-20260913' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'page.gravity = Gravity.CENTER_HORIZONTAL or Gravity.CENTER_VERTICAL' "$auth"
+          grep -Fq 'wireDraggableAuthCard(card, dragHandle)' "$auth"
+          test -s "$draw/ic_auth_user.xml"
+          test -s "$draw/ic_auth_lock.xml"
+          test -s "$draw/ic_auth_eye.xml"
+          test -s "$draw/ic_user_settings.xml"
+          grep -Fq 'setImageResource(R.drawable.ic_play_fill)' "$player"
+          grep -Fq 'private val playableLinksCache = java.util.WeakHashMap' "$main"
+          grep -Fq 'Open the sheet first, then build the heavier quality/episode views' "$main"
+          grep -Fq 'val contentChoicesHeight = dp((labels.size * 61 + 4).coerceAtLeast(64))' "$main"
+          grep -Fq 'setImageResource(R.drawable.ic_status_update_arrow)' "$auth"
+          grep -Fq 'Content update' "$main"
 
-          for f in \
-            server-required/bm_admin.php \
-            server-required/app_config.php \
-            server-required/app_api.php \
-            server-required/app_user_api.php \
-            server-required/api4.php \
-            server-required/api6.php \
-            server-required/archive1_live.php \
-            server-required/includes/app_archive_policy.php \
-            server-required/includes/archive_control.php; do
-            php -l "$f" >/dev/null
-          done
-
-          echo WORKFLOW_VERIFY_V7431_OK
-
-      - name: Kotlin compile smoke check
-        shell: bash
-        env:
-          BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a
-        run: |
-          set -euo pipefail
-          cd "$PROJECT_DIR"
-          gradle --no-daemon --stacktrace :app:compileAbi2LiteReleaseKotlin
+          echo WORKFLOW_VERIFY_V742_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -253,7 +230,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.43.1 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.42 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -325,7 +302,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.43.1-Manifests
+          name: Bankmovie-2.3-V7.42-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
