@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.43 App API Policy Engine Repair
+name: Build BankMovie 2.3 V7.43.1 App API Policy Compile Compat
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v743-main-${{ github.ref }}
+  group: bankmovie-2.3-v7431-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.43-APP-API-POLICY-ENGINE-REPAIR-FULLSOURCE_20260912.zip
-  SOURCE_SHA256: 3c2457882d37402a7815ba65c752575080f4fec9515334d309f466e7a8107c91
+  SOURCE_ZIP: Bankmovie-v2.3-V7.43.1-APP-API-POLICY-COMPILE-COMPAT-FULLSOURCE_20260913.zip
+  SOURCE_SHA256: 15a227bd28563751d7e0ded13191863fc7ccc5c58d30533e79cab5f6b1d8996f
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.42 source
+      - name: Locate and verify exact V7.43.1 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v743-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7431-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,17 +85,22 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.43 App API policy engine repair
+      - name: Verify V7.43.1 compile fix and legacy compatibility
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
+          test -s verify_v7431_compile_legacy_compat.sh || {
+            echo "::error::V7.43.1 verifier is missing"
+            exit 1
+          }
           test -s verify_v743_app_api_policy_engine_repair.sh || {
-            echo "::error::V7.43 verifier is missing"
+            echo "::error::V7.43 regression verifier is missing"
             exit 1
           }
 
+          bash verify_v7431_compile_legacy_compat.sh
           bash verify_v743_app_api_policy_engine_repair.sh
           bash verify_release.sh
 
@@ -105,7 +110,7 @@ jobs:
           config='server-required/app_config.php'
           admin='server-required/bm_admin.php'
 
-          grep -Fq 'sourceMainUpdateTwentySixthHotfixTag=BANKMOVIE-2.3-V743-20260912' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'sourceMainUpdateTwentySeventhHotfixTag=BANKMOVIE-2.3-V7431-20260913' BANKMOVIE_BUILD_SOURCE_2_3.txt
           grep -Fq 'private val canonicalAppDomain = "https://bankmovie.top"' "$main"
           grep -Fq 'cached_remote_config_v743' "$main"
           grep -Fq 'val canonical = "https://bankmovie.top/app_user_api.php"' "$account"
@@ -126,7 +131,16 @@ jobs:
             php -l "$f" >/dev/null
           done
 
-          echo WORKFLOW_VERIFY_V743_OK
+          echo WORKFLOW_VERIFY_V7431_OK
+
+      - name: Kotlin compile smoke check
+        shell: bash
+        env:
+          BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          gradle --no-daemon --stacktrace :app:compileAbi2LiteReleaseKotlin
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -239,7 +253,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.43 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.43.1 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -311,7 +325,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.43-Manifests
+          name: Bankmovie-2.3-V7.43.1-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
