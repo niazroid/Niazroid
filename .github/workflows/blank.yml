@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.43.1 Section Hard Hide
+name: Build BankMovie 2.3 V7.44 VIP Auth Player Polish
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7431-main-${{ github.ref }}
+  group: bankmovie-2.3-v744-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.43.1-SECTION-HARD-HIDE-FULLSOURCE_20260913.zip
-  SOURCE_SHA256: 5df7b2f8dbc38478baed6dc3a446835a85a9b341c9fe2a630e78f8ebd0c9ead3
+  SOURCE_ZIP: Bankmovie-v2.3-V7.44-VIP-AUTH-PLAYER-POLISH-FULLSOURCE_20260913.zip
+  SOURCE_SHA256: b9812f18b374e97eae7e4a4f47ca3b08401a516533c6f47e99ceb9c3440ab9da
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.43.1 source
+      - name: Locate and verify exact V7.44 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v7431-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v744-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,25 +85,37 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.43.1 section hard-hide + regressions
+      - name: Verify V7.44 VIP/auth/player polish + regressions
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v7431_section_hard_hide.sh || {
-            echo "::error::V7.43.1 verifier is missing"
+          test -s verify_v744_vip_auth_player_polish.sh || {
+            echo "::error::V7.44 verifier is missing"
             exit 1
           }
 
-          bash verify_v7431_section_hard_hide.sh
+          bash verify_v744_vip_auth_player_polish.sh
 
           main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
           player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
           auth='app/src/main/java/ir/bankmoviee/app/AuthActivity.kt'
           draw='app/src/main/res/drawable'
 
-          grep -Fq 'sourceMainUpdateTwentySeventhHotfixTag=BANKMOVIE-2.3-V7431-20260913' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'sourceMainUpdateTwentyEighthHotfixTag=BANKMOVIE-2.3-V744-20260913' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'downloadBoxPlayerUrl' "$main"
+          grep -Fq 'bypassArchivePlaybackGates = true' "$main"
+          grep -Fq 'val internalPlayerLocked = !bypassArchivePlaybackGates' "$main"
+          grep -Fq 'setImageResource(R.drawable.ic_repo_close)' "$main"
+          grep -Fq 'setImageResource(R.drawable.ic_repo_confirm)' "$main"
+          grep -Fq 'V7.44 auth motion fix' "$auth"
+          grep -Fq 'setImageResource(R.drawable.ic_repo_language)' "$player"
+          grep -Fq 'private fun showVolumeGestureHud(volume: Int, maxVolume: Int)' "$player"
+          test -s "$draw/ic_repo_close.xml"
+          test -s "$draw/ic_repo_confirm.xml"
+          test -s "$draw/ic_repo_language.xml"
+          test -s "$draw/ic_player_volume_uiverse.xml"
           grep -Fq 'private fun sectionResponseRequestsHardHide(json: JSONObject?): Boolean' "$main"
           grep -Fq 'json.optBoolean("section_disabled", false)' "$main"
           grep -Fq 'removeHomeSectionBox(box)' "$main"
@@ -118,7 +130,7 @@ jobs:
           grep -Fq 'Open the sheet first, then build the heavier quality/episode views' "$main"
           grep -Fq 'setImageResource(R.drawable.ic_status_update_arrow)' "$auth"
 
-          echo WORKFLOW_VERIFY_V7431_OK
+          echo WORKFLOW_VERIFY_V744_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -231,7 +243,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.43.1 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.44 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -303,7 +315,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.43.1-Manifests
+          name: Bankmovie-2.3-V7.44-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
