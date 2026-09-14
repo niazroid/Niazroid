@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.44.4 VLC Style Gesture Boost
+name: Build BankMovie 2.3 V7.44.5 Gesture Direction Spacing Hard Fix
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7444-main-${{ github.ref }}
+  group: bankmovie-2.3-v7445-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.44.4-VLC-STYLE-GESTURE-BOOST-FULLSOURCE_20260914.zip
-  SOURCE_SHA256: 09f833d0324bda23b87e361fb3d42987168b7b6c83aaf39800332afbdcc79789
+  SOURCE_ZIP: Bankmovie-v2.3-V7.44.5-GESTURE-DIRECTION-SPACING-HARD-FIX-FULLSOURCE_20260914.zip
+  SOURCE_SHA256: b569795f76c1d1847a7cd8c7def4946d60f9db9fefdbc2a0561ed96d21ae9b4a
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.44.4 source
+      - name: Locate and verify exact V7.44.5 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v7444-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7445-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,36 +85,28 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.44.4 VLC-style gesture HUD + boost
+      - name: Verify V7.44.5 gesture direction + SVG spacing hard fix
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v7444_vlc_style_gesture_boost.sh || {
-            echo "::error::V7.44.4 verifier is missing"
+          test -s verify_v7445_gesture_direction_spacing_hard_fix.sh || {
+            echo "::error::V7.44.5 verifier is missing"
             exit 1
           }
 
-          bash verify_v7444_vlc_style_gesture_boost.sh
+          bash verify_v7445_gesture_direction_spacing_hard_fix.sh
 
           player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
-          draw='app/src/main/res/drawable'
+          grep -Fq 'sourceMainUpdateThirtyThirdHotfixTag=BANKMOVIE-2.3-V7445-20260914' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'val stepUpPx = lastGestureRawY - e.rawY' "$player"
+          grep -Fq 'val stepRatio = (stepUpPx / root.height) * 1.42f' "$player"
+          grep -Fq 'val stepPercent = (stepUpPx / root.height) * 205f' "$player"
+          grep -Fq 'pivotY = volumeGestureTrackHeightPx.toFloat()' "$player"
+          grep -Fq 'pivotY = brightnessGestureTrackHeightPx.toFloat()' "$player"
 
-          grep -Fq 'sourceMainUpdateThirtySecondHotfixTag=BANKMOVIE-2.3-V7444-20260914' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'setImageResource(R.drawable.ic_player_cc)' "$player"
-          grep -Fq 'text = "Volume"' "$player"
-          grep -Fq 'text = "Brightness"' "$player"
-          grep -Fq 'private const val VOLUME_BOOST_MAX_PERCENT = 200f' "$player"
-          grep -Fq 'val deltaRatio = ((touchStartY - e.y) / root.height) * 1.30f' "$player"
-          grep -Fq 'val deltaPercent = ((touchStartY - e.y) / root.height) * 185f' "$player"
-          grep -Fq 'applyVlcAmplification(percent.roundToInt())' "$player"
-          grep -Fq 'volumeGestureLevel.scaleY = trackRatio' "$player"
-          grep -Fq 'brightnessGestureLevel.scaleY = ratio' "$player"
-          test -s "$draw/ic_player_volume_gesture.xml"
-          test -s "$draw/ic_player_brightness_gesture.xml"
-
-          echo WORKFLOW_VERIFY_V7444_OK
+          echo WORKFLOW_VERIFY_V7445_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -227,7 +219,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.44.4 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.44.5 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
