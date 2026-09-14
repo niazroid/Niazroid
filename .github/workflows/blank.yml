@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.45.3 Watch Party Chat Drawer IME Polish
+name: Build BankMovie 2.3 V7.45.4 Watch Party Chat Badge Bubble Polish
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7453-main-${{ github.ref }}
+  group: bankmovie-2.3-v7454-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.45.3-WATCH-PARTY-CHAT-DRAWER-IME-POLISH-FULLSOURCE_20260914.zip
-  SOURCE_SHA256: e8dba3bd0be15f63dc4f151d749f32b043d217e58606af00efcd06b9d3bf5ece
+  SOURCE_ZIP: Bankmovie-v2.3-V7.45.4-WATCH-PARTY-CHAT-BADGE-BUBBLE-POLISH-FULLSOURCE_20260914.zip
+  SOURCE_SHA256: 0286ddd6699d86e37dc0fa5002c3f9f8adff78f70fe0b70ee7f344d80172ca0d
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.45.3 source
+      - name: Locate and verify exact V7.45.4 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v7453-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7454-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,31 +85,25 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.45.3 Watch Party chat drawer and IME polish
+      - name: Verify V7.45.4 Watch Party chat badges and bubbles
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
-          grep -Fq 'V7.45.3 — Side-drawer chat' "$player"
-          grep -Fq 'private fun ensurePartyStatusChip(): TextView' "$player"
-          grep -Fq 'R.drawable.ic_party_members' "$player"
-          grep -Fq 'R.drawable.ic_profile_vip' "$player"
-          grep -Fq 'R.drawable.ic_admin_verified' "$player"
-          grep -Fq 'R.drawable.ic_party_emoji' "$player"
-          grep -Fq 'IME_FLAG_NO_FULLSCREEN' "$player"
-          grep -Fq 'IME_FLAG_NO_EXTRACT_UI' "$player"
-          grep -Fq 'SOFT_INPUT_ADJUST_RESIZE' "$player"
-          grep -Fq 'FLAG_ALT_FOCUSABLE_IM' "$player"
-          grep -Fq 'WindowManager.LayoutParams.MATCH_PARENT' "$player"
-          grep -Fq 'setOnEditorActionListener' "$player"
-          if grep -Fq 'isHorizontallyScrolling = false' "$player"; then
-            echo "::error::Invalid Kotlin property isHorizontallyScrolling is present"
-            exit 1
-          fi
+          bash verify_v7454_watch_party_chat_badges.sh
 
-          echo WORKFLOW_VERIFY_V7453_OK
+          player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
+          main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
+          grep -Fq 'V7.45.4 — Bubble width is derived from the drawer width' "$player"
+          grep -Fq 'R.drawable.ic_vip_verified_green' "$player"
+          grep -Fq 'R.drawable.ic_admin_verified' "$player"
+          grep -Fq 'R.drawable.ic_vip_verified_green' "$main"
+          grep -Fq 'Verified administrator' "$main"
+          grep -Fq '#FF1D9BF0' app/src/main/res/drawable/ic_admin_verified.xml
+          grep -Fq '#FF8BC34A' app/src/main/res/drawable/ic_vip_verified_green.xml
+
+          echo WORKFLOW_VERIFY_V7454_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -222,7 +216,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.45.3 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.45.4 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -294,7 +288,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.45.3-Manifests
+          name: Bankmovie-2.3-V7.45.4-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
