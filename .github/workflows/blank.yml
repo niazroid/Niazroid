@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.44.8 Watch Party Ready Crash Fix
+name: Build BankMovie 2.3 V7.44.9 Watch Party Ready Stable Rollback
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7448-main-${{ github.ref }}
+  group: bankmovie-2.3-v7449-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.44.8-WATCH-PARTY-READY-CRASH-FIX-FULLSOURCE_20260914.zip
-  SOURCE_SHA256: bfd3d99a816fd2a974260ce5741877c82f6e713687aba7af3cf3318009edc4e8
+  SOURCE_ZIP: Bankmovie-v2.3-V7.44.9-WATCH-PARTY-READY-STABLE-ROLLBACK-FULLSOURCE_20260914.zip
+  SOURCE_SHA256: c7b90ccf6d297378414ccd7798fd553f2b06332372ba82939d843889162ada0c
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.44.8 source
+      - name: Locate and verify exact V7.44.9 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v7448-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7449-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,30 +85,29 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.44.8 Watch Party ready crash fix
+      - name: Verify V7.44.9 stable Watch Party Ready gate
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v7448_watch_party_ready_crash_fix.sh || {
-            echo "::error::V7.44.8 verifier is missing"
+          test -s verify_v7449_watch_party_ready_stable_rollback.sh || {
+            echo "::error::V7.44.9 verifier is missing"
             exit 1
           }
 
-          bash verify_v7448_watch_party_ready_crash_fix.sh
+          bash verify_v7449_watch_party_ready_stable_rollback.sh
 
           player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
-          grep -Fq 'sourceMainUpdateThirtySixthHotfixTag=BANKMOVIE-2.3-V7448-20260914' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'setCancelable(false)' "$player"
-          grep -Fq 'dialog.setCanceledOnTouchOutside(false)' "$player"
-          grep -Fq 'STATE_PARTY_READY_CONFIRMED' "$player"
-          grep -Fq 'partyReadyLaunchInFlight' "$player"
+          grep -Fq 'sourceMainUpdateThirtyFifthHotfixTag=BANKMOVIE-2.3-V7449-20260914' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'AlertDialog.Builder(this).setView(shell).setCancelable(false).create()' "$player"
           grep -Fq 'lifecycleRestorePending = videoUrl.isNotBlank() && current != null' "$player"
-          grep -Fq 'partyLobbyDialog?.setOnDismissListener(null)' "$player"
-          grep -Fq 'برای ادامه ابتدا روی «شروع تماشا / آماده‌ام» بزنید' "$player"
+          grep -Fq 'pauseAfterLifecycleRestore = !partyIsHost' "$player"
+          grep -Fq 'launchPlayerSafely(videoUrl)' "$player"
+          ! grep -Fq 'partyReadyLaunchInFlight' "$player"
+          ! grep -Fq 'STATE_PARTY_READY_CONFIRMED' "$player"
 
-          echo WORKFLOW_VERIFY_V7448_OK
+          echo WORKFLOW_VERIFY_V7449_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -221,7 +220,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.44.6 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.44.9 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
