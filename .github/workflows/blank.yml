@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.45.2 Watch Party UI Chat Keyboard Fix
+name: Build BankMovie 2.3 V7.45.2 Compile Fix
 
 on:
   workflow_dispatch:
@@ -14,8 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.45.2-WATCH-PARTY-UI-CHAT-KEYBOARD-FIX-FULLSOURCE_20260914.zip
-  SOURCE_SHA256: a2f1d7ecc4917c4d69681f333eca366c318931bbd89f21a4cbeea0eda52077f7
+  SOURCE_ZIP: Bankmovie-v2.3-V7.45.2-COMPILE-FIX-FULLSOURCE_20260914.zip
+  SOURCE_SHA256: 00b6b1942963ec18d9b8c3c4ea7463c2cd2e2ae405057ab61b8df1420b308fd9
 
 jobs:
   build:
@@ -99,6 +99,10 @@ jobs:
           grep -Fq 'IME_FLAG_NO_FULLSCREEN' "$player"
           grep -Fq 'IME_FLAG_NO_EXTRACT_UI' "$player"
           grep -Fq 'SOFT_INPUT_ADJUST_RESIZE' "$player"
+          if grep -Fq 'isHorizontallyScrolling = false' "$player"; then
+            echo "::error::Invalid Kotlin property isHorizontallyScrolling is still present"
+            exit 1
+          fi
           grep -Fq 'playerMetaRow.addView(partyChip' "$player"
 
           # Old center-screen emoji chip must not exist anymore.
