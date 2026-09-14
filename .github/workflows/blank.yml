@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.44.3 Exact CC Gesture Smooth Fix
+name: Build BankMovie 2.3 V7.44.4 VLC Style Gesture Boost
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7443-main-${{ github.ref }}
+  group: bankmovie-2.3-v7444-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.44.3-EXACT-CC-GESTURE-SMOOTH-FULLSOURCE_20260914.zip
-  SOURCE_SHA256: a7525a16428dc9cb24d3536ddf9ef8347da7f112c54838349879584ac958a606
+  SOURCE_ZIP: Bankmovie-v2.3-V7.44.4-VLC-STYLE-GESTURE-BOOST-FULLSOURCE_20260914.zip
+  SOURCE_SHA256: 09f833d0324bda23b87e361fb3d42987168b7b6c83aaf39800332afbdcc79789
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.44.3 source
+      - name: Locate and verify exact V7.44.4 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v7443-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7444-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,39 +85,36 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.44.3 exact CC + gesture smooth fix
+      - name: Verify V7.44.4 VLC-style gesture HUD + boost
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v7443_player_cc_gesture_fix.sh || {
-            echo "::error::V7.44.3 verifier is missing"
+          test -s verify_v7444_vlc_style_gesture_boost.sh || {
+            echo "::error::V7.44.4 verifier is missing"
             exit 1
           }
 
-          bash verify_v7443_player_cc_gesture_fix.sh
+          bash verify_v7444_vlc_style_gesture_boost.sh
 
           player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
-          main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
           draw='app/src/main/res/drawable'
 
-          grep -Fq 'sourceMainUpdateThirtyFirstHotfixTag=BANKMOVIE-2.3-V7443-20260914' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'sourceMainUpdateThirtySecondHotfixTag=BANKMOVIE-2.3-V7444-20260914' BANKMOVIE_BUILD_SOURCE_2_3.txt
           grep -Fq 'setImageResource(R.drawable.ic_player_cc)' "$player"
-          grep -Fq 'setImageResource(R.drawable.ic_player_audio)' "$player"
-          if grep -Fq 'setImageResource(R.drawable.ic_repo_language)' "$player"; then
-            echo "::error::Language icon must not be used inside PlayerActivity"
-            exit 1
-          fi
-          grep -Fq 'R.drawable.ic_repo_language) { showLanguageThemeDialog() }' "$main"
-          grep -Fq 'val deltaRatio = ((e.y - touchStartY) / root.height) * 1.45f' "$player"
-          grep -Fq 'val deltaRatio = ((e.y - touchStartY) / root.height) * 1.55f' "$player"
-          grep -Fq 'volumeGestureLevel.scaleY = ratio' "$player"
+          grep -Fq 'text = "Volume"' "$player"
+          grep -Fq 'text = "Brightness"' "$player"
+          grep -Fq 'private const val VOLUME_BOOST_MAX_PERCENT = 200f' "$player"
+          grep -Fq 'val deltaRatio = ((touchStartY - e.y) / root.height) * 1.30f' "$player"
+          grep -Fq 'val deltaPercent = ((touchStartY - e.y) / root.height) * 185f' "$player"
+          grep -Fq 'applyVlcAmplification(percent.roundToInt())' "$player"
+          grep -Fq 'volumeGestureLevel.scaleY = trackRatio' "$player"
           grep -Fq 'brightnessGestureLevel.scaleY = ratio' "$player"
           test -s "$draw/ic_player_volume_gesture.xml"
           test -s "$draw/ic_player_brightness_gesture.xml"
 
-          echo WORKFLOW_VERIFY_V7443_OK
+          echo WORKFLOW_VERIFY_V7444_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -230,7 +227,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.44.3 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.44.4 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
