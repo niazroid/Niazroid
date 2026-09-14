@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.44.7 Watch Party Ready Gate
+name: Build BankMovie 2.3 V7.44.8 Watch Party Ready Crash Fix
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7447-main-${{ github.ref }}
+  group: bankmovie-2.3-v7448-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.44.7-WATCH-PARTY-READY-GATE-FULLSOURCE_20260914.zip
-  SOURCE_SHA256: 9fb4ea39d1f3f71bf01982637e6b0ec3b03987d224821b9d16cd5c1891132a93
+  SOURCE_ZIP: Bankmovie-v2.3-V7.44.8-WATCH-PARTY-READY-CRASH-FIX-FULLSOURCE_20260914.zip
+  SOURCE_SHA256: bfd3d99a816fd2a974260ce5741877c82f6e713687aba7af3cf3318009edc4e8
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.44.7 source
+      - name: Locate and verify exact V7.44.8 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v7447-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7448-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,27 +85,30 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.44.7 Watch Party ready gate
+      - name: Verify V7.44.8 Watch Party ready crash fix
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v7447_watch_party_ready_gate.sh || {
-            echo "::error::V7.44.7 verifier is missing"
+          test -s verify_v7448_watch_party_ready_crash_fix.sh || {
+            echo "::error::V7.44.8 verifier is missing"
             exit 1
           }
 
-          bash verify_v7447_watch_party_ready_gate.sh
+          bash verify_v7448_watch_party_ready_crash_fix.sh
 
           player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
-          grep -Fq 'sourceMainUpdateThirtyFifthHotfixTag=BANKMOVIE-2.3-V7447-20260914' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'sourceMainUpdateThirtySixthHotfixTag=BANKMOVIE-2.3-V7448-20260914' BANKMOVIE_BUILD_SOURCE_2_3.txt
           grep -Fq 'setCancelable(false)' "$player"
           grep -Fq 'dialog.setCanceledOnTouchOutside(false)' "$player"
           grep -Fq 'STATE_PARTY_READY_CONFIRMED' "$player"
+          grep -Fq 'partyReadyLaunchInFlight' "$player"
+          grep -Fq 'lifecycleRestorePending = videoUrl.isNotBlank() && current != null' "$player"
+          grep -Fq 'partyLobbyDialog?.setOnDismissListener(null)' "$player"
           grep -Fq 'برای ادامه ابتدا روی «شروع تماشا / آماده‌ام» بزنید' "$player"
 
-          echo WORKFLOW_VERIFY_V7447_OK
+          echo WORKFLOW_VERIFY_V7448_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
