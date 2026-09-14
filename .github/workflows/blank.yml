@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.45.2 Compile Fix
+name: Build BankMovie 2.3 V7.45.3 Watch Party Chat Drawer IME Polish
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7452-main-${{ github.ref }}
+  group: bankmovie-2.3-v7453-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.45.2-COMPILE-FIX-FULLSOURCE_20260914.zip
-  SOURCE_SHA256: 00b6b1942963ec18d9b8c3c4ea7463c2cd2e2ae405057ab61b8df1420b308fd9
+  SOURCE_ZIP: Bankmovie-v2.3-V7.45.3-WATCH-PARTY-CHAT-DRAWER-IME-POLISH-FULLSOURCE_20260914.zip
+  SOURCE_SHA256: e8dba3bd0be15f63dc4f151d749f32b043d217e58606af00efcd06b9d3bf5ece
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.45.2 source
+      - name: Locate and verify exact V7.45.3 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v7452-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7453-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,33 +85,31 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.45.2 Watch Party UI and keyboard fix
+      - name: Verify V7.45.3 Watch Party chat drawer and IME polish
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          # Verify the exact V7.45.2 UI/IME patch.
           player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
+          grep -Fq 'V7.45.3 — Side-drawer chat' "$player"
           grep -Fq 'private fun ensurePartyStatusChip(): TextView' "$player"
-          grep -Fq 'R.drawable.ic_profile_vip' "$player"
           grep -Fq 'R.drawable.ic_party_members' "$player"
+          grep -Fq 'R.drawable.ic_profile_vip' "$player"
+          grep -Fq 'R.drawable.ic_admin_verified' "$player"
+          grep -Fq 'R.drawable.ic_party_emoji' "$player"
           grep -Fq 'IME_FLAG_NO_FULLSCREEN' "$player"
           grep -Fq 'IME_FLAG_NO_EXTRACT_UI' "$player"
           grep -Fq 'SOFT_INPUT_ADJUST_RESIZE' "$player"
+          grep -Fq 'FLAG_ALT_FOCUSABLE_IM' "$player"
+          grep -Fq 'WindowManager.LayoutParams.MATCH_PARENT' "$player"
+          grep -Fq 'setOnEditorActionListener' "$player"
           if grep -Fq 'isHorizontallyScrolling = false' "$player"; then
-            echo "::error::Invalid Kotlin property isHorizontallyScrolling is still present"
-            exit 1
-          fi
-          grep -Fq 'playerMetaRow.addView(partyChip' "$player"
-
-          # Old center-screen emoji chip must not exist anymore.
-          if grep -Fq '👥  هم‌زمان تماشا' "$player"; then
-            echo "::error::Old center-screen emoji Watch Party chip is still present"
+            echo "::error::Invalid Kotlin property isHorizontallyScrolling is present"
             exit 1
           fi
 
-          echo WORKFLOW_VERIFY_V7452_OK
+          echo WORKFLOW_VERIFY_V7453_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -224,7 +222,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.45.2 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.45.3 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -296,7 +294,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.45.2-Manifests
+          name: Bankmovie-2.3-V7.45.3-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
