@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.44.5 Gesture Direction Spacing Hard Fix
+name: Build BankMovie 2.3 V7.44.7 Watch Party Ready Gate
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7445-main-${{ github.ref }}
+  group: bankmovie-2.3-v7447-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.44.5-GESTURE-DIRECTION-SPACING-HARD-FIX-FULLSOURCE_20260914.zip
-  SOURCE_SHA256: b569795f76c1d1847a7cd8c7def4946d60f9db9fefdbc2a0561ed96d21ae9b4a
+  SOURCE_ZIP: Bankmovie-v2.3-V7.44.7-WATCH-PARTY-READY-GATE-FULLSOURCE_20260914.zip
+  SOURCE_SHA256: 9fb4ea39d1f3f71bf01982637e6b0ec3b03987d224821b9d16cd5c1891132a93
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.44.5 source
+      - name: Locate and verify exact V7.44.7 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v7445-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7447-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,28 +85,27 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.44.5 gesture direction + SVG spacing hard fix
+      - name: Verify V7.44.7 Watch Party ready gate
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v7445_gesture_direction_spacing_hard_fix.sh || {
-            echo "::error::V7.44.5 verifier is missing"
+          test -s verify_v7447_watch_party_ready_gate.sh || {
+            echo "::error::V7.44.7 verifier is missing"
             exit 1
           }
 
-          bash verify_v7445_gesture_direction_spacing_hard_fix.sh
+          bash verify_v7447_watch_party_ready_gate.sh
 
           player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
-          grep -Fq 'sourceMainUpdateThirtyThirdHotfixTag=BANKMOVIE-2.3-V7445-20260914' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'val stepUpPx = lastGestureRawY - e.rawY' "$player"
-          grep -Fq 'val stepRatio = (stepUpPx / root.height) * 1.42f' "$player"
-          grep -Fq 'val stepPercent = (stepUpPx / root.height) * 205f' "$player"
-          grep -Fq 'pivotY = volumeGestureTrackHeightPx.toFloat()' "$player"
-          grep -Fq 'pivotY = brightnessGestureTrackHeightPx.toFloat()' "$player"
+          grep -Fq 'sourceMainUpdateThirtyFifthHotfixTag=BANKMOVIE-2.3-V7447-20260914' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'setCancelable(false)' "$player"
+          grep -Fq 'dialog.setCanceledOnTouchOutside(false)' "$player"
+          grep -Fq 'STATE_PARTY_READY_CONFIRMED' "$player"
+          grep -Fq 'برای ادامه ابتدا روی «شروع تماشا / آماده‌ام» بزنید' "$player"
 
-          echo WORKFLOW_VERIFY_V7445_OK
+          echo WORKFLOW_VERIFY_V7447_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -219,7 +218,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.44.5 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.44.6 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
