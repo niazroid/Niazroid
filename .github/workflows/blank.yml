@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.45.0 Watch Party Ready Prewarm Fix
+name: Build BankMovie 2.3 V7.45.1 Watch Party Ready Fresh Activity Fix
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7450-main-${{ github.ref }}
+  group: bankmovie-2.3-v7451-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.45.0-WATCH-PARTY-READY-PREWARM-FIX-FULLSOURCE_20260914.zip
-  SOURCE_SHA256: f39c2020c9c824bc1f6f12c3a324b4c91ded67255e200df617a9b8a116b5020f
+  SOURCE_ZIP: Bankmovie-v2.3-V7.45.1-WATCH-PARTY-READY-FRESH-ACTIVITY-FIX-FULLSOURCE_20260914.zip
+  SOURCE_SHA256: 1799d9e3b55804f0d9566f023676a12f714ad8c6dd137da042f8dffce6f3eaf1
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.45.0 source
+      - name: Locate and verify exact V7.45.1 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v7450-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7451-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,28 +85,29 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.45.0 Watch Party Ready prewarm fix
+      - name: Verify V7.45.1 Watch Party Ready fresh-activity fix
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v7450_watch_party_ready_prewarm_fix.sh || {
-            echo "::error::V7.45.0 verifier is missing"
+          test -s verify_v7451_watch_party_ready_activity_fix.sh || {
+            echo "::error::V7.45.1 verifier is missing"
             exit 1
           }
 
-          bash verify_v7450_watch_party_ready_prewarm_fix.sh
+          bash verify_v7451_watch_party_ready_activity_fix.sh
 
           player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
-          grep -Fq 'sourceMainUpdateThirtySixthHotfixTag=BANKMOVIE-2.3-V7450-20260914' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'private var partyPrewarming = false' "$player"
-          grep -Fq 'val prepared = player' "$player"
-          grep -Fq 'if (partyActive && partyPrewarming && !partyReadyConfirmed)' "$player"
-          grep -Fq 'if (!partyActive || !partyReadyConfirmed || !partyIsHost || partyApplyingRemote' "$player"
-          ! grep -Fq 'partyReadyLaunchInFlight' "$player"
+          grep -Fq 'sourceMainUpdateThirtySixthHotfixTag=BANKMOVIE-2.3-V7451-20260914' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'private const val EXTRA_WATCH_PARTY_READY_ENTRY = "watch_party_ready_entry"' "$player"
+          grep -Fq 'intent.putExtra(EXTRA_WATCH_PARTY_READY_ENTRY, true)' "$player"
+          grep -Fq 'recreate()' "$player"
+          grep -Fq 'partyPlayerStable = true' "$player"
+          grep -Fq 'handler.postDelayed(partyPollRunnable, 700L)' "$player"
+          grep -Fq '!partyReadyConfirmed || !partyPlayerStable || player == null' "$player"
 
-          echo WORKFLOW_VERIFY_V7450_OK
+          echo WORKFLOW_VERIFY_V7451_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
