@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.44.9 Watch Party Ready Stable Rollback
+name: Build BankMovie 2.3 V7.45.0 Watch Party Ready Prewarm Fix
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7449-main-${{ github.ref }}
+  group: bankmovie-2.3-v7450-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.44.9-WATCH-PARTY-READY-STABLE-ROLLBACK-FULLSOURCE_20260914.zip
-  SOURCE_SHA256: c7b90ccf6d297378414ccd7798fd553f2b06332372ba82939d843889162ada0c
+  SOURCE_ZIP: Bankmovie-v2.3-V7.45.0-WATCH-PARTY-READY-PREWARM-FIX-FULLSOURCE_20260914.zip
+  SOURCE_SHA256: f39c2020c9c824bc1f6f12c3a324b4c91ded67255e200df617a9b8a116b5020f
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.44.9 source
+      - name: Locate and verify exact V7.45.0 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v7449-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7450-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,29 +85,28 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.44.9 stable Watch Party Ready gate
+      - name: Verify V7.45.0 Watch Party Ready prewarm fix
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          test -s verify_v7449_watch_party_ready_stable_rollback.sh || {
-            echo "::error::V7.44.9 verifier is missing"
+          test -s verify_v7450_watch_party_ready_prewarm_fix.sh || {
+            echo "::error::V7.45.0 verifier is missing"
             exit 1
           }
 
-          bash verify_v7449_watch_party_ready_stable_rollback.sh
+          bash verify_v7450_watch_party_ready_prewarm_fix.sh
 
           player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
-          grep -Fq 'sourceMainUpdateThirtyFifthHotfixTag=BANKMOVIE-2.3-V7449-20260914' BANKMOVIE_BUILD_SOURCE_2_3.txt
-          grep -Fq 'AlertDialog.Builder(this).setView(shell).setCancelable(false).create()' "$player"
-          grep -Fq 'lifecycleRestorePending = videoUrl.isNotBlank() && current != null' "$player"
-          grep -Fq 'pauseAfterLifecycleRestore = !partyIsHost' "$player"
-          grep -Fq 'launchPlayerSafely(videoUrl)' "$player"
+          grep -Fq 'sourceMainUpdateThirtySixthHotfixTag=BANKMOVIE-2.3-V7450-20260914' BANKMOVIE_BUILD_SOURCE_2_3.txt
+          grep -Fq 'private var partyPrewarming = false' "$player"
+          grep -Fq 'val prepared = player' "$player"
+          grep -Fq 'if (partyActive && partyPrewarming && !partyReadyConfirmed)' "$player"
+          grep -Fq 'if (!partyActive || !partyReadyConfirmed || !partyIsHost || partyApplyingRemote' "$player"
           ! grep -Fq 'partyReadyLaunchInFlight' "$player"
-          ! grep -Fq 'STATE_PARTY_READY_CONFIRMED' "$player"
 
-          echo WORKFLOW_VERIFY_V7449_OK
+          echo WORKFLOW_VERIFY_V7450_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -220,7 +219,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.44.9 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.45.0 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
