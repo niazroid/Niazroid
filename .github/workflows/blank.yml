@@ -123,6 +123,21 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
+      - name: Verify V7.45.8 auth/profile/font update
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+
+          bash verify_v7454_watch_party_chat_badges.sh
+          bash verify_v7455_imdb_top250_bridge.sh
+          bash verify_v7456_download_redirect_modes.sh
+          bash verify_v7458_auth_profile_bankmovie_font.sh
+
+          php -l server-required/app_user_api.php
+          echo WORKFLOW_VERIFY_V7458_OK
+
+
       - name: Install and verify BankMovie font pack
         shell: bash
         run: |
@@ -203,20 +218,6 @@ jobs:
             fi
           done
           echo "::notice::BankMovie + legacy font pack installed and verified."
-
-      - name: Verify V7.45.8 auth/profile/font update
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "$PROJECT_DIR"
-
-          bash verify_v7454_watch_party_chat_badges.sh
-          bash verify_v7455_imdb_top250_bridge.sh
-          bash verify_v7456_download_redirect_modes.sh
-          bash verify_v7458_auth_profile_bankmovie_font.sh
-
-          php -l server-required/app_user_api.php
-          echo WORKFLOW_VERIFY_V7458_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
