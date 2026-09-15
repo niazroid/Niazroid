@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.45.4 Watch Party Chat Badge Bubble Polish
+name: Build BankMovie 2.3 V7.45.6 Download Redirect Admin Modes
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7454-main-${{ github.ref }}
+  group: bankmovie-2.3-v7456-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.45.4-WATCH-PARTY-CHAT-BADGE-BUBBLE-POLISH-FULLSOURCE_20260914.zip
-  SOURCE_SHA256: 0286ddd6699d86e37dc0fa5002c3f9f8adff78f70fe0b70ee7f344d80172ca0d
+  SOURCE_ZIP: Bankmovie-v2.3-V7.45.6-DOWNLOAD-REDIRECT-ADMIN-MODES-FULLSOURCE_20260915.zip
+  SOURCE_SHA256: c66d37c972223a9e3a5cb99ecbe3603fa67685a2fa170c044fdaef16d9ebaf56
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.45.4 source
+      - name: Locate and verify exact V7.45.6 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v7454-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7456-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -85,25 +85,24 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.45.4 Watch Party chat badges and bubbles
+      - name: Verify V7.45.6 download redirect admin modes
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
+          # Keep previous regression coverage, then verify the new shared
+          # website/BM Admin download-link mode bridge.
           bash verify_v7454_watch_party_chat_badges.sh
+          bash verify_v7455_imdb_top250_bridge.sh
+          bash verify_v7456_download_redirect_modes.sh
 
-          player='app/src/main/java/ir/bankmoviee/app/PlayerActivity.kt'
-          main='app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
-          grep -Fq 'V7.45.4 — Bubble width is derived from the drawer width' "$player"
-          grep -Fq 'R.drawable.ic_vip_verified_green' "$player"
-          grep -Fq 'R.drawable.ic_admin_verified' "$player"
-          grep -Fq 'R.drawable.ic_vip_verified_green' "$main"
-          grep -Fq 'Verified administrator' "$main"
-          grep -Fq '#FF1D9BF0' app/src/main/res/drawable/ic_admin_verified.xml
-          grep -Fq '#FF8BC34A' app/src/main/res/drawable/ic_vip_verified_green.xml
-
-          echo WORKFLOW_VERIFY_V7454_OK
+          php -l server-required/includes/archive_control.php
+          php -l server-required/includes/download_redirect.php
+          php -l server-required/includes/app_archive_policy.php
+          php -l server-required/bm_admin.php
+          php -l server-required/app_config.php
+          echo WORKFLOW_VERIFY_V7456_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -216,7 +215,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.45.4 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.45.6 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -288,7 +287,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.45.4-Manifests
+          name: Bankmovie-2.3-V7.45.6-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
