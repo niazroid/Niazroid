@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.45.6 Download Redirect Admin Modes SDK Hotfix
+name: Build BankMovie 2.3 V7.45.8 Auth Profile BankMovie Font
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7456-main-${{ github.ref }}
+  group: bankmovie-2.3-v7458-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.45.6-DOWNLOAD-REDIRECT-ADMIN-MODES-FULLSOURCE_20260915.zip
-  SOURCE_SHA256: c66d37c972223a9e3a5cb99ecbe3603fa67685a2fa170c044fdaef16d9ebaf56
+  SOURCE_ZIP: Bankmovie-v2.3-V7.45.8-AUTH-PROFILE-BANKMOVIE-FONT-FULLSOURCE_20260915.zip
+  SOURCE_SHA256: d3238ac6aa5baca0594ddd765e75708f5b7125664dd2e11a6997b9d39f81ca5f
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.45.6 source
+      - name: Locate and verify exact V7.45.8 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v7456-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7458-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -123,24 +123,100 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.45.6 download redirect admin modes
+      - name: Install and verify BankMovie font pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          font_dir="$PROJECT_DIR/app/src/main/assets/fonts"
+          mkdir -p "$font_dir"
+          python3 -m pip install --disable-pip-version-check --quiet fonttools brotli
+
+          font_zip="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -iname 'irancell*.zip' -print -quit)"
+          if [[ -n "$font_zip" ]]; then
+            FONT_ZIP="$font_zip" FONT_DIR="$font_dir" python3 - <<'PY'
+          import os, re
+          from pathlib import Path, PurePosixPath
+          from zipfile import ZipFile
+          archive, output = Path(os.environ['FONT_ZIP']), Path(os.environ['FONT_DIR'])
+          targets = {1:'irancell_bold.ttf',2:'irancell_regular.ttf',3:'irancell_black.ttf',4:'irancell_semibold.ttf',5:'irancell_medium.ttf'}
+          with ZipFile(archive) as zf:
+              indexed = {}
+              for item in zf.infolist():
+                  if item.is_dir() or not item.filename.lower().endswith('.ttf'): continue
+                  match = re.search(r'irancell[^0-9]*([1-5])', PurePosixPath(item.filename).name, re.I)
+                  if match: indexed[int(match.group(1))] = item
+              for number, name in targets.items():
+                  if number not in indexed: raise SystemExit(f'Missing Irancell font {number}')
+                  data = zf.read(indexed[number], pwd=b'fontbazi')
+                  if len(data) < 1024: raise SystemExit(f'Invalid font: {name}')
+                  (output / name).write_bytes(data)
+          PY
+          fi
+
+          declare -A direct_fonts=(
+            [Cinema.otf]=cinema.otf
+            ['Diako Hima Regular-@Fontsplua.ttf']=diako_hima.ttf
+            ['Nic [@fontbazi].ttf']=nic.ttf
+          )
+          for source in "${!direct_fonts[@]}"; do
+            [[ -s "$GITHUB_WORKSPACE/$source" ]] && cp "$GITHUB_WORKSPACE/$source" "$font_dir/${direct_fonts[$source]}"
+          done
+
+          FONT_DIR="$font_dir" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" python3 - <<'PY'
+          import os
+          from pathlib import Path
+          from fontTools.ttLib import TTFont
+          root, out = Path(os.environ['GITHUB_WORKSPACE']), Path(os.environ['FONT_DIR'])
+          for weight in ('regular','medium','bold'):
+              source = next(iter(root.glob(f'IRANSansXFaNum-{weight}*.woff2')), None)
+              if source is None: continue
+              font = TTFont(source); font.flavor = None; font.save(out / f'iransansx_{weight}.ttf')
+          PY
+
+          filimo_source="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -iname 'filimo-demo-variable-vf.woff2' -print -quit)"
+          if [[ -z "$filimo_source" ]]; then
+            filimo_source="$RUNNER_TEMP/filimo-demo-variable-vf.woff2"
+            curl --fail --silent --show-error --location --retry 3 --connect-timeout 12 \
+              'https://bankmovie.top/assets/fonts/filimo-demo-variable-vf.woff2' \
+              --output "$filimo_source"
+          fi
+          test -s "$filimo_source"
+          FILIMO_SOURCE="$filimo_source" FONT_DIR="$font_dir" python3 - <<'PY'
+          import os
+          from pathlib import Path
+          from fontTools.ttLib import TTFont
+          src, out = Path(os.environ['FILIMO_SOURCE']), Path(os.environ['FONT_DIR']) / 'bankmovie_filimo.ttf'
+          font = TTFont(src); font.flavor = None; font.save(out)
+          if out.stat().st_size < 4096: raise SystemExit('Converted BankMovie font is invalid')
+          PY
+
+          required_fonts=(
+            bankmovie_filimo.ttf
+            irancell_regular.ttf irancell_medium.ttf irancell_semibold.ttf irancell_bold.ttf irancell_black.ttf
+            cinema.otf diako_hima.ttf nic.ttf
+            iransansx_regular.ttf iransansx_medium.ttf iransansx_bold.ttf
+          )
+          for font in "${required_fonts[@]}"; do
+            if [[ ! -s "$font_dir/$font" ]]; then
+              echo "::error::Required Android font asset is missing: $font"
+              exit 1
+            fi
+          done
+          echo "::notice::BankMovie + legacy font pack installed and verified."
+
+      - name: Verify V7.45.8 auth/profile/font update
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          # Keep previous regression coverage, then verify the new shared
-          # website/BM Admin download-link mode bridge.
           bash verify_v7454_watch_party_chat_badges.sh
           bash verify_v7455_imdb_top250_bridge.sh
           bash verify_v7456_download_redirect_modes.sh
+          bash verify_v7458_auth_profile_bankmovie_font.sh
 
-          php -l server-required/includes/archive_control.php
-          php -l server-required/includes/download_redirect.php
-          php -l server-required/includes/app_archive_policy.php
-          php -l server-required/bm_admin.php
-          php -l server-required/app_config.php
-          echo WORKFLOW_VERIFY_V7456_OK
+          php -l server-required/app_user_api.php
+          echo WORKFLOW_VERIFY_V7458_OK
 
       - name: Build ABI2 Lite releases
         shell: bash
@@ -253,7 +329,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.45.6 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.45.8 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -325,7 +401,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.45.6-Manifests
+          name: Bankmovie-2.3-V7.45.8-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
