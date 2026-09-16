@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.45.8 Auth Profile BankMovie Font
+name: Build BankMovie 2.3 V7.45.9 Filimo Weight + Auth Error Fix
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7458-main-${{ github.ref }}
+  group: bankmovie-2.3-v7459-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.45.8-AUTH-PROFILE-BANKMOVIE-FONT-FULLSOURCE_20260915.zip
-  SOURCE_SHA256: d3238ac6aa5baca0594ddd765e75708f5b7125664dd2e11a6997b9d39f81ca5f
+  SOURCE_ZIP: Bankmovie-v2.3-V7.45.9-FILIMO-WEIGHT-AUTH-ERROR-FIX-FULLSOURCE.zip
+  SOURCE_SHA256: 78a52e409d2c1ddd67aacf1b12087ff55c82d32a30a629c3ece32978684040b6
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and verify exact V7.45.8 source
+      - name: Locate and verify exact V7.45.9 source
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
 
           unzip -tq "$source_zip" >/dev/null
 
-          extract_dir="$RUNNER_TEMP/bankmovie-v7458-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7459-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -123,7 +123,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.45.8 auth/profile/font update
+      - name: Verify V7.45.9 Filimo/auth error update
         shell: bash
         run: |
           set -euo pipefail
@@ -133,9 +133,10 @@ jobs:
           bash verify_v7455_imdb_top250_bridge.sh
           bash verify_v7456_download_redirect_modes.sh
           bash verify_v7458_auth_profile_bankmovie_font.sh
+          bash verify_v7459_font_auth_error_body.sh
 
           php -l server-required/app_user_api.php
-          echo WORKFLOW_VERIFY_V7458_OK
+          echo WORKFLOW_VERIFY_V7459_OK
 
 
       - name: Install and verify BankMovie font pack
@@ -200,13 +201,61 @@ jobs:
           import os
           from pathlib import Path
           from fontTools.ttLib import TTFont
-          src, out = Path(os.environ['FILIMO_SOURCE']), Path(os.environ['FONT_DIR']) / 'bankmovie_filimo.ttf'
-          font = TTFont(src); font.flavor = None; font.save(out)
-          if out.stat().st_size < 4096: raise SystemExit('Converted BankMovie font is invalid')
+          from fontTools.varLib.instancer import instantiateVariableFont
+
+          src = Path(os.environ['FILIMO_SOURCE'])
+          out_dir = Path(os.environ['FONT_DIR'])
+          weights = {400:'400', 500:'500', 700:'700', 900:'900', 950:'950'}
+
+          source_font = TTFont(src)
+          if 'fvar' not in source_font or not any(axis.axisTag == 'wght' for axis in source_font['fvar'].axes):
+              raise SystemExit('Filimo source is not the expected variable wght font')
+
+          for weight, suffix in weights.items():
+              font = TTFont(src)
+              static_font = instantiateVariableFont(font, {'wght': weight}, inplace=False, optimize=True)
+              static_font.flavor = None
+
+              # Normalize metadata so Android recognizes the requested weight.
+              is_bold = weight >= 700
+              static_font['OS/2'].usWeightClass = weight
+              static_font['OS/2'].fsSelection &= ~(1 << 5)
+              static_font['OS/2'].fsSelection &= ~(1 << 6)
+              static_font['OS/2'].fsSelection |= (1 << 5) if is_bold else (1 << 6)
+              if is_bold:
+                  static_font['head'].macStyle |= 1
+              else:
+                  static_font['head'].macStyle &= ~1
+
+              family = f'BankMovie Filimo {weight}'
+              subfamily = 'Bold' if is_bold else 'Regular'
+              ps_name = f'BankMovieFilimo-{weight}'
+              for record in static_font['name'].names:
+                  value = None
+                  if record.nameID == 1:
+                      value = family
+                  elif record.nameID == 2:
+                      value = subfamily
+                  elif record.nameID == 4:
+                      value = f'{family} {subfamily}'
+                  elif record.nameID == 6:
+                      value = ps_name
+                  elif record.nameID == 17:
+                      value = subfamily
+                  if value is not None:
+                      try:
+                          record.string = value.encode(record.getEncoding())
+                      except Exception:
+                          pass
+
+              out = out_dir / f'bankmovie_filimo_{suffix}.ttf'
+              static_font.save(out)
+              if out.stat().st_size < 4096:
+                  raise SystemExit(f'Converted BankMovie font is invalid: {out.name}')
           PY
 
           required_fonts=(
-            bankmovie_filimo.ttf
+            bankmovie_filimo_400.ttf bankmovie_filimo_500.ttf bankmovie_filimo_700.ttf bankmovie_filimo_900.ttf bankmovie_filimo_950.ttf
             irancell_regular.ttf irancell_medium.ttf irancell_semibold.ttf irancell_bold.ttf irancell_black.ttf
             cinema.otf diako_hima.ttf nic.ttf
             iransansx_regular.ttf iransansx_medium.ttf iransansx_bold.ttf
@@ -330,7 +379,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.45.8 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.45.9 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -402,7 +451,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.45.8-Manifests
+          name: Bankmovie-2.3-V7.45.9-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
