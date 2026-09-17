@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.46.5 Offline ADM Location Playback Fix
+name: Build BankMovie 2.3 V7.46.6 Offline Gallery Downloader Visual Refresh
 
 on:
   workflow_dispatch:
@@ -10,11 +10,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7465-main-${{ github.ref }}
+  group: bankmovie-2.3-v7466-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.46.5-OFFLINE-ADM-LOCATION-PLAYBACK-FULLSOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.3-V7.46.6-OFFLINE-GALLERY-DOWNLOADER-VISUAL-FULLSOURCE.zip
 
 jobs:
   build:
@@ -25,7 +25,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate V7.46.5 project
+      - name: Locate V7.46.6 project
         shell: bash
         run: |
           set -euo pipefail
@@ -45,7 +45,7 @@ jobs:
             exit 1
           fi
           unzip -tq "$source_zip" >/dev/null
-          extract_dir="$RUNNER_TEMP/bankmovie-v7465-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7466-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -117,7 +117,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.46.5 offline/ADM/location/playback fixes
+      - name: Verify V7.46.6 offline gallery/downloader visual refresh
         shell: bash
         run: |
           set -euo pipefail
@@ -127,6 +127,7 @@ jobs:
           bash verify_v7455_imdb_top250_bridge.sh
           bash verify_v7458_auth_profile_bankmovie_font.sh
           bash verify_v7465_offline_adm_location_playback.sh
+          bash verify_v7466_offline_gallery_downloader_visual_refresh.sh
 
           php -l server-required/app_user_api.php
           php -l server-required/app_config.php
@@ -135,7 +136,7 @@ jobs:
           php -l server-required/includes/archive_control.php
           php -l server-required/includes/app_archive_policy.php
           php -l server-required/includes/download_redirect.php
-          echo WORKFLOW_VERIFY_V7465_OK
+          echo WORKFLOW_VERIFY_V7466_OK
 
       - name: Install and verify BankMovie font pack
         shell: bash
@@ -377,7 +378,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.46.5 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.46.6 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -449,7 +450,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.46.5-Manifests
+          name: Bankmovie-2.3-V7.46.6-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
