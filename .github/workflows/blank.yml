@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.47.1.1 Compile Hotfix
+name: Build BankMovie 2.3 V7.47.1.2 Signing Hotfix
 
 on:
   workflow_dispatch:
@@ -25,7 +25,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate V7.47.1.1 project
+      - name: Locate V7.47.1.2 project
         shell: bash
         run: |
           set -euo pipefail
@@ -57,6 +57,78 @@ jobs:
           project_dir="$(dirname "$(dirname "$build_file")")"
           echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
           echo "::notice::Using Android project extracted from: $SOURCE_ZIP"
+
+      - name: Restore and verify stable signing keystore
+        shell: bash
+        env:
+          BANKMOVIE_KEYSTORE_B64: ${{ secrets.BANKMOVIE_KEYSTORE_B64 }}
+        run: |
+          set -euo pipefail
+
+          target="$PROJECT_DIR/bankmovie_update.jks"
+          expected_sha="b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39"
+
+          verify_key() {
+            local f="$1"
+            [[ -s "$f" ]] || return 1
+            local actual
+            actual="$(sha256sum "$f" | awk '{print $1}')"
+            [[ "$actual" == "$expected_sha" ]]
+          }
+
+          # 1) Prefer a key already present in the extracted source.
+          if verify_key "$target"; then
+            echo "::notice::Stable BankMovie signing keystore is already present in the source."
+          else
+            rm -f "$target"
+
+            # 2) Recommended CI path: encrypted GitHub Actions secret.
+            if [[ -n "${BANKMOVIE_KEYSTORE_B64:-}" ]]; then
+              printf '%s' "$BANKMOVIE_KEYSTORE_B64" | base64 --decode > "$target"
+              if ! verify_key "$target"; then
+                rm -f "$target"
+                echo "::error::BANKMOVIE_KEYSTORE_B64 decoded successfully but it is not the stable BankMovie update keystore."
+                exit 1
+              fi
+              echo "::notice::Stable signing keystore restored from GitHub Actions secret."
+            fi
+
+            # 3) Private-repository convenience: a root-level keystore file.
+            if [[ ! -s "$target" && -s "$GITHUB_WORKSPACE/bankmovie_update.jks" ]]; then
+              cp "$GITHUB_WORKSPACE/bankmovie_update.jks" "$target"
+              if ! verify_key "$target"; then
+                rm -f "$target"
+                echo "::error::Repository bankmovie_update.jks does not match the stable BankMovie update key."
+                exit 1
+              fi
+              echo "::notice::Stable signing keystore copied from repository root."
+            fi
+
+            # 4) Backward-compatible recovery from any older FULLSOURCE zip kept in the repository.
+            if [[ ! -s "$target" ]]; then
+              while IFS= read -r -d '' candidate; do
+                if unzip -Z1 "$candidate" 2>/dev/null | grep -qx 'bankmovie_update.jks'; then
+                  tmp="$RUNNER_TEMP/bankmovie_update_candidate.jks"
+                  rm -f "$tmp"
+                  unzip -p "$candidate" bankmovie_update.jks > "$tmp" || true
+                  if verify_key "$tmp"; then
+                    mv "$tmp" "$target"
+                    echo "::notice::Recovered stable signing key from $(basename "$candidate")."
+                    break
+                  fi
+                  rm -f "$tmp"
+                fi
+              done < <(find "$GITHUB_WORKSPACE" -maxdepth 2 -type f -iname '*FULLSOURCE*.zip' -print0)
+            fi
+          fi
+
+          if ! verify_key "$target"; then
+            echo "::error::Stable signing keystore is missing. Add repository secret BANKMOVIE_KEYSTORE_B64, or keep the original bankmovie_update.jks / an older FULLSOURCE zip in this private repository."
+            exit 1
+          fi
+
+          chmod 600 "$target"
+          echo "::notice::BankMovie stable signing key SHA-256 verified."
 
       - name: Configure Firebase Cloud Messaging (optional)
         shell: bash
@@ -137,7 +209,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.47.1.1 compile hotfix and V7.47.1 features
+      - name: Verify V7.47.1.2 signing hotfix, V7.47.1.1 compile hotfix and V7.47.1 features
         shell: bash
         run: |
           set -euo pipefail
@@ -153,6 +225,7 @@ jobs:
           bash verify_v7470_push_notification_retention.sh
           bash verify_v7471_bale_push_rail_spinner.sh
           bash verify_v7471_1_tinteddrawable_compile_hotfix.sh
+          if [[ -x ./verify_v7471_2_signing_hotfix.sh ]]; then bash ./verify_v7471_2_signing_hotfix.sh; fi
 
           php -l server-required/app_user_api.php
           php -l server-required/app_config.php
@@ -403,7 +476,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.47.0 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.47.1.2 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -475,7 +548,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.47.0-Manifests
+          name: Bankmovie-2.3-V7.47.1.2-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
