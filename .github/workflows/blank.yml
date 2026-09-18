@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.46.9 UI Spacing + Archive Resilience
+name: Build BankMovie 2.3 V7.47.0 True Push + Notification Retention
 
 on:
   workflow_dispatch:
@@ -10,11 +10,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7469-main-${{ github.ref }}
+  group: bankmovie-2.3-v7470-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.46.9-UI-ARCHIVE-RESILIENCE-FULLSOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.3-V7.47.0-TRUE-PUSH-NOTIFICATION-RETENTION-FULLSOURCE.zip
 
 jobs:
   build:
@@ -25,7 +25,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate V7.46.9 project
+      - name: Locate V7.47.0 project
         shell: bash
         run: |
           set -euo pipefail
@@ -45,7 +45,7 @@ jobs:
             exit 1
           fi
           unzip -tq "$source_zip" >/dev/null
-          extract_dir="$RUNNER_TEMP/bankmovie-v7469-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7470-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -57,6 +57,26 @@ jobs:
           project_dir="$(dirname "$(dirname "$build_file")")"
           echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
           echo "::notice::Using Android project extracted from: $SOURCE_ZIP"
+
+      - name: Configure Firebase Cloud Messaging (optional)
+        shell: bash
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.BANKMOVIE_GOOGLE_SERVICES_JSON_B64 }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${GOOGLE_SERVICES_JSON_B64:-}" ]]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > "$PROJECT_DIR/app/google-services.json"
+            python3 - <<'PYJSON'
+          import json, os
+          path=os.path.join(os.environ['PROJECT_DIR'],'app','google-services.json')
+          with open(path,'r',encoding='utf-8') as f: data=json.load(f)
+          clients=data.get('client') or []
+          if not clients: raise SystemExit('google-services.json has no client entries')
+          print('Firebase Android config injected')
+          PYJSON
+          else
+            echo "::warning::BANKMOVIE_GOOGLE_SERVICES_JSON_B64 is not set. APK will build with the existing background-poll notification fallback, but instant FCM push will stay disabled."
+          fi
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -117,7 +137,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.46.9 UI polish and archive resilience
+      - name: Verify V7.47.0 push and notification retention
         shell: bash
         run: |
           set -euo pipefail
@@ -130,6 +150,7 @@ jobs:
           bash verify_v7466_1_kotlin_compile_hotfix.sh
           bash verify_v7468_offline_card_polish.sh
           bash verify_v7469_ui_archive_resilience.sh
+          bash verify_v7470_push_notification_retention.sh
 
           php -l server-required/app_user_api.php
           php -l server-required/app_config.php
@@ -380,7 +401,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.46.9 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.47.0 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -452,7 +473,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.46.9-Manifests
+          name: Bankmovie-2.3-V7.47.0-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
