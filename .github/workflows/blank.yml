@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.47.1 Rail Error + Bale + BM Admin Push
+name: Build BankMovie 2.3 V7.47.1.1 Compile Hotfix
 
 on:
   workflow_dispatch:
@@ -10,11 +10,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7471-main-${{ github.ref }}
+  group: bankmovie-2.3-v7471-1-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1-BALE-PUSH-RAIL-SPINNER-FULLSOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.1-TINTED-DRAWABLE-COMPILE-HOTFIX-FULLSOURCE.zip
 
 jobs:
   build:
@@ -25,7 +25,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate V7.47.1 project
+      - name: Locate V7.47.1.1 project
         shell: bash
         run: |
           set -euo pipefail
@@ -45,7 +45,7 @@ jobs:
             exit 1
           fi
           unzip -tq "$source_zip" >/dev/null
-          extract_dir="$RUNNER_TEMP/bankmovie-v7471-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7471-1-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -137,7 +137,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.47.1 rail error, Bale, BM Admin Push and inline loader
+      - name: Verify V7.47.1.1 compile hotfix and V7.47.1 features
         shell: bash
         run: |
           set -euo pipefail
@@ -152,6 +152,7 @@ jobs:
           bash verify_v7469_ui_archive_resilience.sh
           bash verify_v7470_push_notification_retention.sh
           bash verify_v7471_bale_push_rail_spinner.sh
+          bash verify_v7471_1_tinteddrawable_compile_hotfix.sh
 
           php -l server-required/app_user_api.php
           php -l server-required/app_config.php
@@ -160,7 +161,7 @@ jobs:
           php -l server-required/includes/archive_control.php
           php -l server-required/includes/app_archive_policy.php
           php -l server-required/includes/download_redirect.php
-          echo WORKFLOW_VERIFY_V7471_OK
+          echo WORKFLOW_VERIFY_V7471_1_OK
 
       - name: Install and verify BankMovie font pack
         shell: bash
