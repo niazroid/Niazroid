@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.47.1.4 Slider + Navigation + Remote UX Hotfix
+name: Build BankMovie 2.3 V7.47.1.5 Player + TV Focus + Unified UI Hotfix
 
 on:
   workflow_dispatch:
@@ -10,11 +10,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7471-4-main-${{ github.ref }}
+  group: bankmovie-2.3-v7471-5-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.4-SLIDER-NAV-REMOTE-UX-FULLSOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.5-PLAYER-TV-FOCUS-UNIFIED-UI-FULLSOURCE.zip
 
 jobs:
   build:
@@ -25,7 +25,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate V7.47.1.4 project
+      - name: Locate V7.47.1.5 project
         shell: bash
         run: |
           set -euo pipefail
@@ -209,7 +209,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.47.1.4 slider/navigation/remote UX hotfix and previous fixes
+      - name: Verify V7.47.1.5 player/TV focus/unified UI hotfix and previous fixes
         shell: bash
         run: |
           set -euo pipefail
@@ -228,6 +228,7 @@ jobs:
           if [[ -x ./verify_v7471_2_signing_hotfix.sh ]]; then bash ./verify_v7471_2_signing_hotfix.sh; fi
           bash verify_v7471_3_notification_tap_rail_actions.sh
           bash verify_v7471_4_slider_nav_remote_ux.sh
+          bash verify_v7471_5_player_tv_focus_unified_ui.sh
 
           php -l server-required/app_user_api.php
           php -l server-required/app_config.php
@@ -236,7 +237,7 @@ jobs:
           php -l server-required/includes/archive_control.php
           php -l server-required/includes/app_archive_policy.php
           php -l server-required/includes/download_redirect.php
-          echo WORKFLOW_VERIFY_V7471_4_OK
+          echo WORKFLOW_VERIFY_V7471_5_OK
 
       - name: Install and verify BankMovie font pack
         shell: bash
@@ -478,7 +479,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.47.1.4 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.47.1.5 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -550,7 +551,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.47.1.4-Manifests
+          name: Bankmovie-2.3-V7.47.1.5-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
