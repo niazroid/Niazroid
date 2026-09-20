@@ -24,6 +24,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Required for signing-key recovery when an older FULLSOURCE zip
+          # was deleted from the current branch but still exists in Git history.
+          fetch-depth: 0
 
       - name: Locate V7.47.1.11 project
         shell: bash
@@ -64,6 +68,7 @@ jobs:
           BANKMOVIE_KEYSTORE_B64: ${{ secrets.BANKMOVIE_KEYSTORE_B64 }}
         run: |
           set -euo pipefail
+          umask 077
 
           target="$PROJECT_DIR/bankmovie_update.jks"
           expected_sha="b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39"
@@ -76,13 +81,57 @@ jobs:
             [[ "$actual" == "$expected_sha" ]]
           }
 
-          # 1) Prefer a key already present in the extracted source.
+          recover_key_from_zip() {
+            local candidate="$1"
+            local label="$2"
+            local entry tmp
+
+            unzip -tq "$candidate" >/dev/null 2>&1 || return 1
+            entry="$(unzip -Z1 "$candidate" 2>/dev/null | grep -Ei '(^|/)bankmovie_update\.jks$' | head -n 1 || true)"
+            [[ -n "$entry" ]] || return 1
+
+            tmp="$(mktemp "$RUNNER_TEMP/bankmovie-update-key.XXXXXX")"
+            if unzip -p "$candidate" "$entry" > "$tmp" 2>/dev/null && verify_key "$tmp"; then
+              mv "$tmp" "$target"
+              echo "::notice::Recovered stable signing key from $label."
+              return 0
+            fi
+            rm -f "$tmp"
+            return 1
+          }
+
+          materialize_lfs_blob_if_needed() {
+            local candidate="$1"
+            local out="$2"
+            local lfs_oid cached
+
+            if ! grep -q '^version https://git-lfs.github.com/spec/v1' "$candidate" 2>/dev/null; then
+              cp "$candidate" "$out"
+              return 0
+            fi
+
+            lfs_oid="$(sed -n 's/^oid sha256://p' "$candidate" | head -n 1)"
+            [[ "$lfs_oid" =~ ^[0-9a-fA-F]{64}$ ]] || return 1
+
+            if ! git lfs version >/dev/null 2>&1; then
+              return 1
+            fi
+
+            # Fetch only the historical LFS object we need, not every old artifact.
+            git lfs fetch --object-id origin "$lfs_oid" >/dev/null 2>&1 || true
+            cached="$(find "$GITHUB_WORKSPACE/.git/lfs/objects/${lfs_oid:0:2}/${lfs_oid:2:2}" \
+              -type f -name "$lfs_oid" -print -quit 2>/dev/null || true)"
+            [[ -s "$cached" ]] || return 1
+            cp "$cached" "$out"
+          }
+
+          # 1) Prefer the stable key already bundled with the current source.
           if verify_key "$target"; then
             echo "::notice::Stable BankMovie signing keystore is already present in the source."
           else
             rm -f "$target"
 
-            # 2) Recommended CI path: encrypted GitHub Actions secret.
+            # 2) Preferred CI path: encrypted GitHub Actions secret.
             if [[ -n "${BANKMOVIE_KEYSTORE_B64:-}" ]]; then
               printf '%s' "$BANKMOVIE_KEYSTORE_B64" | base64 --decode > "$target"
               if ! verify_key "$target"; then
@@ -104,26 +153,56 @@ jobs:
               echo "::notice::Stable signing keystore copied from repository root."
             fi
 
-            # 4) Backward-compatible recovery from any older FULLSOURCE zip kept in the repository.
+            # 4) Search every FULLSOURCE zip still present in the current checkout.
+            #    This is recursive so archived files in subdirectories are not missed.
             if [[ ! -s "$target" ]]; then
               while IFS= read -r -d '' candidate; do
-                if unzip -Z1 "$candidate" 2>/dev/null | grep -qx 'bankmovie_update.jks'; then
-                  tmp="$RUNNER_TEMP/bankmovie_update_candidate.jks"
-                  rm -f "$tmp"
-                  unzip -p "$candidate" bankmovie_update.jks > "$tmp" || true
-                  if verify_key "$tmp"; then
-                    mv "$tmp" "$target"
-                    echo "::notice::Recovered stable signing key from $(basename "$candidate")."
-                    break
-                  fi
-                  rm -f "$tmp"
+                if recover_key_from_zip "$candidate" "current repository: ${candidate#$GITHUB_WORKSPACE/}"; then
+                  break
                 fi
-              done < <(find "$GITHUB_WORKSPACE" -maxdepth 2 -type f -iname '*FULLSOURCE*.zip' -print0)
+              done < <(find "$GITHUB_WORKSPACE" -type f -iname '*FULLSOURCE*.zip' -print0)
+            fi
+
+            # 5) Recovery for deleted older FULLSOURCE zips. Because checkout uses
+            #    fetch-depth: 0, their blobs are still reachable from Git history.
+            if [[ ! -s "$target" && -d "$GITHUB_WORKSPACE/.git" ]]; then
+              echo "::notice::Stable key not found in the current tree; scanning deleted FULLSOURCE zips in Git history."
+              cd "$GITHUB_WORKSPACE"
+              declare -A seen_history_blobs=()
+
+              while IFS=' ' read -r object path; do
+                [[ -n "${object:-}" && -n "${path:-}" ]] || continue
+                lower_path="${path,,}"
+                [[ "$lower_path" == *fullsource*.zip ]] || continue
+                [[ -z "${seen_history_blobs[$object]:-}" ]] || continue
+                seen_history_blobs["$object"]=1
+                [[ "$(git cat-file -t "$object" 2>/dev/null || true)" == "blob" ]] || continue
+
+                raw="$(mktemp "$RUNNER_TEMP/bankmovie-history-raw.XXXXXX")"
+                candidate="$(mktemp "$RUNNER_TEMP/bankmovie-history-zip.XXXXXX")"
+                if ! git cat-file blob "$object" > "$raw" 2>/dev/null; then
+                  rm -f "$raw" "$candidate"
+                  continue
+                fi
+
+                if ! materialize_lfs_blob_if_needed "$raw" "$candidate"; then
+                  rm -f "$raw" "$candidate"
+                  continue
+                fi
+                rm -f "$raw"
+
+                if recover_key_from_zip "$candidate" "Git history: $path"; then
+                  rm -f "$candidate"
+                  break
+                fi
+                rm -f "$candidate"
+              done < <(git rev-list --objects --all)
             fi
           fi
 
           if ! verify_key "$target"; then
-            echo "::error::Stable signing keystore is missing. Add repository secret BANKMOVIE_KEYSTORE_B64, or keep the original bankmovie_update.jks / an older FULLSOURCE zip in this private repository."
+            echo "::error::Stable signing keystore was not found in the current source, repository secret, current repository files, or reachable Git history."
+            echo "::error::If the old FULLSOURCE commit was force-purged from Git history, restore bankmovie_update.jks or set BANKMOVIE_KEYSTORE_B64."
             exit 1
           fi
 
