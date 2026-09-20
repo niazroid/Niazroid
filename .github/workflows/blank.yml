@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.47.1.11 TV Drawer Focus Handoff Hotfix
+name: Build BankMovie 2.3 V7.47.1.12 TV VIP Mobile Style Profile Hero Cleanup
 
 on:
   workflow_dispatch:
@@ -10,11 +10,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7471-11-main-${{ github.ref }}
+  group: bankmovie-2.3-v7471-12-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.11-TV-DRAWER-FOCUS-HANDOFF-FULLSOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.12-TV-VIP-MOBILE-STYLE-PROFILE-HERO-CLEANUP-FULLSOURCE.zip
 
 jobs:
   build:
@@ -29,7 +29,7 @@ jobs:
           # was deleted from the current branch but still exists in Git history.
           fetch-depth: 0
 
-      - name: Locate V7.47.1.11 project
+      - name: Locate V7.47.1.12 project
         shell: bash
         run: |
           set -euo pipefail
@@ -49,7 +49,7 @@ jobs:
             exit 1
           fi
           unzip -tq "$source_zip" >/dev/null
-          extract_dir="$RUNNER_TEMP/bankmovie-v7471-11-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7471-12-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -288,7 +288,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.47.1.11 TV drawer focus handoff and previous fixes
+      - name: Verify V7.47.1.12 TV VIP mobile style + profile hero cleanup and previous fixes
         shell: bash
         run: |
           set -euo pipefail
@@ -325,7 +325,8 @@ jobs:
           bash verify_v7471_9_boxoffice_profile_unified_ui.sh
           bash verify_v7471_10_tv_drawer_profile_mobile_match.sh
           bash verify_v7471_11_tv_drawer_focus_handoff.sh
-          echo WORKFLOW_VERIFY_V7471_11_OK
+          bash verify_v7471_12_tv_vip_profile_mobile_style.sh
+          echo WORKFLOW_VERIFY_V7471_12_OK
 
       - name: Install and verify BankMovie font pack
         shell: bash
@@ -567,7 +568,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.47.1.11 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.47.1.12 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -639,7 +640,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.47.1.11-Manifests
+          name: Bankmovie-2.3-V7.47.1.12-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
