@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.8-TV-DRAWER-CLICK-BRIDGE-FULLSOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.9-BOXOFFICE-PROFILE-UNIFIED-UI-FULLSOURCE.zip
 
 jobs:
   build:
@@ -209,7 +209,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.47.1.8 TV drawer click bridge and previous fixes
+      - name: Verify V7.47.1.9 unified Box Office/Profile UI and previous fixes
         shell: bash
         run: |
           set -euo pipefail
@@ -243,7 +243,8 @@ jobs:
           grep -q '#33CC99' app/src/main/res/drawable/ic_trailer.xml
           bash verify_v7471_7_tv_drawer_offline_focus.sh
           bash verify_v7471_8_tv_drawer_click_bridge.sh
-          echo WORKFLOW_VERIFY_V7471_8_OK
+          bash verify_v7471_9_boxoffice_profile_unified_ui.sh
+          echo WORKFLOW_VERIFY_V7471_9_OK
 
       - name: Install and verify BankMovie font pack
         shell: bash
