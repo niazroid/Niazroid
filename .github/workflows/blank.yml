@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.47.1.6 TV Menu + Downloader Settings + Offline Focus Hotfix
+name: Build BankMovie 2.3 V7.47.1.7 TV Drawer Sticky Focus + Offline Gallery Focus Hotfix
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.6-PLAYER-TV-FOCUS-UNIFIED-UI-FULLSOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.7-TV-DRAWER-OFFLINE-FOCUS-FULLSOURCE.zip
 
 jobs:
   build:
@@ -25,7 +25,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate V7.47.1.6 project
+      - name: Locate V7.47.1.7 project
         shell: bash
         run: |
           set -euo pipefail
@@ -209,7 +209,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.47.1.6 TV menu/downloader/offline focus hotfix and previous fixes
+      - name: Verify V7.47.1.7 TV drawer/offline focus hotfix and previous fixes
         shell: bash
         run: |
           set -euo pipefail
@@ -241,7 +241,8 @@ jobs:
           grep -q 'settings:connections' app/src/main/java/ir/bankmoviee/app/DownloadsActivity.kt
           grep -q 'wireTvFocusOrder' app/src/main/java/ir/bankmoviee/app/OfflineLibraryActivity.kt
           grep -q '#33CC99' app/src/main/res/drawable/ic_trailer.xml
-          echo WORKFLOW_VERIFY_V7471_6_OK
+          bash verify_v7471_7_tv_drawer_offline_focus.sh
+          echo WORKFLOW_VERIFY_V7471_7_OK
 
       - name: Install and verify BankMovie font pack
         shell: bash
@@ -483,7 +484,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.47.1.6 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.47.1.7 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -555,7 +556,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.47.1.6-Manifests
+          name: Bankmovie-2.3-V7.47.1.7-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
