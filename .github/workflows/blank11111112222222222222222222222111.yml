@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.47.1.12.2 TV VIP Mobile Style Profile Hero Cleanup Kotlin Hotfix
+name: Build BankMovie 2.3 V7.47.1.12.3 Update-Compatible VersionCode Hotfix
 
 on:
   workflow_dispatch:
@@ -10,11 +10,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7471-12-2-main-${{ github.ref }}
+  group: bankmovie-2.3-v7471-12-3-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.12.2-TV-VIP-MOBILE-STYLE-PROFILE-HERO-CLEANUP-KOTLIN-HOTFIX-FULLSOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.12.3-UPDATE-VERSIONCODE-HOTFIX-FULLSOURCE.zip
 
 jobs:
   build:
@@ -29,7 +29,7 @@ jobs:
           # was deleted from the current branch but still exists in Git history.
           fetch-depth: 0
 
-      - name: Locate V7.47.1.12.2 project
+      - name: Locate V7.47.1.12.3 project
         shell: bash
         run: |
           set -euo pipefail
@@ -49,7 +49,7 @@ jobs:
             exit 1
           fi
           unzip -tq "$source_zip" >/dev/null
-          extract_dir="$RUNNER_TEMP/bankmovie-v7471-12-2-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7471-12-3-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -61,6 +61,20 @@ jobs:
           project_dir="$(dirname "$(dirname "$build_file")")"
           echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
           echo "::notice::Using Android project extracted from: $SOURCE_ZIP"
+
+      - name: Set monotonic Android versionCode
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Unix epoch seconds are monotonic across workflow renames/replacements
+          # and remain below Android's 2,100,000,000 versionCode ceiling today.
+          version_code="$(date -u +%s)"
+          if (( version_code <= 5400000 || version_code > 2100000000 )); then
+            echo "::error::Generated Android versionCode is outside the safe range: $version_code"
+            exit 1
+          fi
+          echo "BANKMOVIE_VERSION_CODE=$version_code" >> "$GITHUB_ENV"
+          echo "::notice::Android versionCode locked for this release: $version_code"
 
       - name: Restore and verify stable signing keystore
         shell: bash
@@ -288,7 +302,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.47.1.12.2 VIP Kotlin hotfix and previous fixes
+      - name: Verify V7.47.1.12.3 update versionCode and previous fixes
         shell: bash
         run: |
           set -euo pipefail
@@ -327,7 +341,8 @@ jobs:
           bash verify_v7471_11_tv_drawer_focus_handoff.sh
           bash verify_v7471_12_tv_vip_profile_mobile_style.sh
           bash verify_v7471_12_2_kotlin_compile_hotfix.sh
-          echo WORKFLOW_VERIFY_V7471_12_2_OK
+          bash verify_v7471_12_3_update_versioncode.sh
+          echo WORKFLOW_VERIFY_V7471_12_3_OK
 
       - name: Install and verify BankMovie font pack
         shell: bash
@@ -563,13 +578,25 @@ jobs:
             exit 1
           fi
 
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          if [[ -z "$aapt_bin" || ! -x "$aapt_bin" ]]; then
+            echo "::error::Android aapt was not found below $ANDROID_HOME/build-tools."
+            exit 1
+          fi
+
           while IFS= read -r apk; do
             "$apksigner" verify --verbose --print-certs "$apk"
+            actual_version_code="$($aapt_bin dump badging "$apk" | sed -n "s/.*versionCode='\([0-9][0-9]*\)'.*/\1/p" | head -n 1)"
+            if [[ "$actual_version_code" != "$BANKMOVIE_VERSION_CODE" ]]; then
+              echo "::error::Unexpected versionCode in $apk: $actual_version_code (expected $BANKMOVIE_VERSION_CODE)"
+              exit 1
+            fi
+            echo "Verified update versionCode $actual_version_code: $apk"
           done < <(find output -type f -name '*.apk' | sort)
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.47.1.12.2 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.47.1.12.3 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
