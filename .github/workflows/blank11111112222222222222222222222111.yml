@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.47.1.12.3 Update-Compatible VersionCode Hotfix
+name: Build BankMovie 2.3 V7.47.1.13 Download Meta Path Retry Settings
 
 on:
   workflow_dispatch:
@@ -10,11 +10,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7471-12-3-main-${{ github.ref }}
+  group: bankmovie-2.3-v7471-13-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.12.3-UPDATE-VERSIONCODE-HOTFIX-FULLSOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.13-DOWNLOAD-META-PATH-RETRY-SETTINGS-FULLSOURCE.zip
 
 jobs:
   build:
@@ -29,7 +29,7 @@ jobs:
           # was deleted from the current branch but still exists in Git history.
           fetch-depth: 0
 
-      - name: Locate V7.47.1.12.3 project
+      - name: Locate V7.47.1.13 project
         shell: bash
         run: |
           set -euo pipefail
@@ -49,7 +49,7 @@ jobs:
             exit 1
           fi
           unzip -tq "$source_zip" >/dev/null
-          extract_dir="$RUNNER_TEMP/bankmovie-v7471-12-3-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7471-13-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -302,7 +302,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.47.1.12.3 update versionCode and previous fixes
+      - name: Verify V7.47.1.13 downloader settings and previous fixes
         shell: bash
         run: |
           set -euo pipefail
@@ -342,7 +342,8 @@ jobs:
           bash verify_v7471_12_tv_vip_profile_mobile_style.sh
           bash verify_v7471_12_2_kotlin_compile_hotfix.sh
           bash verify_v7471_12_3_update_versioncode.sh
-          echo WORKFLOW_VERIFY_V7471_12_3_OK
+          bash verify_v7471_13_download_meta_path_retry_settings.sh
+          echo WORKFLOW_VERIFY_V7471_13_OK
 
       - name: Install and verify BankMovie font pack
         shell: bash
@@ -596,7 +597,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.47.1.12.3 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.47.1.13 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -668,7 +669,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.47.1.12.2-Manifests
+          name: Bankmovie-2.3-V7.47.1.13-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
