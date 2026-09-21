@@ -1,4 +1,4 @@
-name: Build BankMovie 2.3 V7.47.1.17 White Theme Selector Quick Appearance
+name: Build BankMovie 2.3 V7.47.1.18 Light Theme Contrast Hardened
 
 on:
   workflow_dispatch:
@@ -10,11 +10,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7471-17-main-${{ github.ref }}
+  group: bankmovie-2.3-v7471-18-main-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.17-WHITE-THEME-SELECTOR-QUICK-APPEARANCE-FULLSOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.18-LIGHT-THEME-CONTRAST-HARDENED-FULLSOURCE.zip
 
 jobs:
   build:
@@ -29,7 +29,7 @@ jobs:
           # was deleted from the current branch but still exists in Git history.
           fetch-depth: 0
 
-      - name: Locate V7.47.1.17 project
+      - name: Locate V7.47.1.18 project
         shell: bash
         run: |
           set -euo pipefail
@@ -49,7 +49,7 @@ jobs:
             exit 1
           fi
           unzip -tq "$source_zip" >/dev/null
-          extract_dir="$RUNNER_TEMP/bankmovie-v7471-17-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7471-18-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -302,7 +302,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.47.1.17 white theme selectors and previous fixes
+      - name: Verify V7.47.1.18 light-theme contrast and previous fixes
         shell: bash
         run: |
           set -euo pipefail
@@ -346,7 +346,8 @@ jobs:
           bash verify_v7471_14_theme_logo_avatar_remote.sh
           bash verify_v7471_16_white_theme.sh
           bash verify_v7471_17_theme_selector_settings.sh
-          echo WORKFLOW_VERIFY_V7471_17_OK
+          bash verify_v7471_18_light_theme_contrast.sh
+          echo WORKFLOW_VERIFY_V7471_18_OK
 
       - name: Install and verify BankMovie font pack
         shell: bash
