@@ -1,6 +1,6 @@
-name: Build BankMovie 2.3 V7.47.1.23.1 Kotlin Compile Hotfix
+name: Build BankMovie 2.3 V7.47.1.25.2 Mobile Header Safe Insets
 
-# Historical verifier compatibility only; the active source is V7.47.1.22 below.
+# Historical verifiers are cumulative; the active source is V7.47.1.25.2.
 # V7.47.1.18 cumulative release marker
 # Bankmovie-v2.3-V7.47.1.18-LIGHT-THEME-CONTRAST-HARDENED-FULLSOURCE.zip
 
@@ -14,11 +14,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7471-23-1-main-${{ github.ref }}
+  group: bankmovie-2.3-v7471-25-2-main-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.23.1-KOTLIN-COMPILE-HOTFIX-FULLSOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.25.2-MOBILE-HEADER-SAFE-INSETS-FULLSOURCE.zip
 
 jobs:
   build:
@@ -33,7 +33,7 @@ jobs:
           # was deleted from the current branch but still exists in Git history.
           fetch-depth: 0
 
-      - name: Locate V7.47.1.23.1 project
+      - name: Locate V7.47.1.25.2 project
         shell: bash
         run: |
           set -euo pipefail
@@ -53,7 +53,7 @@ jobs:
             exit 1
           fi
           unzip -tq "$source_zip" >/dev/null
-          extract_dir="$RUNNER_TEMP/bankmovie-v7471-23-1-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7471-25-2-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -306,7 +306,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.47.1.23.1 Kotlin compile hotfix
+      - name: Verify V7.47.1.25.2 mobile header safe insets
         shell: bash
         run: |
           set -euo pipefail
@@ -366,6 +366,21 @@ jobs:
 
           bash verify_v7471_23_1_kotlin_compile_hotfix.sh
           echo WORKFLOW_VERIFY_V7471_23_1_OK
+
+          bash verify_v7471_23_2_update_checkmarks_real_action.sh
+          echo WORKFLOW_VERIFY_V7471_23_2_OK
+
+          bash verify_v7471_24_notification_delete_persistent.sh
+          echo WORKFLOW_VERIFY_V7471_24_OK
+
+          bash verify_v7471_25_tv_dark_only_detail_up_scroll.sh
+          echo WORKFLOW_VERIFY_V7471_25_OK
+
+          bash verify_v7471_25_1_verifier_compat_hotfix.sh
+          echo WORKFLOW_VERIFY_V7471_25_1_OK
+
+          bash verify_v7471_25_2_mobile_header_safe_insets.sh
+          echo WORKFLOW_VERIFY_V7471_25_2_OK
 
       - name: Install and verify BankMovie font pack
         shell: bash
@@ -619,7 +634,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.47.1.23.1 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.47.1.25.2 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -691,7 +706,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.47.1.23.1-Manifests
+          name: Bankmovie-2.3-V7.47.1.25.2-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
