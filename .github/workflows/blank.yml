@@ -1,4 +1,8 @@
-name: Build BankMovie 2.3 V7.47.1.18 Light Theme Contrast Hardened
+name: Build BankMovie 2.3 V7.47.1.19 Theme Account Hero Skeleton BoxOffice
+
+# Historical verifier compatibility only; the active source is V7.47.1.19 below.
+# V7.47.1.18 cumulative release marker
+# Bankmovie-v2.3-V7.47.1.18-LIGHT-THEME-CONTRAST-HARDENED-FULLSOURCE.zip
 
 on:
   workflow_dispatch:
@@ -10,11 +14,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7471-18-main-${{ github.ref }}
-  cancel-in-progress: true
+  group: bankmovie-2.3-v7471-19-main-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.18-LIGHT-THEME-CONTRAST-HARDENED-FULLSOURCE.zip
+  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.19-THEME-ACCOUNT-HERO-SKELETON-BOXOFFICE-FULLSOURCE.zip
 
 jobs:
   build:
@@ -29,7 +33,7 @@ jobs:
           # was deleted from the current branch but still exists in Git history.
           fetch-depth: 0
 
-      - name: Locate V7.47.1.18 project
+      - name: Locate V7.47.1.19 project
         shell: bash
         run: |
           set -euo pipefail
@@ -49,7 +53,7 @@ jobs:
             exit 1
           fi
           unzip -tq "$source_zip" >/dev/null
-          extract_dir="$RUNNER_TEMP/bankmovie-v7471-18-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+          extract_dir="$RUNNER_TEMP/bankmovie-v7471-19-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
           rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           unzip -q "$source_zip" -d "$extract_dir"
@@ -302,7 +306,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.47.1.18 light-theme contrast and previous fixes
+      - name: Verify V7.47.1.19 account theme, detail hero, skeletons and Box Office
         shell: bash
         run: |
           set -euo pipefail
@@ -347,7 +351,8 @@ jobs:
           bash verify_v7471_16_white_theme.sh
           bash verify_v7471_17_theme_selector_settings.sh
           bash verify_v7471_18_light_theme_contrast.sh
-          echo WORKFLOW_VERIFY_V7471_18_OK
+          bash verify_v7471_19_theme_account_hero_skeleton_boxoffice.sh
+          echo WORKFLOW_VERIFY_V7471_19_OK
 
       - name: Install and verify BankMovie font pack
         shell: bash
@@ -601,7 +606,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.47.1.16 release APK sizes (bytes)"
+            echo "BankMovie 2.3 V7.47.1.19 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -673,7 +678,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.47.1.16-Manifests
+          name: Bankmovie-2.3-V7.47.1.19-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
