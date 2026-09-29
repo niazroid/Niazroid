@@ -1,25 +1,22 @@
-name: Build BankMovie Windows from ZIP
+name: Build BankMovie Windows v1.1.0 from exact ZIP
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-      - master
-    tags:
-      - 'v*'
+    branches: [main, master]
+    tags: ['v*']
 
 permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: bankmovie_desktop_source_with_yaml_AUTHFIX.zip
+  SOURCE_ZIP: bankmovie_desktop_source_v1.1.0_MEDIAFIX.zip
   EXTRACT_DIR: _bankmovie_source
-  DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_yaml_pack/desktop
+  DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
 jobs:
   build-windows:
-    name: Build Windows installer from exact ZIP
+    name: Build BankMovie Windows 1.1.0
     runs-on: windows-latest
 
     steps:
@@ -32,25 +29,29 @@ jobs:
           $zip = Join-Path "${{ github.workspace }}" "${{ env.SOURCE_ZIP }}"
           if (-not (Test-Path $zip)) {
             Write-Error "Required source archive not found: $zip"
-            Write-Host "Put exactly '${{ env.SOURCE_ZIP }}' in the repository root."
+            Write-Host "Upload exactly '${{ env.SOURCE_ZIP }}' to the repository root."
             exit 1
           }
-          Write-Host "Using source archive: $zip"
+          Write-Host "Using exact source archive: $zip"
 
-      - name: Extract BankMovie desktop source
+      - name: Extract exact BankMovie source
         shell: pwsh
         run: |
           $zip = Join-Path "${{ github.workspace }}" "${{ env.SOURCE_ZIP }}"
           $dest = Join-Path "${{ github.workspace }}" "${{ env.EXTRACT_DIR }}"
           if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
           Expand-Archive -Path $zip -DestinationPath $dest -Force
-
           $package = Join-Path "${{ github.workspace }}" "${{ env.DESKTOP_DIR }}/package.json"
           if (-not (Test-Path $package)) {
-            Write-Error "package.json was not found at expected path: $package"
+            Write-Error "package.json not found at expected path: $package"
             exit 1
           }
-          Write-Host "Desktop source found: $package"
+          $json = Get-Content $package -Raw | ConvertFrom-Json
+          if ($json.version -ne '1.1.0') {
+            Write-Error "Wrong BankMovie source version. Expected 1.1.0 but found $($json.version)."
+            exit 1
+          }
+          Write-Host "Verified BankMovie Windows version $($json.version)"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -64,6 +65,14 @@ jobs:
         working-directory: ${{ env.DESKTOP_DIR }}
         run: npm install
 
+      - name: Validate JavaScript
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: |
+          node --check electron/main.js
+          node --check electron/preload.js
+          node --check src/app.js
+
       - name: Build Windows installer
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
@@ -71,15 +80,10 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npm run build:win
 
-      - name: List build output
-        shell: pwsh
-        working-directory: ${{ env.DESKTOP_DIR }}
-        run: Get-ChildItem -Recurse dist
-
       - name: Upload Windows build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-${{ github.sha }}
+          name: BankMovie-Windows-1.1.0-${{ github.sha }}
           path: |
             ${{ env.DESKTOP_DIR }}/dist/*.exe
             ${{ env.DESKTOP_DIR }}/dist/*.zip
