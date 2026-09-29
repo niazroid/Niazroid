@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.1.0 from exact ZIP
+name: Build BankMovie Windows v1.1.0
 
 on:
   workflow_dispatch:
@@ -11,8 +11,8 @@ permissions:
 
 env:
   SOURCE_ZIP: bankmovie_desktop_source_v1.1.0_MEDIAFIX.zip
-  EXTRACT_DIR: _bankmovie_source
-  DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
+  EXPECTED_APP_NAME: bankmovie-windows
+  EXPECTED_VERSION: 1.1.0
 
 jobs:
   build-windows:
@@ -23,42 +23,100 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verify exact source ZIP
+      - name: Locate BankMovie source
         shell: pwsh
         run: |
-          $zip = Join-Path "${{ github.workspace }}" "${{ env.SOURCE_ZIP }}"
-          if (-not (Test-Path $zip)) {
-            Write-Error "Required source archive not found: $zip"
-            Write-Host "Upload exactly '${{ env.SOURCE_ZIP }}' to the repository root."
-            exit 1
-          }
-          Write-Host "Using exact source archive: $zip"
+          $ErrorActionPreference = 'Stop'
+          $workspace = '${{ github.workspace }}'
+          $zipName = '${{ env.SOURCE_ZIP }}'
 
-      - name: Extract exact BankMovie source
-        shell: pwsh
-        run: |
-          $zip = Join-Path "${{ github.workspace }}" "${{ env.SOURCE_ZIP }}"
-          $dest = Join-Path "${{ github.workspace }}" "${{ env.EXTRACT_DIR }}"
-          if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
-          Expand-Archive -Path $zip -DestinationPath $dest -Force
-          $package = Join-Path "${{ github.workspace }}" "${{ env.DESKTOP_DIR }}/package.json"
-          if (-not (Test-Path $package)) {
-            Write-Error "package.json not found at expected path: $package"
-            exit 1
+          Write-Host "Workspace: $workspace"
+          Write-Host "Looking for exact archive: $zipName"
+
+          # 1) Prefer the exact ZIP, even if it is inside a subfolder of the repo.
+          $zip = Get-ChildItem -Path $workspace -Recurse -File -Filter $zipName -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+
+          if ($zip) {
+            Write-Host "Found exact source ZIP: $($zip.FullName)"
+
+            # Make sure this really is a ZIP and not e.g. a Git LFS pointer.
+            $firstBytes = [System.IO.File]::ReadAllBytes($zip.FullName) | Select-Object -First 2
+            if ($firstBytes.Count -lt 2 -or $firstBytes[0] -ne 0x50 -or $firstBytes[1] -ne 0x4B) {
+              throw "'$($zip.FullName)' is not a real ZIP file. If Git LFS is used, make sure the binary is actually checked out."
+            }
+
+            $extractRoot = Join-Path $workspace '_bankmovie_source'
+            if (Test-Path $extractRoot) {
+              Remove-Item $extractRoot -Recurse -Force
+            }
+            New-Item -ItemType Directory -Path $extractRoot -Force | Out-Null
+            Expand-Archive -LiteralPath $zip.FullName -DestinationPath $extractRoot -Force
+
+            $expectedDesktop = Join-Path $extractRoot 'bankmovie_desktop_v2_pack\desktop'
+            $expectedPackage = Join-Path $expectedDesktop 'package.json'
+
+            if (Test-Path $expectedPackage) {
+              $desktopDir = $expectedDesktop
+            }
           }
-          $json = Get-Content $package -Raw | ConvertFrom-Json
-          if ($json.version -ne '1.1.0') {
-            Write-Error "Wrong BankMovie source version. Expected 1.1.0 but found $($json.version)."
-            exit 1
+
+          # 2) Fallback: source may already be extracted and committed to the repository.
+          if (-not $desktopDir) {
+            Write-Host 'Exact ZIP was not usable/found. Searching for an extracted BankMovie desktop source...'
+
+            $packages = Get-ChildItem -Path $workspace -Recurse -File -Filter 'package.json' -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -notmatch '[\\/]node_modules[\\/]' }
+
+            foreach ($pkg in $packages) {
+              try {
+                $json = Get-Content $pkg.FullName -Raw | ConvertFrom-Json
+                if ($json.name -eq '${{ env.EXPECTED_APP_NAME }}' -and $json.version -eq '${{ env.EXPECTED_VERSION }}') {
+                  $desktopDir = $pkg.Directory.FullName
+                  Write-Host "Found extracted BankMovie source: $desktopDir"
+                  break
+                }
+              } catch {
+                # Ignore unrelated/invalid package.json files.
+              }
+            }
           }
-          Write-Host "Verified BankMovie Windows version $($json.version)"
+
+          if (-not $desktopDir) {
+            Write-Host ''
+            Write-Host 'Repository files:'
+            Get-ChildItem -Path $workspace -Force | ForEach-Object { Write-Host " - $($_.Name)" }
+            Write-Host ''
+            throw "BankMovie source was not found. Upload '$zipName' anywhere in this repository OR extract it and commit the folder 'bankmovie_desktop_v2_pack/desktop'."
+          }
+
+          $packagePath = Join-Path $desktopDir 'package.json'
+          $package = Get-Content $packagePath -Raw | ConvertFrom-Json
+
+          if ($package.name -ne '${{ env.EXPECTED_APP_NAME }}') {
+            throw "Wrong application. Expected '${{ env.EXPECTED_APP_NAME }}', found '$($package.name)'."
+          }
+          if ($package.version -ne '${{ env.EXPECTED_VERSION }}') {
+            throw "Wrong version. Expected '${{ env.EXPECTED_VERSION }}', found '$($package.version)'."
+          }
+
+          # GitHub Actions supports absolute paths in working-directory.
+          "DESKTOP_DIR=$desktopDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PACKAGE_JSON=$packagePath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          Write-Host "Using Desktop directory: $desktopDir"
+          Write-Host "Verified: $($package.name) v$($package.version)"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: ${{ env.DESKTOP_DIR }}/package.json
+
+      - name: Show selected source
+        shell: pwsh
+        run: |
+          Write-Host "DESKTOP_DIR=$env:DESKTOP_DIR"
+          Get-ChildItem -Path $env:DESKTOP_DIR -Force | Format-Table Name, Length, LastWriteTime
 
       - name: Install dependencies
         shell: pwsh
@@ -79,6 +137,17 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npm run build:win
+
+      - name: List build output
+        if: always()
+        shell: pwsh
+        run: |
+          $dist = Join-Path $env:DESKTOP_DIR 'dist'
+          if (Test-Path $dist) {
+            Get-ChildItem -Path $dist -Recurse -File | Format-Table FullName, Length
+          } else {
+            Write-Host 'dist directory does not exist.'
+          }
 
       - name: Upload Windows build artifact
         uses: actions/upload-artifact@v4
