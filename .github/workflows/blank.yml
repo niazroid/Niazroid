@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: bankmovie_desktop_source_v1.1.0_MEDIAFIX.zip
+  SOURCE_ZIP: bankmovie_windows_v1.1.0_MEDIAFIX_bundle.zip
   EXPECTED_APP_NAME: bankmovie-windows
   EXPECTED_VERSION: 1.1.0
 
