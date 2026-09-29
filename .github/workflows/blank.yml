@@ -13,7 +13,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: bankmovie_desktop_source_with_yaml.zip
+  SOURCE_ZIP: bankmovie_desktop_source_with_yaml_AUTHFIX.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_yaml_pack/desktop
 
