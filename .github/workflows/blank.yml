@@ -1,104 +1,67 @@
-name: Build BankMovie Windows v1.1.0 - Bundle
+name: Build BankMovie Windows 1.2.0 Archive UI
 
 on:
   workflow_dispatch:
   push:
-    branches: [main, master]
-    tags: ['v*']
+    branches: [ main, master ]
+    tags: [ 'v*' ]
 
 permissions:
   contents: write
 
 env:
-  BUNDLE_ZIP: bankmovie_windows_v1.1.0_MEDIAFIX_bundle.zip
-  INNER_ZIP: bankmovie_desktop_source_v1.1.0_MEDIAFIX.zip
-  BUNDLE_EXTRACT: _bankmovie_bundle_extract
-  SOURCE_EXTRACT: _bankmovie_source
-  DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
+  SOURCE_ZIP: bankmovie_desktop_source_v1.2.0_ARCHIVE_UI.zip
+  EXTRACT_DIR: _bankmovie_source
 
 jobs:
   build-windows:
-    name: Build BankMovie Windows 1.1.0
     runs-on: windows-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract exact bundle and nested desktop ZIP
+      - name: Locate and extract exact BankMovie source ZIP
+        id: source
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $workspace = '${{ github.workspace }}'
+          $zipName = $env:SOURCE_ZIP
+          Write-Host "Workspace: $workspace"
+          Write-Host "Looking for exact source archive: $zipName"
 
-          # Your repository currently contains this OUTER bundle.
-          $bundle = Get-ChildItem -Path $workspace -Recurse -File -Filter '${{ env.BUNDLE_ZIP }}' -ErrorAction SilentlyContinue |
-            Select-Object -First 1
-
-          if (-not $bundle) {
+          $zip = Get-ChildItem -Path $workspace -Recurse -File -Filter $zipName | Select-Object -First 1
+          if (-not $zip) {
+            Write-Error "Required source archive not found: $zipName"
+            Write-Host "Upload exactly '$zipName' anywhere inside the repository."
             Write-Host 'Repository root files:'
             Get-ChildItem -Path $workspace -Force | ForEach-Object { Write-Host " - $($_.Name)" }
-            throw "Bundle not found: ${{ env.BUNDLE_ZIP }}"
+            exit 1
           }
 
-          Write-Host "Using OUTER bundle: $($bundle.FullName)"
+          $extract = Join-Path $workspace $env:EXTRACT_DIR
+          if (Test-Path $extract) { Remove-Item $extract -Recurse -Force }
+          New-Item -ItemType Directory -Path $extract | Out-Null
+          Write-Host "Using: $($zip.FullName)"
+          Expand-Archive -LiteralPath $zip.FullName -DestinationPath $extract -Force
 
-          # Verify it is a real ZIP (PK signature), not a Git LFS pointer.
-          $stream = [System.IO.File]::OpenRead($bundle.FullName)
-          try {
-            $byte1 = $stream.ReadByte()
-            $byte2 = $stream.ReadByte()
-          } finally {
-            $stream.Dispose()
-          }
-          if ($byte1 -ne 0x50 -or $byte2 -ne 0x4B) {
-            throw "The bundle is not a real ZIP file: $($bundle.FullName)"
-          }
+          $desktopPackage = Get-ChildItem -Path $extract -Recurse -File -Filter package.json | Where-Object {
+            try {
+              $pkg = Get-Content $_.FullName -Raw | ConvertFrom-Json
+              $pkg.name -eq 'bankmovie-windows'
+            } catch { $false }
+          } | Select-Object -First 1
 
-          $bundleDest = Join-Path $workspace '${{ env.BUNDLE_EXTRACT }}'
-          $sourceDest = Join-Path $workspace '${{ env.SOURCE_EXTRACT }}'
-
-          if (Test-Path $bundleDest) { Remove-Item $bundleDest -Recurse -Force }
-          if (Test-Path $sourceDest) { Remove-Item $sourceDest -Recurse -Force }
-          New-Item -ItemType Directory -Path $bundleDest -Force | Out-Null
-          New-Item -ItemType Directory -Path $sourceDest -Force | Out-Null
-
-          Write-Host 'Extracting OUTER bundle...'
-          Expand-Archive -LiteralPath $bundle.FullName -DestinationPath $bundleDest -Force
-
-          # The desktop source is a SECOND ZIP inside the outer bundle.
-          $innerZip = Get-ChildItem -Path $bundleDest -Recurse -File -Filter '${{ env.INNER_ZIP }}' -ErrorAction SilentlyContinue |
-            Select-Object -First 1
-
-          if (-not $innerZip) {
-            Write-Host 'Files found inside OUTER bundle:'
-            Get-ChildItem -Path $bundleDest -Recurse -File | ForEach-Object { Write-Host " - $($_.FullName)" }
-            throw "Nested desktop ZIP not found: ${{ env.INNER_ZIP }}"
+          if (-not $desktopPackage) {
+            Write-Error 'BankMovie desktop package.json was not found after extraction.'
+            Get-ChildItem -Path $extract -Recurse -Depth 4 | ForEach-Object { Write-Host $_.FullName }
+            exit 1
           }
 
-          Write-Host "Using INNER desktop ZIP: $($innerZip.FullName)"
-          Write-Host 'Extracting INNER desktop source...'
-          Expand-Archive -LiteralPath $innerZip.FullName -DestinationPath $sourceDest -Force
-
-          $desktop = Join-Path $workspace '${{ env.DESKTOP_DIR }}'
-          $packagePath = Join-Path $desktop 'package.json'
-
-          if (-not (Test-Path $packagePath)) {
-            Write-Host 'Extracted desktop-source files:'
-            Get-ChildItem -Path $sourceDest -Recurse -File | ForEach-Object { Write-Host " - $($_.FullName)" }
-            throw "package.json not found at expected path: $packagePath"
-          }
-
-          $pkg = Get-Content $packagePath -Raw | ConvertFrom-Json
-          if ($pkg.name -ne 'bankmovie-windows') {
-            throw "Wrong package name. Expected bankmovie-windows, found: $($pkg.name)"
-          }
-          if ($pkg.version -ne '1.1.0') {
-            throw "Wrong package version. Expected 1.1.0, found: $($pkg.version)"
-          }
-
-          Write-Host "OK: $($pkg.name) v$($pkg.version)"
-          Write-Host "Desktop directory: $desktop"
+          $desktopDir = Split-Path $desktopPackage.FullName -Parent
+          Write-Host "Desktop source: $desktopDir"
+          "desktop_dir=$desktopDir" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -107,54 +70,36 @@ jobs:
 
       - name: Install dependencies
         shell: pwsh
-        working-directory: ${{ env.DESKTOP_DIR }}
+        working-directory: ${{ steps.source.outputs.desktop_dir }}
         run: npm install
 
-      - name: Validate JavaScript
+      - name: Verify desktop source
         shell: pwsh
-        working-directory: ${{ env.DESKTOP_DIR }}
+        working-directory: ${{ steps.source.outputs.desktop_dir }}
         run: |
-          node --check electron/main.js
-          node --check electron/preload.js
           node --check src/app.js
+          node --check electron/main.js
+          $pkg = Get-Content package.json -Raw | ConvertFrom-Json
+          Write-Host "Building $($pkg.name) v$($pkg.version)"
+          if ($pkg.version -ne '1.2.0') { throw "Expected version 1.2.0, found $($pkg.version)" }
 
       - name: Build Windows installer
         shell: pwsh
-        working-directory: ${{ env.DESKTOP_DIR }}
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        working-directory: ${{ steps.source.outputs.desktop_dir }}
         run: npm run build:win
 
-      - name: Show build output
-        if: always()
-        shell: pwsh
-        run: |
-          $dist = Join-Path '${{ github.workspace }}' '${{ env.DESKTOP_DIR }}/dist'
-          if (Test-Path $dist) {
-            Get-ChildItem -Path $dist -Recurse -File | Format-Table FullName, Length
-          } else {
-            Write-Host 'dist directory does not exist.'
-          }
-
-      - name: Upload Windows installer
+      - name: Upload Windows build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-1.1.0-${{ github.sha }}
-          path: |
-            ${{ env.DESKTOP_DIR }}/dist/*.exe
-            ${{ env.DESKTOP_DIR }}/dist/*.zip
-            ${{ env.DESKTOP_DIR }}/dist/*.blockmap
-            ${{ env.DESKTOP_DIR }}/dist/*.yml
+          name: BankMovie-Windows-1.2.0
+          path: ${{ steps.source.outputs.desktop_dir }}/dist/**
           if-no-files-found: error
-          retention-days: 30
 
-      - name: Publish GitHub Release assets
+      - name: Publish GitHub Release assets for tags
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
           files: |
-            ${{ env.DESKTOP_DIR }}/dist/*.exe
-            ${{ env.DESKTOP_DIR }}/dist/*.zip
-            ${{ env.DESKTOP_DIR }}/dist/*.blockmap
-            ${{ env.DESKTOP_DIR }}/dist/*.yml
+            ${{ steps.source.outputs.desktop_dir }}/dist/*.exe
+            ${{ steps.source.outputs.desktop_dir }}/dist/*.blockmap
+          generate_release_notes: true
