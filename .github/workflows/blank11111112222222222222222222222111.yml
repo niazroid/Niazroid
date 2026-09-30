@@ -1,708 +1,123 @@
-name: Build BankMovie 2.3 V7.47.1.25 TV Dark Only Detail Up Scroll Fix
-
-# Historical verifiers are cumulative; the active source is V7.47.1.25.
-# V7.47.1.18 cumulative release marker
-# Bankmovie-v2.3-V7.47.1.18-LIGHT-THEME-CONTRAST-HARDENED-FULLSOURCE.zip
+name: Build BankMovie Windows v1.8.1
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main, master]
+    tags: ['v*']
 
 permissions:
-  contents: read
-
-concurrency:
-  group: bankmovie-2.3-v7471-25-main-${{ github.ref }}
-  cancel-in-progress: false
+  contents: write
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.25-TV-DARK-ONLY-DETAIL-UP-SCROLL-FIX-FULLSOURCE.zip
+  SOURCE_ZIP: BankMovie-v1.8.1.zip
+  EXTRACT_DIR: _bankmovie_source
+  DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+  build-windows:
+    runs-on: windows-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          # Required for signing-key recovery when an older FULLSOURCE zip
-          # was deleted from the current branch but still exists in Git history.
-          fetch-depth: 0
 
-      - name: Locate V7.47.1.25 project
-        shell: bash
+      - name: Verify exact source archive
+        shell: pwsh
         run: |
-          set -euo pipefail
+          $zip = Join-Path "${{ github.workspace }}" "${{ env.SOURCE_ZIP }}"
+          if (-not (Test-Path $zip)) {
+            Write-Host "Repository files:"
+            Get-ChildItem "${{ github.workspace }}" | ForEach-Object { Write-Host " - $($_.Name)" }
+            throw "Required source archive not found: $zip"
+          }
+          Write-Host "Using source: $zip"
 
-          workspace="$GITHUB_WORKSPACE"
-          build_file="$(find "$workspace" -maxdepth 6 -type f -path '*/app/build.gradle' ! -path '*/app/build/*' -print -quit || true)"
-          if [[ -n "$build_file" ]]; then
-            project_dir="$(dirname "$(dirname "$build_file")")"
-            echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
-            echo "::notice::Using Android project from repository: $project_dir"
-            exit 0
-          fi
-
-          source_zip="$workspace/$SOURCE_ZIP"
-          if [[ ! -s "$source_zip" ]]; then
-            echo "::error::Neither an extracted Android project nor $SOURCE_ZIP was found."
-            exit 1
-          fi
-          unzip -tq "$source_zip" >/dev/null
-          extract_dir="$RUNNER_TEMP/bankmovie-v7471-25-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
-          rm -rf "$extract_dir"
-          mkdir -p "$extract_dir"
-          unzip -q "$source_zip" -d "$extract_dir"
-          build_file="$(find "$extract_dir" -type f -path '*/app/build.gradle' ! -path '*/app/build/*' -print -quit || true)"
-          if [[ -z "$build_file" ]]; then
-            echo "::error::app/build.gradle was not found inside $SOURCE_ZIP"
-            exit 1
-          fi
-          project_dir="$(dirname "$(dirname "$build_file")")"
-          echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
-          echo "::notice::Using Android project extracted from: $SOURCE_ZIP"
-
-      - name: Set monotonic Android versionCode
-        shell: bash
+      - name: Extract BankMovie Desktop
+        shell: pwsh
         run: |
-          set -euo pipefail
-          # Unix epoch seconds are monotonic across workflow renames/replacements
-          # and remain below Android's 2,100,000,000 versionCode ceiling today.
-          version_code="$(date -u +%s)"
-          if (( version_code <= 5400000 || version_code > 2100000000 )); then
-            echo "::error::Generated Android versionCode is outside the safe range: $version_code"
-            exit 1
-          fi
-          echo "BANKMOVIE_VERSION_CODE=$version_code" >> "$GITHUB_ENV"
-          echo "::notice::Android versionCode locked for this release: $version_code"
+          $zip = Join-Path "${{ github.workspace }}" "${{ env.SOURCE_ZIP }}"
+          $dest = Join-Path "${{ github.workspace }}" "${{ env.EXTRACT_DIR }}"
 
-      - name: Restore and verify stable signing keystore
-        shell: bash
-        env:
-          BANKMOVIE_KEYSTORE_B64: ${{ secrets.BANKMOVIE_KEYSTORE_B64 }}
-        run: |
-          set -euo pipefail
-          umask 077
-
-          target="$PROJECT_DIR/bankmovie_update.jks"
-          expected_sha="b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39"
-
-          verify_key() {
-            local f="$1"
-            [[ -s "$f" ]] || return 1
-            local actual
-            actual="$(sha256sum "$f" | awk '{print $1}')"
-            [[ "$actual" == "$expected_sha" ]]
+          if (Test-Path $dest) {
+            Remove-Item $dest -Recurse -Force
           }
 
-          recover_key_from_zip() {
-            local candidate="$1"
-            local label="$2"
-            local entry tmp
+          New-Item -ItemType Directory -Path $dest | Out-Null
+          Expand-Archive -LiteralPath $zip -DestinationPath $dest -Force
 
-            unzip -tq "$candidate" >/dev/null 2>&1 || return 1
-            entry="$(unzip -Z1 "$candidate" 2>/dev/null | grep -Ei '(^|/)bankmovie_update\.jks$' | head -n 1 || true)"
-            [[ -n "$entry" ]] || return 1
+          $desktop = Join-Path "${{ github.workspace }}" "${{ env.DESKTOP_DIR }}"
+          $package = Join-Path $desktop "package.json"
 
-            tmp="$(mktemp "$RUNNER_TEMP/bankmovie-update-key.XXXXXX")"
-            if unzip -p "$candidate" "$entry" > "$tmp" 2>/dev/null && verify_key "$tmp"; then
-              mv "$tmp" "$target"
-              echo "::notice::Recovered stable signing key from $label."
-              return 0
-            fi
-            rm -f "$tmp"
-            return 1
+          if (-not (Test-Path $package)) {
+            throw "package.json not found at: $package"
           }
 
-          materialize_lfs_blob_if_needed() {
-            local candidate="$1"
-            local out="$2"
-            local lfs_oid cached
-
-            if ! grep -q '^version https://git-lfs.github.com/spec/v1' "$candidate" 2>/dev/null; then
-              cp "$candidate" "$out"
-              return 0
-            fi
-
-            lfs_oid="$(sed -n 's/^oid sha256://p' "$candidate" | head -n 1)"
-            [[ "$lfs_oid" =~ ^[0-9a-fA-F]{64}$ ]] || return 1
-
-            if ! git lfs version >/dev/null 2>&1; then
-              return 1
-            fi
-
-            # Fetch only the historical LFS object we need, not every old artifact.
-            git lfs fetch --object-id origin "$lfs_oid" >/dev/null 2>&1 || true
-            cached="$(find "$GITHUB_WORKSPACE/.git/lfs/objects/${lfs_oid:0:2}/${lfs_oid:2:2}" \
-              -type f -name "$lfs_oid" -print -quit 2>/dev/null || true)"
-            [[ -s "$cached" ]] || return 1
-            cp "$cached" "$out"
+          $pkg = Get-Content $package -Raw | ConvertFrom-Json
+          if ($pkg.name -ne "bankmovie-windows") {
+            throw "Unexpected package: $($pkg.name)"
+          }
+          if ($pkg.version -ne "1.8.1") {
+            throw "Expected BankMovie Desktop 1.8.1 but found $($pkg.version)"
           }
 
-          # 1) Prefer the stable key already bundled with the current source.
-          if verify_key "$target"; then
-            echo "::notice::Stable BankMovie signing keystore is already present in the source."
-          else
-            rm -f "$target"
+      - name: Generate credential-free runtime config
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: |
+          $content = @"
+          module.exports = Object.freeze({
+            domain: 'https://bankmovie.top'
+          });
+          "@
+          Set-Content -Path "electron/runtime.generated.js" -Value $content -Encoding UTF8
+          Write-Host "Runtime domain configured. No client API key/secret is used."
 
-            # 2) Preferred CI path: encrypted GitHub Actions secret.
-            if [[ -n "${BANKMOVIE_KEYSTORE_B64:-}" ]]; then
-              printf '%s' "$BANKMOVIE_KEYSTORE_B64" | base64 --decode > "$target"
-              if ! verify_key "$target"; then
-                rm -f "$target"
-                echo "::error::BANKMOVIE_KEYSTORE_B64 decoded successfully but it is not the stable BankMovie update keystore."
-                exit 1
-              fi
-              echo "::notice::Stable signing keystore restored from GitHub Actions secret."
-            fi
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
-            # 3) Private-repository convenience: a root-level keystore file.
-            if [[ ! -s "$target" && -s "$GITHUB_WORKSPACE/bankmovie_update.jks" ]]; then
-              cp "$GITHUB_WORKSPACE/bankmovie_update.jks" "$target"
-              if ! verify_key "$target"; then
-                rm -f "$target"
-                echo "::error::Repository bankmovie_update.jks does not match the stable BankMovie update key."
-                exit 1
-              fi
-              echo "::notice::Stable signing keystore copied from repository root."
-            fi
+      - name: Install dependencies
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: npm install
 
-            # 4) Search every FULLSOURCE zip still present in the current checkout.
-            #    This is recursive so archived files in subdirectories are not missed.
-            if [[ ! -s "$target" ]]; then
-              while IFS= read -r -d '' candidate; do
-                if recover_key_from_zip "$candidate" "current repository: ${candidate#$GITHUB_WORKSPACE/}"; then
-                  break
-                fi
-              done < <(find "$GITHUB_WORKSPACE" -type f -iname '*FULLSOURCE*.zip' -print0)
-            fi
+      - name: Validate JavaScript
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: |
+          node --check src/app.js
+          node --check electron/main.js
+          node --check electron/preload.js
+          node --check electron/runtime.generated.js
 
-            # 5) Recovery for deleted older FULLSOURCE zips. Because checkout uses
-            #    fetch-depth: 0, their blobs are still reachable from Git history.
-            if [[ ! -s "$target" && -d "$GITHUB_WORKSPACE/.git" ]]; then
-              echo "::notice::Stable key not found in the current tree; scanning deleted FULLSOURCE zips in Git history."
-              cd "$GITHUB_WORKSPACE"
-              declare -A seen_history_blobs=()
-
-              while IFS=' ' read -r object path; do
-                [[ -n "${object:-}" && -n "${path:-}" ]] || continue
-                lower_path="${path,,}"
-                [[ "$lower_path" == *fullsource*.zip ]] || continue
-                [[ -z "${seen_history_blobs[$object]:-}" ]] || continue
-                seen_history_blobs["$object"]=1
-                [[ "$(git cat-file -t "$object" 2>/dev/null || true)" == "blob" ]] || continue
-
-                raw="$(mktemp "$RUNNER_TEMP/bankmovie-history-raw.XXXXXX")"
-                candidate="$(mktemp "$RUNNER_TEMP/bankmovie-history-zip.XXXXXX")"
-                if ! git cat-file blob "$object" > "$raw" 2>/dev/null; then
-                  rm -f "$raw" "$candidate"
-                  continue
-                fi
-
-                if ! materialize_lfs_blob_if_needed "$raw" "$candidate"; then
-                  rm -f "$raw" "$candidate"
-                  continue
-                fi
-                rm -f "$raw"
-
-                if recover_key_from_zip "$candidate" "Git history: $path"; then
-                  rm -f "$candidate"
-                  break
-                fi
-                rm -f "$candidate"
-              done < <(git rev-list --objects --all)
-            fi
-          fi
-
-          if ! verify_key "$target"; then
-            echo "::error::Stable signing keystore was not found in the current source, repository secret, current repository files, or reachable Git history."
-            echo "::error::If the old FULLSOURCE commit was force-purged from Git history, restore bankmovie_update.jks or set BANKMOVIE_KEYSTORE_B64."
-            exit 1
-          fi
-
-          chmod 600 "$target"
-          echo "::notice::BankMovie stable signing key SHA-256 verified."
-
-      - name: Configure Firebase Cloud Messaging (optional)
-        shell: bash
+      - name: Build Windows installer
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
         env:
-          GOOGLE_SERVICES_JSON_B64: ${{ secrets.BANKMOVIE_GOOGLE_SERVICES_JSON_B64 }}
-        run: |
-          set -euo pipefail
-          if [[ -n "${GOOGLE_SERVICES_JSON_B64:-}" ]]; then
-            printf '%s' "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > "$PROJECT_DIR/app/google-services.json"
-            python3 - <<'PYJSON'
-          import json, os
-          path=os.path.join(os.environ['PROJECT_DIR'],'app','google-services.json')
-          with open(path,'r',encoding='utf-8') as f: data=json.load(f)
-          clients=data.get('client') or []
-          if not clients: raise SystemExit('google-services.json has no client entries')
-          print('Firebase Android config injected')
-          PYJSON
-          else
-            echo "::warning::BANKMOVIE_GOOGLE_SERVICES_JSON_B64 is not set. APK will build with the existing background-poll notification fallback, but instant FCM push will stay disabled."
-          fi
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npm run build:win
 
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Resolve preinstalled Android SDK
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
-          if [[ ! -d "$sdk_root" ]]; then
-            echo "::error::Android SDK root was not found: $sdk_root"
-            echo "ANDROID_HOME=${ANDROID_HOME:-<unset>}"
-            echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-<unset>}"
-            exit 1
-          fi
-
-          sdkmanager_bin="$(command -v sdkmanager || true)"
-          if [[ -z "$sdkmanager_bin" ]]; then
-            sdkmanager_bin="$(find "$sdk_root/cmdline-tools" -type f -name sdkmanager -perm -u+x 2>/dev/null | sort -V | tail -n 1 || true)"
-          fi
-          if [[ -z "$sdkmanager_bin" || ! -x "$sdkmanager_bin" ]]; then
-            echo "::error::sdkmanager was not found in the preinstalled GitHub runner Android SDK."
-            find "$sdk_root" -maxdepth 4 -type f -name sdkmanager -print 2>/dev/null || true
-            exit 1
-          fi
-
-          echo "ANDROID_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
-          echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
-          echo "$(dirname "$sdkmanager_bin")" >> "$GITHUB_PATH"
-          echo "$sdk_root/platform-tools" >> "$GITHUB_PATH"
-          echo "$sdk_root/build-tools/35.0.0" >> "$GITHUB_PATH"
-          echo "::notice::Using preinstalled Android SDK: $sdk_root"
-          echo "::notice::Using sdkmanager: $sdkmanager_bin"
-
-      - name: Install and verify Android SDK 35
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          sdkmanager_bin="$(command -v sdkmanager)"
-          yes | "$sdkmanager_bin" --sdk_root="$ANDROID_SDK_ROOT" --licenses >/dev/null 2>&1 || true
-          "$sdkmanager_bin" --sdk_root="$ANDROID_SDK_ROOT" \
-            'platform-tools' \
-            'platforms;android-35' \
-            'build-tools;35.0.0'
-
-          test -f "$ANDROID_SDK_ROOT/platforms/android-35/android.jar"
-          test -x "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt2"
-          test -x "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner"
-          echo "::notice::Android SDK 35 and Build Tools 35.0.0 are ready."
-
-      - name: Setup Gradle 8.10.2
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.10.2'
-
-      - name: Verify V7.47.1.25 TV dark-only and Detail UP scroll fix
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "$PROJECT_DIR"
-
-          bash verify_v7454_watch_party_chat_badges.sh
-          bash verify_v7455_imdb_top250_bridge.sh
-          bash verify_v7458_auth_profile_bankmovie_font.sh
-          bash verify_v7465_offline_adm_location_playback.sh
-          bash verify_v7466_1_kotlin_compile_hotfix.sh
-          bash verify_v7468_offline_card_polish.sh
-          bash verify_v7469_ui_archive_resilience.sh
-          bash verify_v7470_push_notification_retention.sh
-          bash verify_v7471_bale_push_rail_spinner.sh
-          bash verify_v7471_1_tinteddrawable_compile_hotfix.sh
-          if [[ -x ./verify_v7471_2_signing_hotfix.sh ]]; then bash ./verify_v7471_2_signing_hotfix.sh; fi
-          bash verify_v7471_3_notification_tap_rail_actions.sh
-          bash verify_v7471_4_slider_nav_remote_ux.sh
-          bash verify_v7471_5_player_tv_focus_unified_ui.sh
-
-          php -l server-required/app_user_api.php
-          php -l server-required/app_config.php
-          php -l server-required/app_api.php
-          php -l server-required/bm_admin.php
-          php -l server-required/includes/archive_control.php
-          php -l server-required/includes/app_archive_policy.php
-          php -l server-required/includes/download_redirect.php
-          grep -q 'tvSideNavCollapseGuardUntil' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -q 'settings:connections' app/src/main/java/ir/bankmoviee/app/DownloadsActivity.kt
-          grep -q 'wireTvFocusOrder' app/src/main/java/ir/bankmoviee/app/OfflineLibraryActivity.kt
-          grep -q '#33CC99' app/src/main/res/drawable/ic_trailer.xml
-          bash verify_v7471_7_tv_drawer_offline_focus.sh
-          bash verify_v7471_8_tv_drawer_click_bridge.sh
-          bash verify_v7471_9_boxoffice_profile_unified_ui.sh
-          bash verify_v7471_10_tv_drawer_profile_mobile_match.sh
-          bash verify_v7471_11_tv_drawer_focus_handoff.sh
-          bash verify_v7471_12_tv_vip_profile_mobile_style.sh
-          bash verify_v7471_12_2_kotlin_compile_hotfix.sh
-          bash verify_v7471_12_3_update_versioncode.sh
-          bash verify_v7471_13_download_meta_path_retry_settings.sh
-          bash verify_v7471_14_theme_logo_avatar_remote.sh
-          bash verify_v7471_16_white_theme.sh
-          bash verify_v7471_17_theme_selector_settings.sh
-          bash verify_v7471_18_light_theme_contrast.sh
-          bash verify_v7471_19_theme_account_hero_skeleton_boxoffice.sh
-          bash verify_v7471_20_local_theme_notifications_modal_toggle.sh
-          echo WORKFLOW_VERIFY_V7471_20_OK
-
-          bash verify_v7471_21_detail_year_hero_icon_weekly_player_light.sh
-          echo WORKFLOW_VERIFY_V7471_21_OK
-
-          bash verify_v7471_22_home_skeleton_nav_about_modal.sh
-          echo WORKFLOW_VERIFY_V7471_22_OK
-
-          bash verify_v7471_23_android_badge_fullscreen_force_update.sh
-          echo WORKFLOW_VERIFY_V7471_23_OK
-
-          bash verify_v7471_23_1_kotlin_compile_hotfix.sh
-          echo WORKFLOW_VERIFY_V7471_23_1_OK
-
-          bash verify_v7471_23_2_update_checkmarks_real_action.sh
-          echo WORKFLOW_VERIFY_V7471_23_2_OK
-
-          bash verify_v7471_24_notification_delete_persistent.sh
-          echo WORKFLOW_VERIFY_V7471_24_OK
-
-          bash verify_v7471_25_tv_dark_only_detail_up_scroll.sh
-          echo WORKFLOW_VERIFY_V7471_25_OK
-
-      - name: Install and verify BankMovie font pack
-        shell: bash
-        run: |
-          set -euo pipefail
-          font_dir="$PROJECT_DIR/app/src/main/assets/fonts"
-          mkdir -p "$font_dir"
-          python3 -m pip install --disable-pip-version-check --quiet fonttools brotli
-
-          font_zip="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -iname 'irancell*.zip' -print -quit)"
-          if [[ -n "$font_zip" ]]; then
-            FONT_ZIP="$font_zip" FONT_DIR="$font_dir" python3 - <<'PY'
-          import os, re
-          from pathlib import Path, PurePosixPath
-          from zipfile import ZipFile
-          archive, output = Path(os.environ['FONT_ZIP']), Path(os.environ['FONT_DIR'])
-          targets = {1:'irancell_bold.ttf',2:'irancell_regular.ttf',3:'irancell_black.ttf',4:'irancell_semibold.ttf',5:'irancell_medium.ttf'}
-          with ZipFile(archive) as zf:
-              indexed = {}
-              for item in zf.infolist():
-                  if item.is_dir() or not item.filename.lower().endswith('.ttf'): continue
-                  match = re.search(r'irancell[^0-9]*([1-5])', PurePosixPath(item.filename).name, re.I)
-                  if match: indexed[int(match.group(1))] = item
-              for number, name in targets.items():
-                  if number not in indexed: raise SystemExit(f'Missing Irancell font {number}')
-                  data = zf.read(indexed[number], pwd=b'fontbazi')
-                  if len(data) < 1024: raise SystemExit(f'Invalid font: {name}')
-                  (output / name).write_bytes(data)
-          PY
-          fi
-
-          declare -A direct_fonts=(
-            [Cinema.otf]=cinema.otf
-            ['Diako Hima Regular-@Fontsplua.ttf']=diako_hima.ttf
-            ['Nic [@fontbazi].ttf']=nic.ttf
-          )
-          for source in "${!direct_fonts[@]}"; do
-            [[ -s "$GITHUB_WORKSPACE/$source" ]] && cp "$GITHUB_WORKSPACE/$source" "$font_dir/${direct_fonts[$source]}"
-          done
-
-          FONT_DIR="$font_dir" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" python3 - <<'PY'
-          import os
-          from pathlib import Path
-          from fontTools.ttLib import TTFont
-          root, out = Path(os.environ['GITHUB_WORKSPACE']), Path(os.environ['FONT_DIR'])
-          for weight in ('regular','medium','bold'):
-              source = next(iter(root.glob(f'IRANSansXFaNum-{weight}*.woff2')), None)
-              if source is None: continue
-              font = TTFont(source); font.flavor = None; font.save(out / f'iransansx_{weight}.ttf')
-          PY
-
-          filimo_source="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -iname 'filimo-demo-variable-vf.woff2' -print -quit)"
-          if [[ -z "$filimo_source" ]]; then
-            filimo_source="$RUNNER_TEMP/filimo-demo-variable-vf.woff2"
-            curl --fail --silent --show-error --location --retry 3 --connect-timeout 12 \
-              'https://bankmovie.top/assets/fonts/filimo-demo-variable-vf.woff2' \
-              --output "$filimo_source"
-          fi
-          test -s "$filimo_source"
-          FILIMO_SOURCE="$filimo_source" FONT_DIR="$font_dir" python3 - <<'PY'
-          import os
-          from pathlib import Path
-          from fontTools.ttLib import TTFont
-          from fontTools.varLib.instancer import instantiateVariableFont
-
-          src = Path(os.environ['FILIMO_SOURCE'])
-          out_dir = Path(os.environ['FONT_DIR'])
-          weights = {400:'400', 500:'500', 700:'700', 900:'900', 950:'950'}
-
-          source_font = TTFont(src)
-          if 'fvar' not in source_font or not any(axis.axisTag == 'wght' for axis in source_font['fvar'].axes):
-              raise SystemExit('Filimo source is not the expected variable wght font')
-
-          for weight, suffix in weights.items():
-              font = TTFont(src)
-              static_font = instantiateVariableFont(font, {'wght': weight}, inplace=False, optimize=True)
-              static_font.flavor = None
-
-              # Normalize metadata so Android recognizes the requested weight.
-              is_bold = weight >= 700
-              static_font['OS/2'].usWeightClass = weight
-              static_font['OS/2'].fsSelection &= ~(1 << 5)
-              static_font['OS/2'].fsSelection &= ~(1 << 6)
-              static_font['OS/2'].fsSelection |= (1 << 5) if is_bold else (1 << 6)
-              if is_bold:
-                  static_font['head'].macStyle |= 1
-              else:
-                  static_font['head'].macStyle &= ~1
-
-              family = f'BankMovie Filimo {weight}'
-              subfamily = 'Bold' if is_bold else 'Regular'
-              ps_name = f'BankMovieFilimo-{weight}'
-              for record in static_font['name'].names:
-                  value = None
-                  if record.nameID == 1:
-                      value = family
-                  elif record.nameID == 2:
-                      value = subfamily
-                  elif record.nameID == 4:
-                      value = f'{family} {subfamily}'
-                  elif record.nameID == 6:
-                      value = ps_name
-                  elif record.nameID == 17:
-                      value = subfamily
-                  if value is not None:
-                      try:
-                          record.string = value.encode(record.getEncoding())
-                      except Exception:
-                          pass
-
-              out = out_dir / f'bankmovie_filimo_{suffix}.ttf'
-              static_font.save(out)
-              if out.stat().st_size < 4096:
-                  raise SystemExit(f'Converted BankMovie font is invalid: {out.name}')
-          PY
-
-          required_fonts=(
-            bankmovie_filimo_400.ttf bankmovie_filimo_500.ttf bankmovie_filimo_700.ttf bankmovie_filimo_900.ttf bankmovie_filimo_950.ttf
-            irancell_regular.ttf irancell_medium.ttf irancell_semibold.ttf irancell_bold.ttf irancell_black.ttf
-            cinema.otf diako_hima.ttf nic.ttf
-            iransansx_regular.ttf iransansx_medium.ttf iransansx_bold.ttf
-          )
-          for font in "${required_fonts[@]}"; do
-            if [[ ! -s "$font_dir/$font" ]]; then
-              echo "::error::Required Android font asset is missing: $font"
-              exit 1
-            fi
-          done
-          echo "::notice::BankMovie + legacy font pack installed and verified."
-
-      - name: Build ABI2 Lite releases
-        shell: bash
-        env:
-          BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a
-        run: |
-          set -euo pipefail
-          cd "$PROJECT_DIR"
-          gradle --no-daemon --stacktrace clean assembleAbi2LiteRelease
-
-      - name: Build ABI4 Full releases
-        shell: bash
-        env:
-          BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a,x86,x86_64
-        run: |
-          set -euo pipefail
-          cd "$PROJECT_DIR"
-          gradle --no-daemon --stacktrace assembleAbi4FullRelease
-
-      - name: Collect and verify signed APKs
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p output
-          rm -f output/*
-
-          apk_root="$PROJECT_DIR/app/build/outputs/apk"
-          if [[ ! -d "$apk_root" ]]; then
-            echo "::error::Gradle produced no APK output directory: $apk_root"
-            find "$PROJECT_DIR/app/build/outputs" -maxdepth 5 -type f -printf '%P\n' 2>/dev/null | sort | head -n 120 || true
-            exit 1
-          fi
-
-          mapfile -d '' built_apks < <(find "$apk_root" -type f -iname '*.apk' -print0)
-          if [[ ${#built_apks[@]} -eq 0 ]]; then
-            echo "::error::Gradle completed but no APK files were found below: $apk_root"
-            exit 1
-          fi
-
-          for apk in "${built_apks[@]}"; do
-            full_lower="${apk,,}"
-            base="$(basename "$apk")"
-            base_lower="${base,,}"
-
-            case "$full_lower" in
-              *abi2lite*) edition="ABI2-Lite" ;;
-              *abi4full*) edition="ABI4-Full" ;;
-              *)
-                echo "::warning::Skipping APK with unknown edition: $apk"
-                continue
-                ;;
-            esac
-
-            case "$base_lower" in
-              *universal*) abi="Universal" ;;
-              *arm64-v8a*) abi="Arm64-v8a" ;;
-              *armeabi-v7a*) abi="Armeabi-v7a" ;;
-              *x86_64*) abi="X86_64" ;;
-              *x86*) abi="X86" ;;
-              *)
-                echo "::error::Cannot identify APK ABI from filename: $base"
-                exit 1
-                ;;
-            esac
-
-            target="output/Bankmovie-v2.3-$edition-$abi.apk"
-            if [[ -e "$target" ]]; then
-              echo "::error::More than one APK maps to output file: $target"
-              exit 1
-            fi
-            cp "$apk" "$target"
-            echo "Collected: ${apk#$PROJECT_DIR/} -> $target"
-          done
-
-          expected=(
-            Bankmovie-v2.3-ABI2-Lite-Universal.apk
-            Bankmovie-v2.3-ABI2-Lite-Armeabi-v7a.apk
-            Bankmovie-v2.3-ABI2-Lite-Arm64-v8a.apk
-            Bankmovie-v2.3-ABI4-Full-Universal.apk
-            Bankmovie-v2.3-ABI4-Full-Armeabi-v7a.apk
-            Bankmovie-v2.3-ABI4-Full-Arm64-v8a.apk
-            Bankmovie-v2.3-ABI4-Full-X86.apk
-            Bankmovie-v2.3-ABI4-Full-X86_64.apk
-          )
-
-          for apk in "${expected[@]}"; do
-            if [[ ! -s "output/$apk" ]]; then
-              echo "::error::Expected APK was not generated: $apk"
-              find "$apk_root" -type f -iname '*.apk' -printf '%P\n' | sort
-              exit 1
-            fi
-          done
-
-          apk_count="$(find output -maxdepth 1 -type f -name '*.apk' | wc -l)"
-          if [[ "$apk_count" -ne 8 ]]; then
-            echo "::error::Expected exactly 8 APKs, collected $apk_count."
-            find output -maxdepth 1 -type f -name '*.apk' -printf '%f\n' | sort
-            exit 1
-          fi
-
-          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
-          if [[ -z "$apksigner" || ! -x "$apksigner" ]]; then
-            echo "::error::Android apksigner was not found below $ANDROID_HOME/build-tools."
-            exit 1
-          fi
-
-          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
-          if [[ -z "$aapt_bin" || ! -x "$aapt_bin" ]]; then
-            echo "::error::Android aapt was not found below $ANDROID_HOME/build-tools."
-            exit 1
-          fi
-
-          while IFS= read -r apk; do
-            "$apksigner" verify --verbose --print-certs "$apk"
-            actual_version_code="$($aapt_bin dump badging "$apk" | sed -n "s/.*versionCode='\([0-9][0-9]*\)'.*/\1/p" | head -n 1)"
-            if [[ "$actual_version_code" != "$BANKMOVIE_VERSION_CODE" ]]; then
-              echo "::error::Unexpected versionCode in $apk: $actual_version_code (expected $BANKMOVIE_VERSION_CODE)"
-              exit 1
-            fi
-            echo "Verified update versionCode $actual_version_code: $apk"
-          done < <(find output -type f -name '*.apk' | sort)
-
-          sha256sum output/*.apk | tee output/SHA256SUMS.txt
-          {
-            echo "BankMovie 2.3 V7.47.1.25 release APK sizes (bytes)"
-            find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
-          } | tee output/APK-SIZES.txt
-          echo "::notice::All 8 APK files were found and their signatures verified."
-
-      - name: Upload ABI2 Lite Universal
+      - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-ABI2-Lite-Universal
-          path: output/Bankmovie-v2.3-ABI2-Lite-Universal.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI2 Lite Armeabi-v7a
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.3-ABI2-Lite-Armeabi-v7a
-          path: output/Bankmovie-v2.3-ABI2-Lite-Armeabi-v7a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI2 Lite Arm64-v8a
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.3-ABI2-Lite-Arm64-v8a
-          path: output/Bankmovie-v2.3-ABI2-Lite-Arm64-v8a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full Universal
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.3-ABI4-Full-Universal
-          path: output/Bankmovie-v2.3-ABI4-Full-Universal.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full Armeabi-v7a
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.3-ABI4-Full-Armeabi-v7a
-          path: output/Bankmovie-v2.3-ABI4-Full-Armeabi-v7a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full Arm64-v8a
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.3-ABI4-Full-Arm64-v8a
-          path: output/Bankmovie-v2.3-ABI4-Full-Arm64-v8a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full X86
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.3-ABI4-Full-X86
-          path: output/Bankmovie-v2.3-ABI4-Full-X86.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full X86_64
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.3-ABI4-Full-X86_64
-          path: output/Bankmovie-v2.3-ABI4-Full-X86_64.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload checksum and size manifests
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.3-V7.47.1.25-Manifests
+          name: BankMovie-Windows-v1.8.1-${{ github.sha }}
           path: |
-            output/SHA256SUMS.txt
-            output/APK-SIZES.txt
+            ${{ env.DESKTOP_DIR }}/dist/*.exe
+            ${{ env.DESKTOP_DIR }}/dist/*.zip
+            ${{ env.DESKTOP_DIR }}/dist/*.blockmap
+            ${{ env.DESKTOP_DIR }}/dist/*.yml
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish GitHub Release assets
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            ${{ env.DESKTOP_DIR }}/dist/*.exe
+            ${{ env.DESKTOP_DIR }}/dist/*.zip
+            ${{ env.DESKTOP_DIR }}/dist/*.blockmap
+            ${{ env.DESKTOP_DIR }}/dist/*.yml
