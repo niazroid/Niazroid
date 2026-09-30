@@ -1,105 +1,124 @@
-name: Build BankMovie Windows 1.2.0 Archive UI
+name: Build BankMovie Windows v1.3.0
 
 on:
   workflow_dispatch:
   push:
-    branches: [ main, master ]
-    tags: [ 'v*' ]
+    branches:
+      - main
+      - master
+    tags:
+      - "v*"
 
 permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: bankmovie_desktop_source_v1.2.0_ARCHIVE_UI.zip
+  SOURCE_ZIP: bankmovie_desktop_source_v1.3.0_SLIDER_SVG_SEARCH.zip
   EXTRACT_DIR: _bankmovie_source
+  DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
 jobs:
   build-windows:
+    name: Build Windows installer
     runs-on: windows-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and extract exact BankMovie source ZIP
-        id: source
+      - name: Verify exact source ZIP
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
-          $workspace = '${{ github.workspace }}'
-          $zipName = $env:SOURCE_ZIP
-          Write-Host "Workspace: $workspace"
-          Write-Host "Looking for exact source archive: $zipName"
+          $zip = Join-Path "${{ github.workspace }}" "${{ env.SOURCE_ZIP }}"
 
-          $zip = Get-ChildItem -Path $workspace -Recurse -File -Filter $zipName | Select-Object -First 1
-          if (-not $zip) {
-            Write-Error "Required source archive not found: $zipName"
-            Write-Host "Upload exactly '$zipName' anywhere inside the repository."
-            Write-Host 'Repository root files:'
-            Get-ChildItem -Path $workspace -Force | ForEach-Object { Write-Host " - $($_.Name)" }
-            exit 1
+          if (-not (Test-Path $zip)) {
+            Write-Host "Repository root contents:"
+            Get-ChildItem "${{ github.workspace }}" | ForEach-Object {
+              Write-Host " - $($_.Name)"
+            }
+
+            throw "Required source archive not found: $zip"
           }
 
-          $extract = Join-Path $workspace $env:EXTRACT_DIR
-          if (Test-Path $extract) { Remove-Item $extract -Recurse -Force }
-          New-Item -ItemType Directory -Path $extract | Out-Null
-          Write-Host "Using: $($zip.FullName)"
-          Expand-Archive -LiteralPath $zip.FullName -DestinationPath $extract -Force
+          Write-Host "Using exact source archive:"
+          Write-Host $zip
 
-          $desktopPackage = Get-ChildItem -Path $extract -Recurse -File -Filter package.json | Where-Object {
-            try {
-              $pkg = Get-Content $_.FullName -Raw | ConvertFrom-Json
-              $pkg.name -eq 'bankmovie-windows'
-            } catch { $false }
-          } | Select-Object -First 1
+      - name: Extract BankMovie source
+        shell: pwsh
+        run: |
+          $zip = Join-Path "${{ github.workspace }}" "${{ env.SOURCE_ZIP }}"
+          $dest = Join-Path "${{ github.workspace }}" "${{ env.EXTRACT_DIR }}"
 
-          if (-not $desktopPackage) {
-            Write-Error 'BankMovie desktop package.json was not found after extraction.'
-            Get-ChildItem -Path $extract -Recurse -Depth 4 | ForEach-Object { Write-Host $_.FullName }
-            exit 1
+          if (Test-Path $dest) {
+            Remove-Item $dest -Recurse -Force
           }
 
-          $desktopDir = Split-Path $desktopPackage.FullName -Parent
-          Write-Host "Desktop source: $desktopDir"
-          "desktop_dir=$desktopDir" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          New-Item -ItemType Directory -Path $dest | Out-Null
+          Expand-Archive -LiteralPath $zip -DestinationPath $dest -Force
+
+          $desktop = Join-Path "${{ github.workspace }}" "${{ env.DESKTOP_DIR }}"
+          $package = Join-Path $desktop "package.json"
+
+          if (-not (Test-Path $package)) {
+            Write-Host "Extracted files:"
+            Get-ChildItem $dest -Recurse | ForEach-Object {
+              Write-Host " - $($_.FullName)"
+            }
+
+            throw "Desktop package.json was not found at: $package"
+          }
+
+          Write-Host "Desktop source found:"
+          Write-Host $desktop
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: "22"
 
       - name: Install dependencies
         shell: pwsh
-        working-directory: ${{ steps.source.outputs.desktop_dir }}
+        working-directory: ${{ env.DESKTOP_DIR }}
         run: npm install
-
-      - name: Verify desktop source
-        shell: pwsh
-        working-directory: ${{ steps.source.outputs.desktop_dir }}
-        run: |
-          node --check src/app.js
-          node --check electron/main.js
-          $pkg = Get-Content package.json -Raw | ConvertFrom-Json
-          Write-Host "Building $($pkg.name) v$($pkg.version)"
-          if ($pkg.version -ne '1.2.0') { throw "Expected version 1.2.0, found $($pkg.version)" }
 
       - name: Build Windows installer
         shell: pwsh
-        working-directory: ${{ steps.source.outputs.desktop_dir }}
+        working-directory: ${{ env.DESKTOP_DIR }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: npm run build:win
+
+      - name: Show build output
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: |
+          if (-not (Test-Path "dist")) {
+            throw "dist folder was not created."
+          }
+
+          Get-ChildItem -Recurse dist | ForEach-Object {
+            Write-Host $_.FullName
+          }
 
       - name: Upload Windows build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-1.2.0
-          path: ${{ steps.source.outputs.desktop_dir }}/dist/**
+          name: BankMovie-Windows-v1.3.0-${{ github.sha }}
+          path: |
+            ${{ env.DESKTOP_DIR }}/dist/*.exe
+            ${{ env.DESKTOP_DIR }}/dist/*.zip
+            ${{ env.DESKTOP_DIR }}/dist/*.blockmap
+            ${{ env.DESKTOP_DIR }}/dist/*.yml
           if-no-files-found: error
+          retention-days: 30
 
-      - name: Publish GitHub Release assets for tags
+      - name: Publish GitHub Release assets
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            ${{ steps.source.outputs.desktop_dir }}/dist/*.exe
-            ${{ steps.source.outputs.desktop_dir }}/dist/*.blockmap
           generate_release_notes: true
+          files: |
+            ${{ env.DESKTOP_DIR }}/dist/*.exe
+            ${{ env.DESKTOP_DIR }}/dist/*.zip
+            ${{ env.DESKTOP_DIR }}/dist/*.blockmap
+            ${{ env.DESKTOP_DIR }}/dist/*.yml
