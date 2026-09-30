@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.9.1
+name: Build BankMovie Windows v1.9.2
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.9.1.zip
+  SOURCE_ZIP: BankMovie-v1.9.2.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -47,7 +47,7 @@ jobs:
           if (-not (Test-Path $package)) { throw "package.json not found at: $package" }
           $pkg = Get-Content $package -Raw | ConvertFrom-Json
           if ($pkg.name -ne "bankmovie-windows") { throw "Unexpected package: $($pkg.name)" }
-          if ($pkg.version -ne "1.9.1") { throw "Expected version 1.9.1 but found $($pkg.version)" }
+          if ($pkg.version -ne "1.9.2") { throw "Expected version 1.9.2 but found $($pkg.version)" }
 
       - name: Generate runtime config
         shell: pwsh
@@ -89,7 +89,7 @@ jobs:
       - name: Upload Windows build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-v1.9.1-${{ github.sha }}
+          name: BankMovie-Windows-v1.9.2-${{ github.sha }}
           path: |
             ${{ env.DESKTOP_DIR }}/dist/*.exe
             ${{ env.DESKTOP_DIR }}/dist/*.zip
