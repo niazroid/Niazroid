@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.6.0
+name: Build BankMovie Windows v1.7.0
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: bankmovie_desktop_source_v1.6.0_UX_REALDATA.zip
+  SOURCE_ZIP: bankmovie_desktop_source_v1.7.0_VIP_PROFILE_SYNC.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -47,7 +47,7 @@ jobs:
 
           $pkg = Get-Content $package -Raw | ConvertFrom-Json
           if ($pkg.name -ne 'bankmovie-windows') { throw "Unexpected package: $($pkg.name)" }
-          if ($pkg.version -ne '1.6.0') { throw "Expected BankMovie Desktop 1.6.0 but found $($pkg.version)" }
+          if ($pkg.version -ne '1.7.0') { throw "Expected BankMovie Desktop 1.7.0 but found $($pkg.version)" }
           Write-Host "Verified BankMovie Desktop $($pkg.version) at $desktop"
 
       - name: Setup Node.js
@@ -60,6 +60,14 @@ jobs:
         working-directory: ${{ env.DESKTOP_DIR }}
         run: npm install
 
+      - name: Validate JavaScript
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: |
+          node --check src/app.js
+          node --check electron/main.js
+          node --check electron/preload.js
+
       - name: Build Windows installer
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
@@ -70,7 +78,7 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-v1.6.0-${{ github.sha }}
+          name: BankMovie-Windows-v1.7.0-${{ github.sha }}
           path: |
             ${{ env.DESKTOP_DIR }}/dist/*.exe
             ${{ env.DESKTOP_DIR }}/dist/*.zip
