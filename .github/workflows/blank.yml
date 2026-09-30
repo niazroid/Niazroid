@@ -13,6 +13,7 @@ env:
   SOURCE_ZIP: bankmovie_desktop_source_v1.8.0_ARCHIVE_PRIVACY_DOWNLOADER.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
+  BM_DESKTOP_DOMAIN: https://bankmovie.top
 
 jobs:
   build-windows:
@@ -51,11 +52,10 @@ jobs:
       - name: Validate private build secrets
         shell: pwsh
         env:
-          BM_DESKTOP_DOMAIN: ${{ secrets.BM_DESKTOP_DOMAIN }}
           BM_DESKTOP_APP_KEY: ${{ secrets.BM_DESKTOP_APP_KEY }}
           BM_DESKTOP_APP_SECRET: ${{ secrets.BM_DESKTOP_APP_SECRET }}
         run: |
-          if ([string]::IsNullOrWhiteSpace($env:BM_DESKTOP_DOMAIN)) { throw "Missing GitHub Secret: BM_DESKTOP_DOMAIN" }
+          Write-Host "Desktop domain: $env:BM_DESKTOP_DOMAIN"
           if ([string]::IsNullOrWhiteSpace($env:BM_DESKTOP_APP_KEY)) { throw "Missing GitHub Secret: BM_DESKTOP_APP_KEY" }
           if ([string]::IsNullOrWhiteSpace($env:BM_DESKTOP_APP_SECRET)) { throw "Missing GitHub Secret: BM_DESKTOP_APP_SECRET" }
 
@@ -63,7 +63,6 @@ jobs:
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
         env:
-          BM_DESKTOP_DOMAIN: ${{ secrets.BM_DESKTOP_DOMAIN }}
           BM_DESKTOP_APP_KEY: ${{ secrets.BM_DESKTOP_APP_KEY }}
           BM_DESKTOP_APP_SECRET: ${{ secrets.BM_DESKTOP_APP_SECRET }}
         run: |
