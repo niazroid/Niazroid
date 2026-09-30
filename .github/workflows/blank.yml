@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.8.0
+name: Build BankMovie Windows v1.8.0 NO-SECRETS
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: bankmovie_desktop_source_v1.8.0_ARCHIVE_PRIVACY_DOWNLOADER.zip
+  SOURCE_ZIP: BankMovie-v1.8.0.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
   BM_DESKTOP_DOMAIN: https://bankmovie.top
@@ -49,34 +49,22 @@ jobs:
           if ($pkg.name -ne 'bankmovie-windows') { throw "Unexpected package: $($pkg.name)" }
           if ($pkg.version -ne '1.8.0') { throw "Expected BankMovie Desktop 1.8.0 but found $($pkg.version)" }
 
-      - name: Validate private build secrets
-        shell: pwsh
-        env:
-          BM_DESKTOP_APP_KEY: ${{ secrets.BM_DESKTOP_APP_KEY }}
-          BM_DESKTOP_APP_SECRET: ${{ secrets.BM_DESKTOP_APP_SECRET }}
-        run: |
-          Write-Host "Desktop domain: $env:BM_DESKTOP_DOMAIN"
-          if ([string]::IsNullOrWhiteSpace($env:BM_DESKTOP_APP_KEY)) { throw "Missing GitHub Secret: BM_DESKTOP_APP_KEY" }
-          if ([string]::IsNullOrWhiteSpace($env:BM_DESKTOP_APP_SECRET)) { throw "Missing GitHub Secret: BM_DESKTOP_APP_SECRET" }
-
-      - name: Generate private runtime config
+      - name: Generate temporary runtime config without API credentials
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
-        env:
-          BM_DESKTOP_APP_KEY: ${{ secrets.BM_DESKTOP_APP_KEY }}
-          BM_DESKTOP_APP_SECRET: ${{ secrets.BM_DESKTOP_APP_SECRET }}
         run: |
           $runtime = @{
-            domain = $env:BM_DESKTOP_DOMAIN.TrimEnd('/')
-            appKey = $env:BM_DESKTOP_APP_KEY
-            appSecret = $env:BM_DESKTOP_APP_SECRET
+            domain = "https://bankmovie.top"
+            appKey = ""
+            appSecret = ""
           } | ConvertTo-Json -Compress
 
           $content = "module.exports = Object.freeze($runtime);"
           Set-Content -Path "electron/runtime.generated.js" -Value $content -Encoding UTF8
 
-          Write-Host "Private runtime config generated for build."
-          Write-Host "Credential values are not printed."
+          Write-Host "Temporary no-secret runtime config generated."
+          Write-Host "Domain: https://bankmovie.top"
+          Write-Host "API credentials: disabled for this build."
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
