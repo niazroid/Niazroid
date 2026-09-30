@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.8.1
+name: Build BankMovie Windows v1.9.0
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.8.1.zip
+  SOURCE_ZIP: BankMovie-v1.9.0.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -38,28 +38,17 @@ jobs:
         run: |
           $zip = Join-Path "${{ github.workspace }}" "${{ env.SOURCE_ZIP }}"
           $dest = Join-Path "${{ github.workspace }}" "${{ env.EXTRACT_DIR }}"
-
-          if (Test-Path $dest) {
-            Remove-Item $dest -Recurse -Force
-          }
-
+          if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
           New-Item -ItemType Directory -Path $dest | Out-Null
           Expand-Archive -LiteralPath $zip -DestinationPath $dest -Force
 
           $desktop = Join-Path "${{ github.workspace }}" "${{ env.DESKTOP_DIR }}"
           $package = Join-Path $desktop "package.json"
-
-          if (-not (Test-Path $package)) {
-            throw "package.json not found at: $package"
-          }
+          if (-not (Test-Path $package)) { throw "package.json not found at: $package" }
 
           $pkg = Get-Content $package -Raw | ConvertFrom-Json
-          if ($pkg.name -ne "bankmovie-windows") {
-            throw "Unexpected package: $($pkg.name)"
-          }
-          if ($pkg.version -ne "1.8.1") {
-            throw "Expected BankMovie Desktop 1.8.1 but found $($pkg.version)"
-          }
+          if ($pkg.name -ne "bankmovie-windows") { throw "Unexpected package: $($pkg.name)" }
+          if ($pkg.version -ne "1.9.0") { throw "Expected BankMovie Desktop 1.9.0 but found $($pkg.version)" }
 
       - name: Generate credential-free runtime config
         shell: pwsh
@@ -71,7 +60,7 @@ jobs:
           });
           "@
           Set-Content -Path "electron/runtime.generated.js" -Value $content -Encoding UTF8
-          Write-Host "Runtime domain configured. No client API key/secret is used."
+          Write-Host "Runtime configured without client API secrets."
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -102,7 +91,7 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-v1.8.1-${{ github.sha }}
+          name: BankMovie-Windows-v1.9.0-${{ github.sha }}
           path: |
             ${{ env.DESKTOP_DIR }}/dist/*.exe
             ${{ env.DESKTOP_DIR }}/dist/*.zip
