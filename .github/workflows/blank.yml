@@ -1,44 +1,38 @@
-name: Build BankMovie Windows v1.5.0
+name: Build BankMovie Windows v1.6.0
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-      - master
-    tags:
-      - "v*"
+    branches: [main, master]
+    tags: ['v*']
 
 permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: bankmovie_desktop_source_v1.5.0_REDMOVIE_UX.zip
+  SOURCE_ZIP: bankmovie_desktop_source_v1.6.0_UX_REALDATA.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
-  EXPECTED_VERSION: 1.5.0
 
 jobs:
   build-windows:
-    name: Build BankMovie Windows
     runs-on: windows-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verify exact BankMovie source archive
+      - name: Verify exact source archive
         shell: pwsh
         run: |
           $zip = Join-Path "${{ github.workspace }}" "${{ env.SOURCE_ZIP }}"
           if (-not (Test-Path $zip)) {
-            Write-Host "Repository root contents:"
+            Write-Host "Repository files:"
             Get-ChildItem "${{ github.workspace }}" | ForEach-Object { Write-Host " - $($_.Name)" }
             throw "Required source archive not found: $zip"
           }
-          Write-Host "Using exact source archive: $zip"
+          Write-Host "Using source archive: $zip"
 
-      - name: Extract source once
+      - name: Extract exact BankMovie Desktop source
         shell: pwsh
         run: |
           $zip = Join-Path "${{ github.workspace }}" "${{ env.SOURCE_ZIP }}"
@@ -49,50 +43,34 @@ jobs:
 
           $desktop = Join-Path "${{ github.workspace }}" "${{ env.DESKTOP_DIR }}"
           $package = Join-Path $desktop "package.json"
-          if (-not (Test-Path $package)) {
-            Get-ChildItem $dest -Recurse | ForEach-Object { Write-Host " - $($_.FullName)" }
-            throw "Desktop package.json was not found at: $package"
-          }
+          if (-not (Test-Path $package)) { throw "package.json not found at: $package" }
 
           $pkg = Get-Content $package -Raw | ConvertFrom-Json
-          if ($pkg.name -ne "bankmovie-windows") {
-            throw "Unexpected package name: $($pkg.name)"
-          }
-          if ($pkg.version -ne "${{ env.EXPECTED_VERSION }}") {
-            throw "Wrong BankMovie version. Expected ${{ env.EXPECTED_VERSION }}, found $($pkg.version)"
-          }
-          Write-Host "Verified BankMovie Desktop $($pkg.version): $desktop"
+          if ($pkg.name -ne 'bankmovie-windows') { throw "Unexpected package: $($pkg.name)" }
+          if ($pkg.version -ne '1.6.0') { throw "Expected BankMovie Desktop 1.6.0 but found $($pkg.version)" }
+          Write-Host "Verified BankMovie Desktop $($pkg.version) at $desktop"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: '22'
 
       - name: Install dependencies
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
         run: npm install
 
-      - name: Build Windows NSIS installer
+      - name: Build Windows installer
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npm run build:win
 
-      - name: Verify build output
-        shell: pwsh
-        working-directory: ${{ env.DESKTOP_DIR }}
-        run: |
-          if (-not (Test-Path "dist")) { throw "dist folder was not created." }
-          $exe = Get-ChildItem "dist" -Filter "*.exe" -File
-          if (-not $exe) { throw "No Windows EXE was produced." }
-          Get-ChildItem "dist" -Recurse | ForEach-Object { Write-Host $_.FullName }
-
-      - name: Upload Windows build artifact
+      - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-v1.5.0-${{ github.sha }}
+          name: BankMovie-Windows-v1.6.0-${{ github.sha }}
           path: |
             ${{ env.DESKTOP_DIR }}/dist/*.exe
             ${{ env.DESKTOP_DIR }}/dist/*.zip
