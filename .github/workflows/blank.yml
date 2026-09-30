@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.3.0
+name: Build BankMovie Windows v1.4.0
 
 on:
   workflow_dispatch:
@@ -13,63 +13,51 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: bankmovie_desktop_source_v1.3.0_SLIDER_SVG_SEARCH.zip
+  SOURCE_ZIP: bankmovie_desktop_source_v1.4.0_TITLEBAR_HOME_REFINE.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
 jobs:
   build-windows:
-    name: Build Windows installer
+    name: Build BankMovie v1.4.0
     runs-on: windows-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verify exact source ZIP
+      - name: Verify exact Desktop source ZIP
         shell: pwsh
         run: |
           $zip = Join-Path "${{ github.workspace }}" "${{ env.SOURCE_ZIP }}"
-
           if (-not (Test-Path $zip)) {
             Write-Host "Repository root contents:"
-            Get-ChildItem "${{ github.workspace }}" | ForEach-Object {
-              Write-Host " - $($_.Name)"
-            }
-
+            Get-ChildItem "${{ github.workspace }}" | ForEach-Object { Write-Host " - $($_.Name)" }
             throw "Required source archive not found: $zip"
           }
+          Write-Host "Using Desktop source: $zip"
 
-          Write-Host "Using exact source archive:"
-          Write-Host $zip
-
-      - name: Extract BankMovie source
+      - name: Extract Desktop source
         shell: pwsh
         run: |
           $zip = Join-Path "${{ github.workspace }}" "${{ env.SOURCE_ZIP }}"
           $dest = Join-Path "${{ github.workspace }}" "${{ env.EXTRACT_DIR }}"
-
-          if (Test-Path $dest) {
-            Remove-Item $dest -Recurse -Force
-          }
-
+          if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
           New-Item -ItemType Directory -Path $dest | Out-Null
           Expand-Archive -LiteralPath $zip -DestinationPath $dest -Force
 
           $desktop = Join-Path "${{ github.workspace }}" "${{ env.DESKTOP_DIR }}"
           $package = Join-Path $desktop "package.json"
-
           if (-not (Test-Path $package)) {
             Write-Host "Extracted files:"
-            Get-ChildItem $dest -Recurse | ForEach-Object {
-              Write-Host " - $($_.FullName)"
-            }
-
+            Get-ChildItem $dest -Recurse | ForEach-Object { Write-Host " - $($_.FullName)" }
             throw "Desktop package.json was not found at: $package"
           }
 
-          Write-Host "Desktop source found:"
-          Write-Host $desktop
+          $pkg = Get-Content $package -Raw | ConvertFrom-Json
+          if ($pkg.name -ne "bankmovie-windows") { throw "Unexpected package: $($pkg.name)" }
+          if ($pkg.version -ne "1.4.0") { throw "Expected BankMovie 1.4.0 but found $($pkg.version)" }
+          Write-Host "BankMovie Desktop $($pkg.version) source verified."
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -81,29 +69,26 @@ jobs:
         working-directory: ${{ env.DESKTOP_DIR }}
         run: npm install
 
-      - name: Build Windows installer
+      - name: Build Windows Setup
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: npm run build:win
 
-      - name: Show build output
+      - name: Verify build output
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
         run: |
-          if (-not (Test-Path "dist")) {
-            throw "dist folder was not created."
-          }
-
-          Get-ChildItem -Recurse dist | ForEach-Object {
-            Write-Host $_.FullName
-          }
+          if (-not (Test-Path "dist")) { throw "dist folder was not created." }
+          $exe = Get-ChildItem "dist" -Filter "*.exe" -File
+          if (-not $exe) { throw "Windows Setup EXE was not created." }
+          $exe | ForEach-Object { Write-Host "Built: $($_.FullName) [$([math]::Round($_.Length / 1MB, 2)) MB]" }
 
       - name: Upload Windows build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-v1.3.0-${{ github.sha }}
+          name: BankMovie-Windows-v1.4.0-${{ github.sha }}
           path: |
             ${{ env.DESKTOP_DIR }}/dist/*.exe
             ${{ env.DESKTOP_DIR }}/dist/*.zip
