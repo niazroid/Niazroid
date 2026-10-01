@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.9.5
+name: Build BankMovie Windows v1.9.5 FINAL NOSIGN
 
 on:
   workflow_dispatch:
@@ -10,9 +10,10 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.9.5-NOSIGN-FIX.zip
+  SOURCE_ZIP: BankMovie-v1.9.5-FINAL-NOSIGN.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
+  CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
 jobs:
   build-windows:
@@ -22,31 +23,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verify source archive
-        shell: pwsh
-        run: |
-          $zip = Join-Path "${{ github.workspace }}" "${{ env.SOURCE_ZIP }}"
-          if (-not (Test-Path $zip)) {
-            Write-Host "Repository files:"
-            Get-ChildItem "${{ github.workspace }}" | ForEach-Object { Write-Host " - $($_.Name)" }
-            throw "Required source archive not found: $zip"
-          }
-
       - name: Extract source
         shell: pwsh
         run: |
           $zip = Join-Path "${{ github.workspace }}" "${{ env.SOURCE_ZIP }}"
+          if (-not (Test-Path $zip)) {
+            throw "Required source archive not found: $zip"
+          }
+
           $dest = Join-Path "${{ github.workspace }}" "${{ env.EXTRACT_DIR }}"
           if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
           New-Item -ItemType Directory -Path $dest | Out-Null
           Expand-Archive -LiteralPath $zip -DestinationPath $dest -Force
 
-          $package = Join-Path "${{ github.workspace }}" "${{ env.DESKTOP_DIR }}/package.json"
-          if (-not (Test-Path $package)) { throw "package.json not found: $package" }
-
-          $pkg = Get-Content $package -Raw | ConvertFrom-Json
-          if ($pkg.name -ne "bankmovie-windows") { throw "Unexpected package: $($pkg.name)" }
-          if ($pkg.version -ne "1.9.5") { throw "Expected version 1.9.5 but found $($pkg.version)" }
+      - name: FORCE disable code signing
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: |
+          node -e "const fs=require('fs');const p=require('./package.json');p.build=p.build||{};p.build.forceCodeSigning=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
+          $pkg = Get-Content package.json -Raw | ConvertFrom-Json
+          Write-Host "forceCodeSigning = $($pkg.build.forceCodeSigning)"
+          if ($pkg.build.forceCodeSigning -ne $false) {
+            throw "Failed to disable forceCodeSigning"
+          }
+          if ($pkg.version -ne "1.9.5") {
+            throw "Expected version 1.9.5 but found $($pkg.version)"
+          }
 
       - name: Generate runtime config
         shell: pwsh
@@ -77,20 +79,29 @@ jobs:
           node --check electron/preload.js
           node --check electron/runtime.generated.js
 
+      - name: Show final builder config guard
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: |
+          $pkg = Get-Content package.json -Raw | ConvertFrom-Json
+          if ($pkg.build.forceCodeSigning -eq $true) {
+            throw "forceCodeSigning became true again"
+          }
+          Write-Host "Signing is NOT mandatory. Building unsigned test installer."
+
       - name: Build Windows installer
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: npm run build:win -- --publish never
+        run: npx electron-builder --win nsis --publish never
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-v1.9.5-${{ github.sha }}
+          name: BankMovie-Windows-v1.9.5-FINAL-NOSIGN-${{ github.sha }}
           path: |
             ${{ env.DESKTOP_DIR }}/dist/*.exe
-            ${{ env.DESKTOP_DIR }}/dist/*.zip
             ${{ env.DESKTOP_DIR }}/dist/*.blockmap
             ${{ env.DESKTOP_DIR }}/dist/*.yml
           if-no-files-found: error
@@ -103,6 +114,5 @@ jobs:
           generate_release_notes: true
           files: |
             ${{ env.DESKTOP_DIR }}/dist/*.exe
-            ${{ env.DESKTOP_DIR }}/dist/*.zip
             ${{ env.DESKTOP_DIR }}/dist/*.blockmap
             ${{ env.DESKTOP_DIR }}/dist/*.yml
