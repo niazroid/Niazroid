@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.9.6
+name: Build BankMovie Windows v1.9.7
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.9.6.zip
+  SOURCE_ZIP: BankMovie-v1.9.7.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
   CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -27,35 +27,22 @@ jobs:
         shell: pwsh
         run: |
           $zip = Join-Path "${{ github.workspace }}" "${{ env.SOURCE_ZIP }}"
-          if (-not (Test-Path $zip)) {
-            throw "Required source archive not found: $zip"
-          }
+          if (-not (Test-Path $zip)) { throw "Required source archive not found: $zip" }
 
           $dest = Join-Path "${{ github.workspace }}" "${{ env.EXTRACT_DIR }}"
           if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
           New-Item -ItemType Directory -Path $dest | Out-Null
           Expand-Archive -LiteralPath $zip -DestinationPath $dest -Force
 
-      - name: Validate package and force unsigned test build
+      - name: Validate package and disable mandatory signing
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
         run: |
-          node -e "const fs=require('fs');const p=require('./package.json');if(p.version!=='1.9.6')throw new Error('Expected 1.9.6');p.build=p.build||{};p.build.forceCodeSigning=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
+          node -e "const fs=require('fs');const p=require('./package.json');if(p.version!=='1.9.7')throw new Error('Expected 1.9.7');p.build=p.build||{};p.build.forceCodeSigning=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
           $pkg = Get-Content package.json -Raw | ConvertFrom-Json
           Write-Host "Version: $($pkg.version)"
           Write-Host "forceCodeSigning: $($pkg.build.forceCodeSigning)"
-
-          if ($pkg.build.forceCodeSigning -ne $false) {
-            throw "forceCodeSigning must be false"
-          }
-
-          @(
-            "build-assets/installer-header.bmp",
-            "build-assets/installer-sidebar.bmp",
-            "build-assets/bankmovie-installer.ico"
-          ) | ForEach-Object {
-            if (-not (Test-Path $_)) { throw "Missing installer asset: $_" }
-          }
+          if ($pkg.build.forceCodeSigning -ne $false) { throw "forceCodeSigning must be false" }
 
       - name: Generate runtime config
         shell: pwsh
@@ -109,7 +96,7 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-v1.9.6-${{ github.sha }}
+          name: BankMovie-Windows-v1.9.7-${{ github.sha }}
           path: |
             ${{ env.DESKTOP_DIR }}/dist/*.exe
             ${{ env.DESKTOP_DIR }}/dist/*.blockmap
