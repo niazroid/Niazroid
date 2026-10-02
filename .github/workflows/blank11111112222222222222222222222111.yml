@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.1.21
+name: Build BankMovie Windows v1.1.22
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.1.21.zip
+  SOURCE_ZIP: BankMovie-v1.1.22.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
   CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -43,7 +43,7 @@ jobs:
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
         run: |
-          node -e "const fs=require('fs');const p=require('./package.json');if(p.version!=='1.1.21')throw new Error('Expected 1.1.21');p.build=p.build||{};p.build.forceCodeSigning=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
+          node -e "const fs=require('fs');const p=require('./package.json');if(p.version!=='1.1.22')throw new Error('Expected 1.1.22');p.build=p.build||{};p.build.forceCodeSigning=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
 
           $pkg = Get-Content package.json -Raw | ConvertFrom-Json
           if ($pkg.build.forceCodeSigning -ne $false) {
@@ -77,6 +77,14 @@ jobs:
           $app = Get-Content "src/app.js" -Raw
           if ($app -notmatch "bm1121Encoder") { throw "Encoder metadata patch is missing" }
           if ($app -notmatch "bm1121AgeRating") { throw "Age rating patch is missing" }
+          if ($app -notmatch "bm1122BindHeaderSearch") { throw "Header archive search binding is missing" }
+          if ($app -notmatch "bm1122PolishEmptyStates") { throw "Animated empty-state binding is missing" }
+
+          $html = Get-Content "src/index.html" -Raw
+          if ($html -notmatch "headerSearchArchive") { throw "Header archive selector is missing" }
+
+          $css = Get-Content "src/styles.css" -Raw
+          if ($css -notmatch "cinematic empty-state animation") { throw "Empty-state animation styles are missing" }
           if ($app -notmatch "return 60\*60\*1000") { throw "One-hour detail cache is missing" }
 
           $nsh = Get-Content "build-assets/installer-black.nsh" -Raw
@@ -136,7 +144,7 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-v1.1.21-${{ github.sha }}
+          name: BankMovie-Windows-v1.1.22-${{ github.sha }}
           path: |
             ${{ env.DESKTOP_DIR }}/dist/*.exe
             ${{ env.DESKTOP_DIR }}/dist/*.blockmap
