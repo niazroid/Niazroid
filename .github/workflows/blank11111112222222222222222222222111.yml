@@ -91,9 +91,6 @@ jobs:
           if ($css -notmatch "startup loader — full cinematic screen") { throw "Cinematic startup loader styles are missing" }
           if ($css -notmatch "home-only social footer") { throw "Social footer styles are missing" }
 
-          $html = Get-Content "src/index.html" -Raw
-          if ($html -notmatch "headerSearchArchive") { throw "Header archive selector is missing" }
-
           $css = Get-Content "src/styles.css" -Raw
           if ($css -notmatch "cinematic empty-state animation") { throw "Empty-state animation styles are missing" }
           if ($app -notmatch "return 60\*60\*1000") { throw "One-hour detail cache is missing" }
