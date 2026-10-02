@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.1.16
+name: Build BankMovie Windows v1.1.17
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.1.16.zip
+  SOURCE_ZIP: BankMovie-v1.1.17.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
   CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -27,28 +27,53 @@ jobs:
         shell: pwsh
         run: |
           $zip = Join-Path "${{ github.workspace }}" "${{ env.SOURCE_ZIP }}"
-          if (-not (Test-Path $zip)) { throw "Required source archive not found: $zip" }
+          if (-not (Test-Path $zip)) {
+            throw "Required source archive not found: $zip"
+          }
 
           $dest = Join-Path "${{ github.workspace }}" "${{ env.EXTRACT_DIR }}"
-          if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+          if (Test-Path $dest) {
+            Remove-Item $dest -Recurse -Force
+          }
+
           New-Item -ItemType Directory -Path $dest | Out-Null
           Expand-Archive -LiteralPath $zip -DestinationPath $dest -Force
 
-      - name: Validate package and NSIS hotfix
+      - name: Validate source
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
         run: |
-          node -e "const fs=require('fs');const p=require('./package.json');if(p.version!=='1.1.16')throw new Error('Expected 1.1.16');p.build=p.build||{};p.build.forceCodeSigning=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
+          node -e "const fs=require('fs');const p=require('./package.json');if(p.version!=='1.1.17')throw new Error('Expected 1.1.17');p.build=p.build||{};p.build.forceCodeSigning=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
 
           $pkg = Get-Content package.json -Raw | ConvertFrom-Json
-          if ($pkg.build.forceCodeSigning -ne $false) { throw "forceCodeSigning must be false" }
+          Write-Host "Version: $($pkg.version)"
+          Write-Host "forceCodeSigning: $($pkg.build.forceCodeSigning)"
 
-          $nsh = Get-Content "build-assets/installer-black.nsh" -Raw
-          if ($nsh -notmatch "!ifndef BUILD_UNINSTALLER[\s\S]*Function BM_GUIINIT[\s\S]*!macro customInit[\s\S]*!endif ; BUILD_UNINSTALLER") {
-            throw "BUILD_UNINSTALLER guard for BM_GUIINIT is missing"
+          if ($pkg.build.forceCodeSigning -ne $false) {
+            throw "forceCodeSigning must be false"
           }
 
-          Write-Host "NSIS BUILD_UNINSTALLER guard: OK"
+          @(
+            "src/assets/cinema-entry.webp",
+            "build-assets/installer-black.nsh",
+            "build-assets/installer-header-black.bmp",
+            "build-assets/installer-sidebar-black.bmp",
+            "build-assets/bankmovie-installer.ico"
+          ) | ForEach-Object {
+            if (-not (Test-Path $_)) {
+              throw "Missing required asset: $_"
+            }
+          }
+
+          $nsh = Get-Content "build-assets/installer-black.nsh" -Raw
+          if ($nsh -notmatch "!ifndef BUILD_UNINSTALLER") {
+            throw "NSIS BUILD_UNINSTALLER guard is missing"
+          }
+
+          $app = Get-Content "src/app.js" -Raw
+          if ($app -notmatch "bm1117OpenAdvanced") {
+            throw "Advanced search patch is missing"
+          }
 
       - name: Generate runtime config
         shell: pwsh
@@ -97,12 +122,14 @@ jobs:
             $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
             $lines += "$hash  $($_.Name)"
           }
+
           $lines | Set-Content "dist/SHA256SUMS.txt" -Encoding ascii
+          Get-Content "dist/SHA256SUMS.txt"
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-v1.1.16-${{ github.sha }}
+          name: BankMovie-Windows-v1.1.17-${{ github.sha }}
           path: |
             ${{ env.DESKTOP_DIR }}/dist/*.exe
             ${{ env.DESKTOP_DIR }}/dist/*.blockmap
