@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.1.23
+name: Build BankMovie Windows v1.1.24
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.1.23.zip
+  SOURCE_ZIP: BankMovie-v1.1.24.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
   CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -43,7 +43,7 @@ jobs:
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
         run: |
-          node -e "const fs=require('fs');const p=require('./package.json');if(p.version!=='1.1.23')throw new Error('Expected 1.1.23');p.build=p.build||{};p.build.forceCodeSigning=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
+          node -e "const fs=require('fs');const p=require('./package.json');if(p.version!=='1.1.24')throw new Error('Expected 1.1.24');p.build=p.build||{};p.build.forceCodeSigning=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
 
           $pkg = Get-Content package.json -Raw | ConvertFrom-Json
           if ($pkg.build.forceCodeSigning -ne $false) {
@@ -82,9 +82,14 @@ jobs:
           if ($app -notmatch "bm1123InjectSearchArchiveStrip") { throw "Search-page archive strip is missing" }
           if ($app -notmatch "bm1123EnsureHomeFooter") { throw "Home social footer is missing" }
           if ($app -notmatch "bm1123BindSocialButtons") { throw "Social binding is missing" }
+          if ($app -notmatch "bm1124LoadHomeArchive") { throw "Archive isolation patch is missing" }
+          if ($app -notmatch "bm1124SectionEnabled") { throw "Desktop section controls are missing" }
+          if ($app -notmatch "نام فیلم، سریال یا بازیگر") { throw "Readable search placeholder is missing" }
+
+          $css = Get-Content "src/styles.css" -Raw
+          if ($css -notmatch "compact responsive cards") { throw "Compact card sizing patch is missing" }
 
           $html = Get-Content "src/index.html" -Raw
-          if ($html -match "headerSearchArchive") { throw "Archive selector must not remain in header search" }
           if ($html -notmatch "startup-follow-title") { throw "Startup social loader is missing" }
 
           $css = Get-Content "src/styles.css" -Raw
@@ -152,7 +157,7 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-v1.1.23-${{ github.sha }}
+          name: BankMovie-Windows-v1.1.24-${{ github.sha }}
           path: |
             ${{ env.DESKTOP_DIR }}/dist/*.exe
             ${{ env.DESKTOP_DIR }}/dist/*.blockmap
