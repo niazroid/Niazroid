@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.1.19
+name: Build BankMovie Windows v1.1.21
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.1.19.zip
+  SOURCE_ZIP: BankMovie-v1.1.21.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
   CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -43,7 +43,7 @@ jobs:
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
         run: |
-          node -e "const fs=require('fs');const p=require('./package.json');if(p.version!=='1.1.19')throw new Error('Expected 1.1.19');p.build=p.build||{};p.build.forceCodeSigning=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
+          node -e "const fs=require('fs');const p=require('./package.json');if(p.version!=='1.1.21')throw new Error('Expected 1.1.21');p.build=p.build||{};p.build.forceCodeSigning=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
 
           $pkg = Get-Content package.json -Raw | ConvertFrom-Json
           if ($pkg.build.forceCodeSigning -ne $false) {
@@ -67,6 +67,17 @@ jobs:
           if ($app -notmatch "actor") { throw "Actor filter is missing" }
           if ($css -notmatch "bm1119-search-box") { throw "Search-box shell style is missing" }
           if ($html -notmatch "bm1119-search-box") { throw "Search-box shell markup is missing" }
+          if ($css -notmatch "hero/slider header-search contrast fix") { throw "Hero search contrast patch is missing" }
+          if ($css -notmatch "source badges / age rating") { throw "Source badge styles are missing" }
+
+          $main = Get-Content "electron/main.js" -Raw
+          if ($main -notmatch "contentRequestTimeoutMs") { throw "Long detail timeout patch is missing" }
+          if ($main -notmatch "if \(a === 'detail'\) return 90000") { throw "90s detail timeout is missing" }
+
+          $app = Get-Content "src/app.js" -Raw
+          if ($app -notmatch "bm1121Encoder") { throw "Encoder metadata patch is missing" }
+          if ($app -notmatch "bm1121AgeRating") { throw "Age rating patch is missing" }
+          if ($app -notmatch "return 60\*60\*1000") { throw "One-hour detail cache is missing" }
 
           $nsh = Get-Content "build-assets/installer-black.nsh" -Raw
           if ($nsh -notmatch "!ifndef BUILD_UNINSTALLER") {
@@ -125,7 +136,7 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-v1.1.19-${{ github.sha }}
+          name: BankMovie-Windows-v1.1.21-${{ github.sha }}
           path: |
             ${{ env.DESKTOP_DIR }}/dist/*.exe
             ${{ env.DESKTOP_DIR }}/dist/*.blockmap
