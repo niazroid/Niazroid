@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.1.22
+name: Build BankMovie Windows v1.1.23
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.1.22.zip
+  SOURCE_ZIP: BankMovie-v1.1.23.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
   CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -43,7 +43,7 @@ jobs:
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
         run: |
-          node -e "const fs=require('fs');const p=require('./package.json');if(p.version!=='1.1.22')throw new Error('Expected 1.1.22');p.build=p.build||{};p.build.forceCodeSigning=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
+          node -e "const fs=require('fs');const p=require('./package.json');if(p.version!=='1.1.23')throw new Error('Expected 1.1.23');p.build=p.build||{};p.build.forceCodeSigning=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
 
           $pkg = Get-Content package.json -Raw | ConvertFrom-Json
           if ($pkg.build.forceCodeSigning -ne $false) {
@@ -79,6 +79,17 @@ jobs:
           if ($app -notmatch "bm1121AgeRating") { throw "Age rating patch is missing" }
           if ($app -notmatch "bm1122BindHeaderSearch") { throw "Header archive search binding is missing" }
           if ($app -notmatch "bm1122PolishEmptyStates") { throw "Animated empty-state binding is missing" }
+          if ($app -notmatch "bm1123InjectSearchArchiveStrip") { throw "Search-page archive strip is missing" }
+          if ($app -notmatch "bm1123EnsureHomeFooter") { throw "Home social footer is missing" }
+          if ($app -notmatch "bm1123BindSocialButtons") { throw "Social binding is missing" }
+
+          $html = Get-Content "src/index.html" -Raw
+          if ($html -match "headerSearchArchive") { throw "Archive selector must not remain in header search" }
+          if ($html -notmatch "startup-follow-title") { throw "Startup social loader is missing" }
+
+          $css = Get-Content "src/styles.css" -Raw
+          if ($css -notmatch "startup loader — full cinematic screen") { throw "Cinematic startup loader styles are missing" }
+          if ($css -notmatch "home-only social footer") { throw "Social footer styles are missing" }
 
           $html = Get-Content "src/index.html" -Raw
           if ($html -notmatch "headerSearchArchive") { throw "Header archive selector is missing" }
@@ -144,7 +155,7 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-v1.1.22-${{ github.sha }}
+          name: BankMovie-Windows-v1.1.23-${{ github.sha }}
           path: |
             ${{ env.DESKTOP_DIR }}/dist/*.exe
             ${{ env.DESKTOP_DIR }}/dist/*.blockmap
