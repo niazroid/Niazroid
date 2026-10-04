@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.1.30
+# name: Build BankMovie Windows v1.1.31
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.1.30.zip
+  SOURCE_ZIP: BankMovie-v1.1.31.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
   CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -43,7 +43,7 @@ jobs:
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
         run: |
-          node -e "const fs=require('fs');const p=require('./package.json');if(p.version!=='1.1.30')throw new Error('Expected 1.1.30');p.build=p.build||{};p.build.forceCodeSigning=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
+          node -e "const fs=require('fs');const p=require('./package.json');if(p.version!=='1.1.31')throw new Error('Expected 1.1.31');p.build=p.build||{};p.build.forceCodeSigning=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
 
           $pkg = Get-Content package.json -Raw | ConvertFrom-Json
           if ($pkg.build.forceCodeSigning -ne $false) {
@@ -58,8 +58,9 @@ jobs:
 
           if ($main -notmatch "advancedSearchRequest") { throw "Real advanced search request is missing" }
           if ($main -notmatch "api6\.php") { throw "Archive 3 API6 route is missing" }
-          if ($main -notmatch "genre_id: genre") { throw "Archive 1 compatibility aliases are missing" }
-          if ($main -notmatch "imdbrate: rating") { throw "Archive 1 IMDb parameter is missing" }
+          if ($main -notmatch "archive1SearchRequest") { throw "Archive 1 site-synced search transport is missing" }
+          if ($main -notmatch "searchParams\.genre") { throw "Archive 1 genre parameter is missing" }
+          if ($main -notmatch "searchParams\.imdbrate") { throw "Archive 1 IMDb parameter is missing" }
           if ($preload -notmatch "advancedSearch") { throw "Advanced search preload bridge is missing" }
           if ($app -notmatch "bm1119PerformSearch") { throw "Advanced search UI binding is missing" }
           if ($app -notmatch "exactYear") { throw "Exact-year filter is missing" }
@@ -85,14 +86,17 @@ jobs:
           if ($app -notmatch "bm1124LoadHomeArchive") { throw "Archive isolation patch is missing" }
           if ($app -notmatch "bm1124SectionEnabled") { throw "Desktop section controls are missing" }
           if ($app -notmatch "نام فیلم، سریال یا بازیگر") { throw "Readable search placeholder is missing" }
-          if ($main -notmatch "archive1LiveSearchRequest") { throw "Archive 1 live-search transport is missing" }
+          if ($main -notmatch "archive1SearchRequest") { throw "Archive 1 site-synced submitted search is missing" }
+          if ($main -notmatch "live_search: actorLookup") { throw "Archive 1 submitted actor lookup via site API2 is missing" }
           if ($main -notmatch "archive1ActorRequest") { throw "Archive 1 actor pagination transport is missing" }
-          if ($preload -notmatch "archive1LiveSearch") { throw "Archive 1 live-search preload bridge is missing" }
+          if ($main -match "archive1LiveSearchRequest|my-f2mx\.top/quick-search") { throw "Direct/live upstream desktop search must not exist" }
+          if ($preload -match "archive1LiveSearch") { throw "Windows must not expose a live-search preload bridge" }
           if ($preload -notmatch "archive1Actor") { throw "Archive 1 actor preload bridge is missing" }
           if ($app -notmatch "bm1126SvgIcon") { throw "Comment SVG action patch is missing" }
-          if ($app -notmatch "bm1126BindLiveSearchEverywhere") { throw "Archive 1 live-search UI binding is missing" }
+          if ($app -notmatch "bm1131SearchActorsHtml") { throw "Submitted Archive 1 actor result UI is missing" }
+          if ($app -match "bm1126BindLiveSearchEverywhere|bm1126LiveTimer") { throw "Windows live-search typing UI must be removed" }
           if ($css -notmatch "bm1126-rating-radio") { throw "Animated rating stars are missing" }
-          if ($css -notmatch "bm1126-live-results") { throw "Archive 1 live-search result styles are missing" }
+          if ($css -notmatch "bm1131-search-actors") { throw "Submitted actor result styles are missing" }
 
           $css = Get-Content "src/styles.css" -Raw
           if ($css -notmatch "compact responsive cards") { throw "Compact card sizing patch is missing" }
