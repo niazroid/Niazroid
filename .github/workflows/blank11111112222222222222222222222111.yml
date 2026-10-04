@@ -1,4 +1,4 @@
-# name: Build BankMovie Windows v1.1.31
+name: Build BankMovie Windows v1.1.32
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.1.31.zip
+  SOURCE_ZIP: BankMovie-v1.1.32.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
   CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -43,7 +43,7 @@ jobs:
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
         run: |
-          node -e "const fs=require('fs');const p=require('./package.json');if(p.version!=='1.1.31')throw new Error('Expected 1.1.31');p.build=p.build||{};p.build.forceCodeSigning=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
+          node -e "const fs=require('fs');const p=require('./package.json');if(p.version!=='1.1.32')throw new Error('Expected 1.1.32');p.build=p.build||{};p.build.forceCodeSigning=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
 
           $pkg = Get-Content package.json -Raw | ConvertFrom-Json
           if ($pkg.build.forceCodeSigning -ne $false) {
@@ -111,6 +111,14 @@ jobs:
           $css = Get-Content "src/styles.css" -Raw
           if ($css -notmatch "cinematic empty-state animation") { throw "Empty-state animation styles are missing" }
           if ($app -notmatch "return 60\*60\*1000") { throw "One-hour detail cache is missing" }
+
+          if ($main -notmatch "armPowerPlan") { throw "Safe power scheduler is missing" }
+          if ($main -notmatch "trustedMainRenderer") { throw "Power IPC sender validation is missing" }
+          if ($main -notmatch "shutdown\.exe") { throw "Windows shutdown integration is missing" }
+          if ($preload -notmatch "schedulePower") { throw "Power scheduler preload bridge is missing" }
+          if ($app -notmatch "bm1132ActorAvatarSvg") { throw "Actor SVG fallback is missing" }
+          if ($app -notmatch "bm1132PowerPanelHtml") { throw "Downloader shutdown controls are missing" }
+          if ($css -notmatch "actor SVG fallback / downloader auto shutdown") { throw "v1.1.32 styles are missing" }
 
           $nsh = Get-Content "build-assets/installer-black.nsh" -Raw
           if ($nsh -notmatch "!ifndef BUILD_UNINSTALLER") {
