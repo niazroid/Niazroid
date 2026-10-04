@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.1.27
+name: Build BankMovie Windows v1.1.30
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.1.27.zip
+  SOURCE_ZIP: BankMovie-v1.1.30.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
   CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -43,7 +43,7 @@ jobs:
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
         run: |
-          node -e "const fs=require('fs');const p=require('./package.json');if(p.version!=='1.1.27')throw new Error('Expected 1.1.27');p.build=p.build||{};p.build.forceCodeSigning=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
+          node -e "const fs=require('fs');const p=require('./package.json');if(p.version!=='1.1.30')throw new Error('Expected 1.1.30');p.build=p.build||{};p.build.forceCodeSigning=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
 
           $pkg = Get-Content package.json -Raw | ConvertFrom-Json
           if ($pkg.build.forceCodeSigning -ne $false) {
@@ -85,15 +85,14 @@ jobs:
           if ($app -notmatch "bm1124LoadHomeArchive") { throw "Archive isolation patch is missing" }
           if ($app -notmatch "bm1124SectionEnabled") { throw "Desktop section controls are missing" }
           if ($app -notmatch "نام فیلم، سریال یا بازیگر") { throw "Readable search placeholder is missing" }
-          if ($app -notmatch "const canVip=true") { throw "Free theme access patch is missing" }
-          if ($app -match "تم‌های رنگی ویژه اعضای VIP") { throw "Legacy VIP theme gate is still present" }
-          if ($app -notmatch "bm1126VerifiedSvg") { throw "VIP/admin verified badge is missing" }
-          if ($app -notmatch "bankmovie-logo-dark-white.webp") { throw "Theme-aware logo mapping is missing" }
-          if ($css -notmatch "bm1126-theme-choices") { throw "Site theme palette styles are missing" }
-          if ($css -notmatch "bm1126-verified") { throw "Verified badge styles are missing" }
-          if (-not (Test-Path "src/assets/bankmovie-logo-dark-blue.webp")) { throw "Blue theme logo is missing" }
-          if (-not (Test-Path "src/assets/bankmovie-logo-dark-white.webp")) { throw "White/black theme logo is missing" }
-          if (-not (Test-Path "src/assets/bankmovie-logo-dark-black.webp")) { throw "Blackout theme logo is missing" }
+          if ($main -notmatch "archive1LiveSearchRequest") { throw "Archive 1 live-search transport is missing" }
+          if ($main -notmatch "archive1ActorRequest") { throw "Archive 1 actor pagination transport is missing" }
+          if ($preload -notmatch "archive1LiveSearch") { throw "Archive 1 live-search preload bridge is missing" }
+          if ($preload -notmatch "archive1Actor") { throw "Archive 1 actor preload bridge is missing" }
+          if ($app -notmatch "bm1126SvgIcon") { throw "Comment SVG action patch is missing" }
+          if ($app -notmatch "bm1126BindLiveSearchEverywhere") { throw "Archive 1 live-search UI binding is missing" }
+          if ($css -notmatch "bm1126-rating-radio") { throw "Animated rating stars are missing" }
+          if ($css -notmatch "bm1126-live-results") { throw "Archive 1 live-search result styles are missing" }
 
           $css = Get-Content "src/styles.css" -Raw
           if ($css -notmatch "compact responsive cards") { throw "Compact card sizing patch is missing" }
@@ -166,7 +165,7 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-v1.1.27-${{ github.sha }}
+          name: BankMovie-Windows-v1.1.25-${{ github.sha }}
           path: |
             ${{ env.DESKTOP_DIR }}/dist/*.exe
             ${{ env.DESKTOP_DIR }}/dist/*.blockmap
