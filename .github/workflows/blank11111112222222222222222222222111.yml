@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.1.33
+name: Build BankMovie Windows v1.1.34
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.1.33.zip
+  SOURCE_ZIP: BankMovie-v1.1.34.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
   CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -43,7 +43,7 @@ jobs:
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
         run: |
-          node -e "const fs=require('fs');const p=require('./package.json');if(p.version!=='1.1.33')throw new Error('Expected 1.1.33');p.build=p.build||{};p.build.forceCodeSigning=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
+          node -e "const fs=require('fs');const p=require('./package.json');if(p.version!=='1.1.34')throw new Error('Expected 1.1.34');p.build=p.build||{};p.build.forceCodeSigning=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
 
           $pkg = Get-Content package.json -Raw | ConvertFrom-Json
           if ($pkg.build.forceCodeSigning -ne $false) {
@@ -100,6 +100,8 @@ jobs:
 
           $css = Get-Content "src/styles.css" -Raw
           if ($css -notmatch "compact responsive cards") { throw "Compact card sizing patch is missing" }
+          if ($css -match "box-shadow:-407px 0 0 400px") { throw "Broken oversized range-fill shadow is still present" }
+          if ($app -notmatch "bm1134PaintRange") { throw "v1.1.34 downloader range painter is missing" }
 
           $html = Get-Content "src/index.html" -Raw
           if ($html -notmatch "startup-follow-title") { throw "Startup social loader is missing" }
@@ -126,7 +128,7 @@ jobs:
           if ($app -notmatch "bm1133OpenDownloadSettings") { throw "Downloader settings modal is missing" }
           if ($app -notmatch "تعداد دانلود همزمان") { throw "Concurrency UI is missing" }
           if ($app -notmatch "کانکشن برای هر فایل") { throw "Native connection compatibility note is missing" }
-          if ($css -notmatch "glass IDM-like downloader settings") { throw "v1.1.33 downloader styles are missing" }
+          if ($css -notmatch "glass IDM-like downloader settings") { throw "v1.1.34 downloader styles are missing" }
 
           $nsh = Get-Content "build-assets/installer-black.nsh" -Raw
           if ($nsh -notmatch "!ifndef BUILD_UNINSTALLER") {
@@ -185,7 +187,7 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-v1.1.33-${{ github.sha }}
+          name: BankMovie-Windows-v1.1.34-${{ github.sha }}
           path: |
             ${{ env.DESKTOP_DIR }}/dist/*.exe
             ${{ env.DESKTOP_DIR }}/dist/*.blockmap
