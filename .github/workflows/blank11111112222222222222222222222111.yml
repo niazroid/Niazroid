@@ -16,8 +16,6 @@ jobs:
   debug-apk:
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    env:
-      ANDROID_ABI: android-arm64
     steps:
       - name: Use HTTPS for public GitHub dependencies
         run: git config --global url."https://github.com/".insteadOf "git@github.com:"
@@ -28,12 +26,39 @@ jobs:
           fetch-depth: 1
           submodules: recursive
 
+      # A GitHub upload may contain a GohstVpn/ parent directory.
+      # Find the REAL Flutter project root instead of assuming repository root.
+      - name: Detect Flutter project folder
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=""
+          while IFS= read -r -d '' pubspec; do
+            candidate="$(dirname "$pubspec")"
+            if [[ -f "$candidate/setup.dart" && -d "$candidate/android" ]]; then
+              if [[ -n "$root" ]]; then
+                echo "::error::Multiple Flutter project roots were found. Keep one GohstVpn source tree."
+                exit 1
+              fi
+              root="$candidate"
+            fi
+          done < <(find "$GITHUB_WORKSPACE" -maxdepth 4 -type f -name pubspec.yaml -print0)
+          if [[ -z "$root" ]]; then
+            echo "::error::Could not find pubspec.yaml + setup.dart + android/. Upload project source, not a wrapper folder without files."
+            find "$GITHUB_WORKSPACE" -maxdepth 2 -type f | head -60 || true
+            exit 1
+          fi
+          echo "PROJECT_DIR=$root" >> "$GITHUB_ENV"
+          echo "Flutter project root: $root"
+          ls -l "$root/pubspec.yaml" "$root/setup.dart"
+
       - name: Ensure Mihomo core sources exist
         shell: bash
         run: |
           set -euo pipefail
-          if [ ! -f core/Clash.Meta/go.mod ]; then
-            echo 'Mihomo submodule is absent (usually because a GitHub source ZIP was uploaded).'
+          cd "$PROJECT_DIR"
+          if [[ ! -f core/Clash.Meta/go.mod ]]; then
+            echo 'Mihomo Git submodule not present; downloading the public FlClash branch.'
             rm -rf core/Clash.Meta
             git clone --depth 1 --branch FlClash https://github.com/chen08209/Clash.Meta.git core/Clash.Meta
           fi
@@ -49,7 +74,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.26.4'
-          cache-dependency-path: core/go.sum
+          cache-dependency-path: '**/core/go.sum'
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -75,17 +100,47 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Get Flutter dependencies
-        run: flutter pub get
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          flutter pub get
 
-      - name: Build APK using the project's official packaging script
+      - name: Build GohstVpn APK
+        shell: bash
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
-        run: dart setup.dart android --env dev --arch arm64 --targets apk -v
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          dart setup.dart android --env dev --arch arm64 --targets apk -v
+
+      - name: Collect generated APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/gohstvpn-apks"
+          mkdir -p "$out"
+          count=0
+          for directory in "$PROJECT_DIR/dist" "$PROJECT_DIR/build/app/outputs/flutter-apk"; do
+            if [[ -d "$directory" ]]; then
+              while IFS= read -r -d '' apk; do
+                count=$((count + 1))
+                cp "$apk" "$out/${count}-$(basename "$apk")"
+              done < <(find "$directory" -type f -name '*.apk' -print0)
+            fi
+          done
+          if [[ "$count" == 0 ]]; then
+            echo "::error::Build finished but no APK was found under dist/ or build/app/outputs/flutter-apk/."
+            exit 1
+          fi
+          echo "Found $count APK file(s)"
+          ls -lh "$out"
 
       - name: Upload Android test APK
         uses: actions/upload-artifact@v4
         with:
           name: GohstVpn-test-arm64
-          path: dist/**/*.apk
+          path: ${{ runner.temp }}/gohstvpn-apks/*.apk
           if-no-files-found: error
           retention-days: 14
