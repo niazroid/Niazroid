@@ -1,7 +1,7 @@
-# GohstVpn source is stored as one ZIP in the repository ROOT.
+ش# GohstVpn source is stored as one ZIP in the repository ROOT.
 # Install this file at .github/workflows/gohstvpn-android.yml
 # Do not run the older V3 or other FlClash/Karing workflows.
-name: GohstVpn ZIP LOCKED V5 - Ping Hook Fix
+name: GohstVpn V6 - Import Fix
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   android-apk:
-    name: Extract ZIP, fix Mihomo ping hook, build ARM64 APK
+    name: Apply v0.2 overlay, test VLESS parser, build ARM64 APK
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
@@ -19,11 +19,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: PROOF V5 - extract EXACT GohstVpn ZIP
+      - name: PROOF V6 - extract EXACT GohstVpn v0.1 ZIP
         shell: bash
         run: |
           set -euo pipefail
-          echo '===== GOHSTVPN ZIP LOCKED V5 ====='
+          echo '===== GOHSTVPN V6 IMPORT FIX ====='
           ZIP="$GITHUB_WORKSPACE/GohstVpn-FlClash-v0.1.0-source.zip"
           PROJECT="$RUNNER_TEMP/gohstvpn-locked-v4/GohstVpn"
           echo "Locked ZIP: $ZIP"
@@ -45,6 +45,21 @@ jobs:
           done
           echo "GOHSTVPN_PROJECT=$PROJECT" >> "$GITHUB_ENV"
           echo "SUCCESS: Flutter project extracted into $PROJECT"
+
+      - name: Apply EXACT GohstVpn v0.2 update overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          PATCH="$GITHUB_WORKSPACE/GohstVpn-v0.2.0-update.zip"
+          if [[ ! -f "$PATCH" ]]; then
+            echo '::error::Upload the exact GohstVpn-v0.2.0-update.zip file into your repository ROOT'
+            exit 1
+          fi
+          unzip -tq "$PATCH" >/dev/null
+          unzip -oq "$PATCH" -d "$RUNNER_TEMP/gohstvpn-locked-v4"
+          test -f "$GOHSTVPN_PROJECT/lib/common/proxy_link_importer.dart"
+          grep -q 'version: 0.2.0+2' "$GOHSTVPN_PROJECT/pubspec.yaml"
+          echo 'SUCCESS: GohstVpn v0.2 sources are applied to the ORIGINAL v0.1 ZIP'
 
       - name: Restore public Mihomo core missing from ZIP
         shell: bash
@@ -128,6 +143,20 @@ jobs:
           echo "pubspec located at: $(pwd)/pubspec.yaml"
           flutter pub get
 
+      - name: Format and syntax-check modified Dart files
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GOHSTVPN_PROJECT"
+          dart format lib/common/proxy_link_importer.dart lib/models/profile.dart lib/providers/action.dart lib/providers/actions/profiles.dart lib/providers/state/theme.dart lib/views/disclaimer.dart lib/views/profiles/add.dart test/common/proxy_link_importer_test.dart
+
+      - name: Test VLESS conversion with synthetic data
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GOHSTVPN_PROJECT"
+          flutter test test/common/proxy_link_importer_test.dart
+
       - name: Build Android ARM64 APK
         shell: bash
         env:
@@ -141,13 +170,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/gohstvpn-apk-v5"
+          mkdir -p "$RUNNER_TEMP/gohstvpn-apk-v6"
           count=0
           for folder in "$GOHSTVPN_PROJECT/dist" "$GOHSTVPN_PROJECT/build/app/outputs/flutter-apk"; do
             if [[ -d "$folder" ]]; then
               while IFS= read -r -d '' apk; do
                 count=$((count + 1))
-                cp "$apk" "$RUNNER_TEMP/gohstvpn-apk-v5/${count}-$(basename "$apk")"
+                cp "$apk" "$RUNNER_TEMP/gohstvpn-apk-v6/${count}-$(basename "$apk")"
               done < <(find "$folder" -type f -name '*.apk' -print0)
             fi
           done
@@ -155,12 +184,12 @@ jobs:
             echo '::error::Build ended but no APK exists in dist/ or Flutter APK output folder'
             exit 1
           fi
-          ls -lh "$RUNNER_TEMP/gohstvpn-apk-v5/"
+          ls -lh "$RUNNER_TEMP/gohstvpn-apk-v6/"
 
       - name: Upload GohstVpn APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GohstVpn-arm64-V5
-          path: ${{ runner.temp }}/gohstvpn-apk-v5/*.apk
+          name: GohstVpn-arm64-V6
+          path: ${{ runner.temp }}/gohstvpn-apk-v6/*.apk
           if-no-files-found: error
           retention-days: 14
