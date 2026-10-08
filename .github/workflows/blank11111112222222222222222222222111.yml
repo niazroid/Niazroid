@@ -1,7 +1,7 @@
-# Save THIS FILE at: .github/workflows/GohstVpn-ZIP-APK-v3.yml
-# Select "GohstVpn ZIP APK V3 - NEW" in the GitHub Actions sidebar.
-# This is a NEW workflow; do not re-run "GohstVpn Android APK".
-name: GohstVpn ZIP APK V3 - NEW
+# GohstVpn source is stored as one ZIP in the repository ROOT.
+# Install this file at .github/workflows/gohstvpn-android.yml
+# Do not run the older V3 or other FlClash/Karing workflows.
+name: GohstVpn ZIP LOCKED V4
 
 on:
   workflow_dispatch:
@@ -10,43 +10,43 @@ permissions:
   contents: read
 
 jobs:
-  build-apk-from-zip:
-    name: Unzip GohstVpn and build Android arm64
+  android-apk:
+    name: Extract EXACT GohstVpn ZIP and build ARM64 APK
     runs-on: ubuntu-latest
     timeout-minutes: 120
+
     steps:
-      - name: Checkout ZIP from repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: V3 PROOF - extract GohstVpn ZIP (not detect root)
+      - name: PROOF V4 - extract EXACT GohstVpn ZIP
         shell: bash
         run: |
           set -euo pipefail
-          echo '=== RUNNING GOHSTVPN ZIP APK V3 - NEW ==='
-          archive="$GITHUB_WORKSPACE/GohstVpn-FlClash-v0.1.0-source.zip"
-          echo "Archive: $archive"
-          if [[ ! -f "$archive" ]]; then
-            echo "::error::Source ZIP not found at $archive"
+          echo '===== GOHSTVPN ZIP LOCKED V4 ====='
+          ZIP="$GITHUB_WORKSPACE/GohstVpn-FlClash-v0.1.0-source.zip"
+          PROJECT="$RUNNER_TEMP/gohstvpn-locked-v4/GohstVpn"
+          echo "Locked ZIP: $ZIP"
+          if [[ ! -f "$ZIP" ]]; then
+            echo "::error::Missing EXACT file: GohstVpn-FlClash-v0.1.0-source.zip in repository root"
             exit 1
           fi
-          if ! unzip -tq "$archive" >/dev/null; then
-            echo '::error::ZIP is corrupt or uploaded as an LFS pointer'
+          unzip -tq "$ZIP" >/dev/null || {
+            echo '::error::ZIP is damaged or stored as a Git LFS pointer.'
             exit 1
-          fi
-          mkdir -p "$RUNNER_TEMP/gohstvpn-v3"
-          unzip -q "$archive" -d "$RUNNER_TEMP/gohstvpn-v3"
-          project="$RUNNER_TEMP/gohstvpn-v3/GohstVpn"
+          }
+          mkdir -p "$RUNNER_TEMP/gohstvpn-locked-v4"
+          unzip -q "$ZIP" -d "$RUNNER_TEMP/gohstvpn-locked-v4"
           for required in pubspec.yaml setup.dart android/settings.gradle.kts core/go.mod; do
-            if [[ ! -f "$project/$required" ]]; then
-              echo "::error::Missing $required in extracted ZIP at $project"
+            if [[ ! -f "$PROJECT/$required" ]]; then
+              echo "::error::ZIP does not contain GohstVpn/$required"
               exit 1
             fi
           done
-          echo "GOHSTVPN_PROJECT=$project" >> "$GITHUB_ENV"
-          echo "Found actual Flutter project: $project"
-          ls -lh "$project/pubspec.yaml" "$project/setup.dart"
+          echo "GOHSTVPN_PROJECT=$PROJECT" >> "$GITHUB_ENV"
+          echo "SUCCESS: Flutter project extracted into $PROJECT"
 
-      - name: Fetch Mihomo (source ZIP does not include Git submodules)
+      - name: Restore public Mihomo core missing from ZIP
         shell: bash
         run: |
           set -euo pipefail
@@ -55,7 +55,10 @@ jobs:
             rm -rf core/Clash.Meta
             git clone --depth 1 --branch FlClash https://github.com/chen08209/Clash.Meta.git core/Clash.Meta
           fi
-          test -f core/Clash.Meta/go.mod
+          test -f core/Clash.Meta/go.mod || {
+            echo '::error::Mihomo core source could not be fetched'
+            exit 1
+          }
 
       - name: Install Java 17
         uses: actions/setup-java@v4
@@ -72,8 +75,8 @@ jobs:
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
+          channel: stable
           flutter-version: '3.47.4'
-          channel: master
           cache: true
 
       - name: Install Android NDK
@@ -92,15 +95,15 @@ jobs:
       - name: Enable Gradle cache
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Install Flutter project dependencies
+      - name: Install Flutter dependencies in extracted project
         shell: bash
         run: |
           set -euo pipefail
           cd "$GOHSTVPN_PROJECT"
-          flutter --version
+          echo "pubspec located at: $(pwd)/pubspec.yaml"
           flutter pub get
 
-      - name: Compile GohstVpn arm64 Android APK
+      - name: Build Android ARM64 APK
         shell: bash
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
@@ -109,30 +112,30 @@ jobs:
           cd "$GOHSTVPN_PROJECT"
           dart setup.dart android --env dev --arch arm64 --targets apk -v
 
-      - name: Collect built APK
+      - name: Collect APK output
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/gohstvpn-v3-apks"
+          mkdir -p "$RUNNER_TEMP/gohstvpn-apk-v4"
           count=0
-          for dir in "$GOHSTVPN_PROJECT/dist" "$GOHSTVPN_PROJECT/build/app/outputs/flutter-apk"; do
-            if [[ -d "$dir" ]]; then
+          for folder in "$GOHSTVPN_PROJECT/dist" "$GOHSTVPN_PROJECT/build/app/outputs/flutter-apk"; do
+            if [[ -d "$folder" ]]; then
               while IFS= read -r -d '' apk; do
                 count=$((count + 1))
-                cp "$apk" "$RUNNER_TEMP/gohstvpn-v3-apks/${count}-$(basename "$apk")"
-              done < <(find "$dir" -type f -name '*.apk' -print0)
+                cp "$apk" "$RUNNER_TEMP/gohstvpn-apk-v4/${count}-$(basename "$apk")"
+              done < <(find "$folder" -type f -name '*.apk' -print0)
             fi
           done
           if (( count == 0 )); then
-            echo '::error::Build ended without APK in dist or build/app/outputs/flutter-apk'
+            echo '::error::Build ended but no APK exists in dist/ or Flutter APK output folder'
             exit 1
           fi
-          ls -lh "$RUNNER_TEMP/gohstvpn-v3-apks"
+          ls -lh "$RUNNER_TEMP/gohstvpn-apk-v4/"
 
-      - name: Upload APK artifact
+      - name: Upload GohstVpn APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GohstVpn-V3-arm64
-          path: ${{ runner.temp }}/gohstvpn-v3-apks/*.apk
+          name: GohstVpn-arm64-debug-V4
+          path: ${{ runner.temp }}/gohstvpn-apk-v4/*.apk
           if-no-files-found: error
           retention-days: 14
