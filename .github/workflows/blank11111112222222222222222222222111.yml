@@ -1,7 +1,7 @@
 # GohstVpn source is stored as one ZIP in the repository ROOT.
 # Install this file at .github/workflows/gohstvpn-android.yml
 # Do not run the older V3 or other FlClash/Karing workflows.
-name: GohstVpn ZIP LOCKED V4
+name: GohstVpn ZIP LOCKED V5 - Ping Hook Fix
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   android-apk:
-    name: Extract EXACT GohstVpn ZIP and build ARM64 APK
+    name: Extract ZIP, fix Mihomo ping hook, build ARM64 APK
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
@@ -19,11 +19,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: PROOF V4 - extract EXACT GohstVpn ZIP
+      - name: PROOF V5 - extract EXACT GohstVpn ZIP
         shell: bash
         run: |
           set -euo pipefail
-          echo '===== GOHSTVPN ZIP LOCKED V4 ====='
+          echo '===== GOHSTVPN ZIP LOCKED V5 ====='
           ZIP="$GITHUB_WORKSPACE/GohstVpn-FlClash-v0.1.0-source.zip"
           PROJECT="$RUNNER_TEMP/gohstvpn-locked-v4/GohstVpn"
           echo "Locked ZIP: $ZIP"
@@ -72,6 +72,31 @@ jobs:
           go-version: '1.26.4'
           cache: false
 
+      - name: Fix Mihomo URLTest callback compatibility (3 to 4 args)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GOHSTVPN_PROJECT"
+          python3 - <<'PYFIX'
+          from pathlib import Path
+          path = Path('core/hub.go')
+          contents = path.read_text(encoding='utf-8')
+          legacy = 'adapter.UrlTestHook = func(url string, name string, delay uint16) {'
+          replacement = ('adapter.UrlTestHook = func(url string, name string, delay uint16, canceled bool) {\n'
+                         '\t\tif canceled {\n\t\t\treturn\n\t\t}')
+          newer = 'adapter.UrlTestHook = func(url string, name string, delay uint16, canceled bool) {'
+          if contents.count(legacy) == 1:
+              contents = contents.replace(legacy, replacement, 1)
+              path.write_text(contents, encoding='utf-8')
+              print('SUCCESS: patched URLTestHook for new Mihomo callback signature')
+          elif newer in contents:
+              print('SKIP: URLTestHook already has 4 parameters')
+          else:
+              raise SystemExit('ERROR: unexpected URLTestHook signature; not patching blindly')
+          PYFIX
+          gofmt -w core/hub.go
+          grep -n -A 7 'adapter.UrlTestHook = func' core/hub.go
+
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -116,13 +141,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/gohstvpn-apk-v4"
+          mkdir -p "$RUNNER_TEMP/gohstvpn-apk-v5"
           count=0
           for folder in "$GOHSTVPN_PROJECT/dist" "$GOHSTVPN_PROJECT/build/app/outputs/flutter-apk"; do
             if [[ -d "$folder" ]]; then
               while IFS= read -r -d '' apk; do
                 count=$((count + 1))
-                cp "$apk" "$RUNNER_TEMP/gohstvpn-apk-v4/${count}-$(basename "$apk")"
+                cp "$apk" "$RUNNER_TEMP/gohstvpn-apk-v5/${count}-$(basename "$apk")"
               done < <(find "$folder" -type f -name '*.apk' -print0)
             fi
           done
@@ -130,12 +155,12 @@ jobs:
             echo '::error::Build ended but no APK exists in dist/ or Flutter APK output folder'
             exit 1
           fi
-          ls -lh "$RUNNER_TEMP/gohstvpn-apk-v4/"
+          ls -lh "$RUNNER_TEMP/gohstvpn-apk-v5/"
 
       - name: Upload GohstVpn APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GohstVpn-arm64-debug-V4
-          path: ${{ runner.temp }}/gohstvpn-apk-v4/*.apk
+          name: GohstVpn-arm64-V5
+          path: ${{ runner.temp }}/gohstvpn-apk-v5/*.apk
           if-no-files-found: error
           retention-days: 14
