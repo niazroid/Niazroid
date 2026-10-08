@@ -1,4 +1,4 @@
-ش# GohstVpn source is stored as one ZIP in the repository ROOT.
+# GohstVpn source is stored as one ZIP in the repository ROOT.
 # Install this file at .github/workflows/gohstvpn-android.yml
 # Do not run the older V3 or other FlClash/Karing workflows.
 name: GohstVpn V6 - Import Fix
