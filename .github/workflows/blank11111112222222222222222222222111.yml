@@ -4,86 +4,82 @@ on:
   workflow_dispatch:
   push:
     branches: [main, master]
+    paths:
+      - 'GohstVpn-FlClash-v0.1.0-source.zip'
+      - '.github/workflows/gohstvpn-android.yml'
 
 permissions:
   contents: read
 
 concurrency:
-  group: gohstvpn-android-${{ github.ref }}
+  group: gohstvpn-apk-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  debug-apk:
+  build-apk:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - name: Use HTTPS for public GitHub dependencies
-        run: git config --global url."https://github.com/".insteadOf "git@github.com:"
-
-      - name: Checkout GohstVpn
+      - name: Checkout repository containing source ZIP
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-          submodules: recursive
 
-      # A GitHub upload may contain a GohstVpn/ parent directory.
-      # Find the REAL Flutter project root instead of assuming repository root.
-      - name: Detect Flutter project folder
+      - name: Extract actual GohstVpn Flutter project
         shell: bash
         run: |
           set -euo pipefail
-          root=""
-          while IFS= read -r -d '' pubspec; do
-            candidate="$(dirname "$pubspec")"
-            if [[ -f "$candidate/setup.dart" && -d "$candidate/android" ]]; then
-              if [[ -n "$root" ]]; then
-                echo "::error::Multiple Flutter project roots were found. Keep one GohstVpn source tree."
-                exit 1
-              fi
-              root="$candidate"
-            fi
-          done < <(find "$GITHUB_WORKSPACE" -maxdepth 4 -type f -name pubspec.yaml -print0)
-          if [[ -z "$root" ]]; then
-            echo "::error::Could not find pubspec.yaml + setup.dart + android/. Upload project source, not a wrapper folder without files."
-            find "$GITHUB_WORKSPACE" -maxdepth 2 -type f | head -60 || true
+          archive="$GITHUB_WORKSPACE/GohstVpn-FlClash-v0.1.0-source.zip"
+          if [[ ! -f "$archive" ]]; then
+            echo "::error::GohstVpn-FlClash-v0.1.0-source.zip not found in repository root."
             exit 1
           fi
-          echo "PROJECT_DIR=$root" >> "$GITHUB_ENV"
-          echo "Flutter project root: $root"
-          ls -l "$root/pubspec.yaml" "$root/setup.dart"
+          if ! unzip -tq "$archive" >/dev/null; then
+            echo "::error::Source ZIP is invalid or is a Git LFS pointer. Upload/download the actual ZIP."
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/gohstvpn-source"
+          unzip -q "$archive" -d "$RUNNER_TEMP/gohstvpn-source"
+          project="$RUNNER_TEMP/gohstvpn-source/GohstVpn"
+          for required in pubspec.yaml setup.dart android/settings.gradle.kts core/go.mod; do
+            if [[ ! -e "$project/$required" ]]; then
+              echo "::error::Extracted project is missing $required at $project"
+              exit 1
+            fi
+          done
+          echo "PROJECT_DIR=$project" >> "$GITHUB_ENV"
+          echo "Project unpacked at $project"
 
-      - name: Ensure Mihomo core sources exist
+      - name: Obtain public Mihomo core source
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
           if [[ ! -f core/Clash.Meta/go.mod ]]; then
-            echo 'Mihomo Git submodule not present; downloading the public FlClash branch.'
             rm -rf core/Clash.Meta
-            git clone --depth 1 --branch FlClash https://github.com/chen08209/Clash.Meta.git core/Clash.Meta
+            git clone --depth 1 --branch FlClash \
+              https://github.com/chen08209/Clash.Meta.git core/Clash.Meta
           fi
           test -f core/Clash.Meta/go.mod
 
-      - name: Setup Java 17
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Go core toolchain
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.26.4'
-          cache-dependency-path: '**/core/go.sum'
+          cache: false
 
-      - name: Setup Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: master
           flutter-version: '3.47.4'
+          channel: master
           cache: true
 
-      - name: Setup Android NDK
+      - name: Set up Android NDK
         id: ndk
         uses: nttld/setup-ndk@v1
         with:
@@ -91,56 +87,54 @@ jobs:
           add-to-path: true
           link-to-sdk: true
 
-      - name: Setup Rust
+      - name: Set up Rust for Android arm64
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android
 
-      - name: Configure Gradle
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Get Flutter dependencies
+      - name: Fetch Flutter dependencies
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
           flutter pub get
 
-      - name: Build GohstVpn APK
+      - name: Build GohstVpn Android arm64 APK
         shell: bash
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
-          dart setup.dart android --env dev --arch arm64 --targets apk -v
+          dart setup.dart android --env dev --arch arm64 --targets apk
 
-      - name: Collect generated APKs
+      - name: Collect APK files
         shell: bash
         run: |
           set -euo pipefail
-          out="$RUNNER_TEMP/gohstvpn-apks"
-          mkdir -p "$out"
+          mkdir -p "$RUNNER_TEMP/gohstvpn-apks"
           count=0
           for directory in "$PROJECT_DIR/dist" "$PROJECT_DIR/build/app/outputs/flutter-apk"; do
             if [[ -d "$directory" ]]; then
               while IFS= read -r -d '' apk; do
                 count=$((count + 1))
-                cp "$apk" "$out/${count}-$(basename "$apk")"
+                cp "$apk" "$RUNNER_TEMP/gohstvpn-apks/$count-$(basename "$apk")"
               done < <(find "$directory" -type f -name '*.apk' -print0)
             fi
           done
-          if [[ "$count" == 0 ]]; then
-            echo "::error::Build finished but no APK was found under dist/ or build/app/outputs/flutter-apk/."
+          if [[ "$count" -eq 0 ]]; then
+            echo "::error::Build completed but no APK was found in dist/ or build/app/outputs/flutter-apk/."
             exit 1
           fi
-          echo "Found $count APK file(s)"
-          ls -lh "$out"
+          ls -lh "$RUNNER_TEMP/gohstvpn-apks"
 
-      - name: Upload Android test APK
+      - name: Upload installable debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: GohstVpn-test-arm64
+          name: GohstVpn-Android-arm64-APK
           path: ${{ runner.temp }}/gohstvpn-apks/*.apk
           if-no-files-found: error
           retention-days: 14
