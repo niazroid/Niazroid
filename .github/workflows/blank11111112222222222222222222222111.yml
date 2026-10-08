@@ -1,7 +1,7 @@
 # GohstVpn source is stored as one ZIP in the repository ROOT.
 # Install this file at .github/workflows/gohstvpn-android.yml
 # Do not run the older V3 or other FlClash/Karing workflows.
-name: GohstVpn V7 - V2Box-style
+name: GohstVpn V8 - Smart UI
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   android-apk:
-    name: Apply v0.2/v0.3 patches, validate names, build ARM64 APK
+    name: Apply v0.2/v0.3/v0.4 patches, build ARM64 APK
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
@@ -23,7 +23,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo '===== GOHSTVPN V7 V2BOX STYLE ====='
+          echo '===== GOHSTVPN V8 SMART UI ====='
           ZIP="$GITHUB_WORKSPACE/GohstVpn-FlClash-v0.1.0-source.zip"
           PROJECT="$RUNNER_TEMP/gohstvpn-locked-v4/GohstVpn"
           echo "Locked ZIP: $ZIP"
@@ -76,6 +76,21 @@ jobs:
           test -f "$GOHSTVPN_PROJECT/lib/common/gohst_subscription_notice.dart"
           grep -q 'version: 0.3.0+3' "$GOHSTVPN_PROJECT/pubspec.yaml"
           echo 'SUCCESS: GohstVpn v0.3 overlay verified'
+
+      - name: Apply EXACT GohstVpn v0.4 smart UI update
+        shell: bash
+        run: |
+          set -euo pipefail
+          PATCH="$GITHUB_WORKSPACE/GohstVpn-v0.4.0-update.zip"
+          if [[ ! -f "$PATCH" ]]; then
+            echo '::error::Upload EXACT GohstVpn-v0.4.0-update.zip to repository ROOT'
+            exit 1
+          fi
+          unzip -tq "$PATCH" >/dev/null
+          unzip -oq "$PATCH" -d "$RUNNER_TEMP/gohstvpn-locked-v4"
+          grep -q 'version: 0.4.0+4' "$GOHSTVPN_PROJECT/pubspec.yaml"
+          grep -q 'class GohstConnectionToggle' "$GOHSTVPN_PROJECT/lib/views/dashboard/gohst_dashboard.dart"
+          echo 'SUCCESS: v0.4 smart UI files installed'
 
       - name: Restore public Mihomo core missing from ZIP
         shell: bash
@@ -164,6 +179,7 @@ jobs:
         run: |
           set -euo pipefail
           cd "$GOHSTVPN_PROJECT"
+          dart format lib/bootstrap.dart lib/application.dart lib/providers/app.dart lib/providers/actions/profiles.dart lib/views/dashboard/gohst_dashboard.dart lib/providers/state/theme.dart
           dart format lib/common/proxy_link_importer.dart lib/models/profile.dart lib/providers/action.dart lib/providers/actions/profiles.dart lib/providers/state/theme.dart lib/views/disclaimer.dart lib/views/profiles/add.dart test/common/proxy_link_importer_test.dart lib/common/gohst_display_name.dart lib/common/gohst_subscription_notice.dart lib/views/proxies/card.dart lib/views/proxies/proxies.dart lib/views/proxies/gohst_mobile_list.dart lib/views/dashboard/gohst_dashboard.dart test/common/gohst_display_name_test.dart
 
       - name: Test VLESS conversion with synthetic data
@@ -172,6 +188,13 @@ jobs:
           set -euo pipefail
           cd "$GOHSTVPN_PROJECT"
           flutter test test/common/proxy_link_importer_test.dart test/common/gohst_display_name_test.dart
+
+      - name: Analyze modified Dart modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GOHSTVPN_PROJECT"
+          dart analyze lib/views/dashboard/gohst_dashboard.dart lib/providers/actions/profiles.dart lib/providers/state/theme.dart lib/providers/app.dart lib/application.dart lib/bootstrap.dart lib/models/profile.dart
 
       - name: Build Android ARM64 APK
         shell: bash
