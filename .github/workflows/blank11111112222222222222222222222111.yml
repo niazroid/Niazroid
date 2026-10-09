@@ -1,40 +1,28 @@
 # GohstVpn source is stored as one ZIP in the repository ROOT.
 # Install this file at .github/workflows/gohstvpn-android.yml
 # Do not run the older V3 or other FlClash/Karing workflows.
-name: GHOST VPN V12 - Correct Server & Telegram Bot
+name: GHOST VPN V13 - Auto Signing on GitHub
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write  # private repository: write non-secret signing fingerprint marker
+  actions: read    # restore private signing artifact from previous builds
+
+concurrency:
+  group: ghost-vpn-signing-${{ github.repository }}
+  cancel-in-progress: false
 
 jobs:
   android-apk:
-    name: Apply v0.2-v0.6 overlays, build signed ARM64 APK
+    name: Build ARM64 APK with automatic signing
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Require persistent release signing key (never public)
-        shell: bash
-        env:
-          STORE_B64: ${{ secrets.GHOST_KEYSTORE_B64 }}
-          STORE_PASSWORD: ${{ secrets.GHOST_STORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.GHOST_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.GHOST_KEY_PASSWORD }}
-        run: |
-          set -euo pipefail
-          for name in STORE_B64 STORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
-            if [[ -z "${!name}" ]]; then
-              echo "::error::Missing signing secret for $name. See GHOST-VPN-SIGNING-FA.md. No APK can be safely signed without a fixed keystore."
-              exit 1
-            fi
-          done
-          echo 'Fixed signing secrets are configured (values remain hidden).'
 
       - name: PROOF V6 - extract EXACT GohstVpn v0.1 ZIP
         shell: bash
@@ -294,25 +282,116 @@ jobs:
           cd "$GOHSTVPN_PROJECT"
           dart analyze lib/common/ghost_active_server.dart test/ghost_active_server_test.dart lib/common/ghost_purchase_bot.dart lib/views/dashboard/gohst_dashboard.dart lib/providers/actions/profiles.dart lib/providers/state/theme.dart lib/providers/app.dart lib/application.dart lib/bootstrap.dart lib/models/profile.dart
 
-      - name: Install persistent release signing key securely
+      # 1) Existing secrets: true permanent signing (works for both public/private repositories).
+      # 2) No secrets + PRIVATE repository: generate once, reuse via private artifacts.
+      #    Private artifacts expire, so download and securely back up the generated key.
+      # 3) No secrets + PUBLIC repository: test-only debug-signed .dev APK.
+      #    NEVER publish release keystore/password in public artifacts or source control.
+      - name: Auto-sign on GitHub (safe signing mode)
+        id: signing
         shell: bash
         env:
+          GH_TOKEN: ${{ github.token }}
+          IS_PRIVATE: ${{ github.event.repository.private }}
           STORE_B64: ${{ secrets.GHOST_KEYSTORE_B64 }}
+          STORE_PASSWORD: ${{ secrets.GHOST_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.GHOST_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.GHOST_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          cd "$GOHSTVPN_PROJECT"
-          printf '%s' "$STORE_B64" | base64 --decode > android/app/keystore.jks
-          test -s android/app/keystore.jks
-          chmod 600 android/app/keystore.jks
-          echo 'Persistent keystore installed privately for this build.'
+          KEYDIR="$RUNNER_TEMP/ghost-vpn-signing"
+          mkdir -p "$KEYDIR"
+          chmod 700 "$KEYDIR"
+          KEYFILE="$KEYDIR/keystore.jks"
+          MARKER_PATH='.github/GHOST-VPN-SIGNING-INITIALIZED.txt'
+
+          if [[ -n "$STORE_B64" ]]; then
+            for name in STORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+              if [[ -z "${!name}" ]]; then
+                echo "::error::Signing secret $name is missing. Add all four signing secrets."
+                exit 1
+              fi
+            done
+            printf '%s' "$STORE_B64" | base64 -d > "$KEYFILE"
+            echo 'mode=secrets' >> "$GITHUB_OUTPUT"
+            echo 'new=false' >> "$GITHUB_OUTPUT"
+            echo 'Signing from existing persistent GitHub Secrets.'
+          elif [[ "$IS_PRIVATE" == 'true' ]]; then
+            ARTIFACT_ID=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=GHOST-VPN-PRIVATE-SIGNING&per_page=100" \
+              --jq '[.artifacts[] | select(.expired == false)] | sort_by(.created_at) | last | .id // empty')
+            if [[ -n "$ARTIFACT_ID" ]]; then
+              curl -fLsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+                "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" \
+                -o "$RUNNER_TEMP/ghost-signing-backup.zip"
+              unzip -q "$RUNNER_TEMP/ghost-signing-backup.zip" -d "$KEYDIR"
+              test -s "$KEYFILE" && test -s "$KEYDIR/password.txt"
+              echo 'new=false' >> "$GITHUB_OUTPUT"
+              echo 'Restored existing signing identity from PRIVATE GitHub artifact.'
+            else
+              if gh api "repos/$GITHUB_REPOSITORY/contents/$MARKER_PATH?ref=$GITHUB_REF_NAME" >/dev/null 2>&1; then
+                echo '::error::Previous signing artifact expired or was deleted. Refusing to rotate signing key and break updates. Restore your keystore backup as signing secrets.'
+                exit 1
+              fi
+              PASS=$(openssl rand -hex 32)
+              keytool -genkeypair -noprompt -keystore "$KEYFILE" -storetype JKS \
+                -alias ghost -keyalg RSA -keysize 3072 -validity 10000 \
+                -storepass "$PASS" -keypass "$PASS" -dname 'CN=GHOST VPN, O=GHOST VPN, C=US' >/dev/null 2>&1
+              printf '%s' "$PASS" > "$KEYDIR/password.txt"
+              echo 'new=true' >> "$GITHUB_OUTPUT"
+              echo 'Generated GHOST VPN signing identity for the first PRIVATE-repo build.'
+            fi
+            PASS=$(cat "$KEYDIR/password.txt")
+            KEY_ALIAS=ghost
+            STORE_PASSWORD="$PASS"
+            KEY_PASSWORD="$PASS"
+            echo 'mode=private-artifact' >> "$GITHUB_OUTPUT"
+          else
+            echo 'mode=public-test' >> "$GITHUB_OUTPUT"
+            echo 'new=false' >> "$GITHUB_OUTPUT"
+            echo '::warning::Repository is PUBLIC and has no signing secrets. Building a TEST APK with Android debug signing (.dev). This DOES NOT provide a persistent update-compatible release signature.'
+            exit 0
+          fi
+
+          chmod 600 "$KEYFILE"
+          cp "$KEYFILE" "$GOHSTVPN_PROJECT/android/app/keystore.jks"
+          chmod 600 "$GOHSTVPN_PROJECT/android/app/keystore.jks"
+          for value in "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD"; do
+            echo "::add-mask::$value"
+          done
+          {
+            echo "GHOST_STORE_PASSWORD=$STORE_PASSWORD"
+            echo "GHOST_KEY_ALIAS=$KEY_ALIAS"
+            echo "GHOST_KEY_PASSWORD=$KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Renew private signing-key backup (90-day retention)
+        if: steps.signing.outputs.mode == 'private-artifact'
+        uses: actions/upload-artifact@v4
+        with:
+          name: GHOST-VPN-PRIVATE-SIGNING
+          path: ${{ runner.temp }}/ghost-vpn-signing/
+          if-no-files-found: error
+          include-hidden-files: true
+          overwrite: true
+          retention-days: 90
+
+      - name: Mark signing identity as initialized (no secrets in git)
+        if: steps.signing.outputs.mode == 'private-artifact' && steps.signing.outputs.new == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          CONTENT=$(printf 'GHOST VPN signing initialized. Do not generate another key; restore the original keystore backup if missing.\n' | base64 -w0)
+          jq -n --arg content "$CONTENT" --arg branch "$GITHUB_REF_NAME" \
+            '{message:"Initialize GHOST VPN signing marker (no private key)",content:$content,branch:$branch}' \
+            | gh api --method PUT "repos/$GITHUB_REPOSITORY/contents/.github/GHOST-VPN-SIGNING-INITIALIZED.txt" --input - >/dev/null
+          echo 'Private key backed up in Actions; public repository files contain only a harmless marker.'
 
       - name: Build Android ARM64 APK
         shell: bash
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
-          GHOST_STORE_PASSWORD: ${{ secrets.GHOST_STORE_PASSWORD }}
-          GHOST_KEY_ALIAS: ${{ secrets.GHOST_KEY_ALIAS }}
-          GHOST_KEY_PASSWORD: ${{ secrets.GHOST_KEY_PASSWORD }}
           GHOST_TELEGRAM_BOT_URL: ${{ vars.GHOST_TELEGRAM_BOT_URL }}
         run: |
           set -euo pipefail
@@ -342,8 +421,23 @@ jobs:
       - name: Upload GohstVpn APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GHOST-VPN-arm64-V12-SIGNED
+          name: GHOST-VPN-arm64-V13-${{ steps.signing.outputs.mode }}
           path: ${{ runner.temp }}/gohstvpn-apk-v9/*.apk
           if-no-files-found: error
           retention-days: 14
 
+
+      - name: Explain signing result
+        if: always()
+        shell: bash
+        run: |
+          echo '### GHOST VPN signing status' >> "$GITHUB_STEP_SUMMARY"
+          case '${{ steps.signing.outputs.mode }}' in
+            secrets)
+              echo '✅ Signed with your persistent GitHub Secrets keystore.' >> "$GITHUB_STEP_SUMMARY" ;;
+            private-artifact)
+              echo '✅ Signed with an auto-created/reused keystore stored in PRIVATE Actions artifacts. Download the artifact and keep an OFFLINE BACKUP; GitHub artifact retention is limited.' >> "$GITHUB_STEP_SUMMARY" ;;
+            public-test)
+              echo '⚠️ Public repo: test-only debug signature; NOT suitable for automatic future app updates. Permanent release signing requires one-time private GitHub Secrets setup.' >> "$GITHUB_STEP_SUMMARY" ;;
+            *) echo '❌ Signing did not complete.' >> "$GITHUB_STEP_SUMMARY" ;;
+          esac
