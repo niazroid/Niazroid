@@ -1,7 +1,7 @@
 # GohstVpn source is stored as one ZIP in the repository ROOT.
 # Install this file at .github/workflows/gohstvpn-android.yml
 # Do not run the older V3 or other FlClash/Karing workflows.
-name: GHOST VPN V16 - Persian Translation Compile Fix
+name: GHOST VPN V17 - Native Test Build Fix
 
 on:
   workflow_dispatch:
@@ -333,12 +333,50 @@ jobs:
 
           dart format lib/common/ghost_latency_rank.dart test/common/ghost_latency_rank_test.dart lib/views/access.dart lib/views/about.dart lib/common/measure.dart lib/common/l10n_labels.dart lib/widgets/grid.dart lib/l10n/intl/messages_fa.dart lib/l10n/intl/messages_all.dart lib/l10n/l10n.dart lib/application.dart
 
-      - name: Test VLESS conversion with synthetic data
+      - name: Test Dart logic serially without compiling VPN native assets (V17)
         shell: bash
         run: |
           set -euo pipefail
           cd "$GOHSTVPN_PROJECT"
-          flutter test test/common/proxy_link_importer_test.dart test/common/gohst_display_name_test.dart test/ghost_active_server_test.dart test/common/ghost_latency_rank_test.dart
+          # These unit tests do not use Go/Rust FFI. Native hooks have shared
+          # output directories and must not compile binaries in parallel tests.
+          # The release APK build below MUST restore build_assets: true.
+          BACKUP="$RUNNER_TEMP/ghost-vpn-native-build-pubspec.yaml"
+          cp pubspec.yaml "$BACKUP"
+          restore_release_pubspec() { cp "$BACKUP" pubspec.yaml; }
+          trap restore_release_pubspec EXIT
+          python3 - <<'PY_TEST_HOOKS'
+          from pathlib import Path
+          file = Path('pubspec.yaml')
+          contents = file.read_text(encoding='utf-8')
+          original = ('hooks:\n  user_defines:\n    setup:\n'
+                      '      build_assets: true\n    rust_api:\n'
+                      '      build_assets: true\n')
+          temporary = original.replace('build_assets: true', 'build_assets: false')
+          if contents.count(original) != 1:
+              raise SystemExit('ERROR: unexpected native hook config; not altering it.')
+          file.write_text(contents.replace(original, temporary, 1), encoding='utf-8')
+          print('TEST MODE: Go/Mihomo and Rust native compilation disabled for pure Dart tests.')
+          PY_TEST_HOOKS
+          # --no-pub avoids re-resolving dependencies while temporarily in test mode.
+          # --concurrency=1 prevents native hook cache races between test suites.
+          flutter test --no-pub --concurrency=1 --reporter expanded \
+            test/common/proxy_link_importer_test.dart \
+            test/common/gohst_display_name_test.dart \
+            test/ghost_active_server_test.dart \
+            test/common/ghost_latency_rank_test.dart
+          restore_release_pubspec
+          trap - EXIT
+          python3 - <<'PY_RELEASE_HOOKS'
+          from pathlib import Path
+          contents = Path('pubspec.yaml').read_text(encoding='utf-8')
+          expected = ('hooks:\n  user_defines:\n    setup:\n'
+                      '      build_assets: true\n    rust_api:\n'
+                      '      build_assets: true\n')
+          if contents.count(expected) != 1:
+              raise SystemExit('ERROR: release-native build hooks were not restored')
+          print('RELEASE MODE: Go/Mihomo and Rust native compilation re-enabled for APK.')
+          PY_RELEASE_HOOKS
 
       - name: Analyze modified Dart modules
         shell: bash
@@ -453,6 +491,22 @@ jobs:
             | gh api --method PUT "repos/$GITHUB_REPOSITORY/contents/.github/GHOST-VPN-SIGNING-INITIALIZED.txt" --input - >/dev/null
           echo 'Private key backed up in Actions; public repository files contain only a harmless marker.'
 
+      - name: Ensure native VPN engine is enabled for release
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GOHSTVPN_PROJECT"
+          python3 - <<'PY_NATIVE_RELEASE'
+          from pathlib import Path
+          contents = Path('pubspec.yaml').read_text(encoding='utf-8')
+          expected = ('hooks:\n  user_defines:\n    setup:\n'
+                      '      build_assets: true\n    rust_api:\n'
+                      '      build_assets: true\n')
+          if contents.count(expected) != 1:
+              raise SystemExit('ERROR: release APK must compile both Go and Rust native assets')
+          print('VERIFIED: both native engine build hooks are enabled for Android APK.')
+          PY_NATIVE_RELEASE
+
       - name: Build Android ARM64 APK
         shell: bash
         env:
@@ -486,7 +540,7 @@ jobs:
       - name: Upload GohstVpn APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GHOST-VPN-arm64-V16-${{ steps.signing.outputs.mode }}
+          name: GHOST-VPN-arm64-V17-${{ steps.signing.outputs.mode }}
           path: ${{ runner.temp }}/gohstvpn-apk-v9/*.apk
           if-no-files-found: error
           retention-days: 14
