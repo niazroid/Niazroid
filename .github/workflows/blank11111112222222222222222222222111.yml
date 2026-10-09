@@ -1,7 +1,7 @@
 # GohstVpn source is stored as one ZIP in the repository ROOT.
 # Install this file at .github/workflows/gohstvpn-android.yml
 # Do not run the older V3 or other FlClash/Karing workflows.
-name: GHOST VPN V15 - Persian Manual Import & Ping Sort
+name: GHOST VPN V16 - Persian Translation Compile Fix
 
 on:
   workflow_dispatch:
@@ -217,6 +217,29 @@ jobs:
           test -s android/app/src/main/res/drawable-nodpi/gohstvpn_foreground.png
           test -s test/common/ghost_latency_rank_test.dart
           echo 'SUCCESS: v0.7 Persian, multiple VLESS links, app access, ping sorting and icons applied'
+
+      - name: Fix Persian message map Dart type (V16)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GOHSTVPN_PROJECT"
+          python3 - <<'PY_FA_MAP'
+          from pathlib import Path
+          path = Path('lib/l10n/intl/messages_fa.dart')
+          text = path.read_text(encoding='utf-8')
+          old = '...english.messages.messages,'
+          new = '...english.messages.messages.cast<String, Function>(),'
+          if text.count(old) == 1:
+              text = text.replace(old, new, 1)
+              path.write_text(text, encoding='utf-8')
+              print('FIXED: Persian locale now casts English fallback messages to Map<String, Function>.')
+          elif text.count(new) == 1:
+              print('ALREADY FIXED: correct Dart map type is present.')
+          else:
+              raise SystemExit('ERROR: unexpected Persian messages file; refusing to modify it blindly.')
+          assert path.read_text(encoding='utf-8').count(new) == 1
+          PY_FA_MAP
+          grep -nF 'english.messages.messages.cast<String, Function>()' lib/l10n/intl/messages_fa.dart
 
       - name: Restore public Mihomo core missing from ZIP
         shell: bash
@@ -463,7 +486,7 @@ jobs:
       - name: Upload GohstVpn APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GHOST-VPN-arm64-V14-${{ steps.signing.outputs.mode }}
+          name: GHOST-VPN-arm64-V16-${{ steps.signing.outputs.mode }}
           path: ${{ runner.temp }}/gohstvpn-apk-v9/*.apk
           if-no-files-found: error
           retention-days: 14
