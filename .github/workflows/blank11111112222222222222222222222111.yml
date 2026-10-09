@@ -1,7 +1,7 @@
 # GohstVpn source is stored as one ZIP in the repository ROOT.
 # Install this file at .github/workflows/gohstvpn-android.yml
-# Do not run the older V3 or other FlClash/Karing workflows.
-name: GHOST VPN V18 - RTL and Analyze Fix
+# Use this standalone full-source build rather than the older overlay workflows.
+name: GHOST VPN V20 - Version 1 Release
 
 on:
   workflow_dispatch:
@@ -24,245 +24,55 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: PROOF V6 - extract EXACT GohstVpn v0.1 ZIP
+      - name: V20 preflight - confirm one-file source and analyzer command
         shell: bash
         run: |
           set -euo pipefail
-          echo '===== GHOST VPN V11 FIXED RELEASE ====='
-          ZIP="$GITHUB_WORKSPACE/GohstVpn-FlClash-v0.1.0-source.zip"
-          PROJECT="$RUNNER_TEMP/gohstvpn-locked-v4/GohstVpn"
-          echo "Locked ZIP: $ZIP"
-          if [[ ! -f "$ZIP" ]]; then
-            echo "::error::Missing EXACT file: GohstVpn-FlClash-v0.1.0-source.zip in repository root"
-            exit 1
-          fi
-          unzip -tq "$ZIP" >/dev/null || {
-            echo '::error::ZIP is damaged or stored as a Git LFS pointer.'
+          echo 'GHOST VPN V20 PRE-FLIGHT OK - V1 SOURCE'
+          echo "Commit: $GITHUB_SHA"
+          echo "Workflow: $GITHUB_WORKFLOW_REF"
+          WORKFLOW="$GITHUB_WORKSPACE/.github/workflows/gohstvpn-android.yml"
+          test -f "$WORKFLOW" || { echo '::error::Expected workflow file not found'; exit 1; }
+          grep -Fq 'name: GHOST VPN V20 - Version 1 Release' "$WORKFLOW" || {
+            echo '::error::You launched an older workflow/commit. Commit V20 to .github/workflows/gohstvpn-android.yml and start a NEW run.'
             exit 1
           }
+          if grep -n -- '--no-fatal-'"infos" "$WORKFLOW"; then
+            echo '::error::The old invalid Dart CLI option remains in the workflow.'
+            exit 1
+          fi
+          grep -Fq 'dart analyze --no-fatal-warnings' "$WORKFLOW" || {
+            echo '::error::V20 analyzer step is missing.'
+            exit 1
+          }
+          echo 'VERIFIED: invalid analyzer option absent and V20 command present.'
+
+      - name: Extract complete GHOST VPN 1.0.0 source (no layered patches)
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="$GITHUB_WORKSPACE/GHOST-VPN-FlClash-v1.0.0-full-source.zip"
+          PROJECT="$RUNNER_TEMP/gohstvpn-locked-v4/GohstVpn"
+          if [[ ! -s "$ZIP" ]]; then
+            echo '::error::Upload GHOST-VPN-FlClash-v1.0.0-full-source.zip to repository ROOT.'
+            exit 1
+          fi
+          unzip -tq "$ZIP" >/dev/null
           mkdir -p "$RUNNER_TEMP/gohstvpn-locked-v4"
           unzip -q "$ZIP" -d "$RUNNER_TEMP/gohstvpn-locked-v4"
-          for required in pubspec.yaml setup.dart android/settings.gradle.kts core/go.mod; do
-            if [[ ! -f "$PROJECT/$required" ]]; then
-              echo "::error::ZIP does not contain GohstVpn/$required"
-              exit 1
-            fi
+          for path in pubspec.yaml setup.dart android/settings.gradle.kts core/go.mod lib/views/profiles/add.dart lib/l10n/intl/messages_fa.dart; do
+            test -s "$PROJECT/$path" || { echo "::error::Missing GohstVpn/$path"; exit 1; }
           done
+          grep -qx 'version: 1.0.0+9' <(grep '^version:' "$PROJECT/pubspec.yaml") || {
+            echo '::error::The ZIP does not contain GHOST VPN version 1.0.0+9.'
+            exit 1
+          }
+          if grep -q '_addManual' "$PROJECT/lib/views/profiles/add.dart"; then
+            echo '::error::Manual config entry remains in the source.'
+            exit 1
+          fi
           echo "GOHSTVPN_PROJECT=$PROJECT" >> "$GITHUB_ENV"
-          echo "SUCCESS: Flutter project extracted into $PROJECT"
-
-      - name: Apply EXACT GohstVpn v0.2 update overlay
-        shell: bash
-        run: |
-          set -euo pipefail
-          PATCH="$GITHUB_WORKSPACE/GohstVpn-v0.2.0-update.zip"
-          if [[ ! -f "$PATCH" ]]; then
-            echo '::error::Upload the exact GohstVpn-v0.2.0-update.zip file into your repository ROOT'
-            exit 1
-          fi
-          unzip -tq "$PATCH" >/dev/null
-          unzip -oq "$PATCH" -d "$RUNNER_TEMP/gohstvpn-locked-v4"
-          test -f "$GOHSTVPN_PROJECT/lib/common/proxy_link_importer.dart"
-          grep -q 'version: 0.2.0+2' "$GOHSTVPN_PROJECT/pubspec.yaml"
-          echo 'SUCCESS: GohstVpn v0.2 sources are applied to the ORIGINAL v0.1 ZIP'
-
-      - name: Apply EXACT GohstVpn v0.3 style and subscription update
-        shell: bash
-        run: |
-          set -euo pipefail
-          PATCH="$GITHUB_WORKSPACE/GohstVpn-v0.3.0-update.zip"
-          if [[ ! -f "$PATCH" ]]; then
-            echo '::error::Upload EXACT GohstVpn-v0.3.0-update.zip to repository root'
-            exit 1
-          fi
-          unzip -tq "$PATCH" >/dev/null
-          unzip -oq "$PATCH" -d "$RUNNER_TEMP/gohstvpn-locked-v4"
-          test -f "$GOHSTVPN_PROJECT/lib/views/proxies/gohst_mobile_list.dart"
-          test -f "$GOHSTVPN_PROJECT/lib/common/gohst_subscription_notice.dart"
-          grep -q 'version: 0.3.0+3' "$GOHSTVPN_PROJECT/pubspec.yaml"
-          echo 'SUCCESS: GohstVpn v0.3 overlay verified'
-
-      - name: Apply EXACT GohstVpn v0.4 smart UI update
-        shell: bash
-        run: |
-          set -euo pipefail
-          PATCH="$GITHUB_WORKSPACE/GohstVpn-v0.4.0-update.zip"
-          if [[ ! -f "$PATCH" ]]; then
-            echo '::error::Upload EXACT GohstVpn-v0.4.0-update.zip to repository ROOT'
-            exit 1
-          fi
-          unzip -tq "$PATCH" >/dev/null
-          unzip -oq "$PATCH" -d "$RUNNER_TEMP/gohstvpn-locked-v4"
-          grep -q 'version: 0.4.0+4' "$GOHSTVPN_PROJECT/pubspec.yaml"
-          grep -q 'class GohstConnectionToggle' "$GOHSTVPN_PROJECT/lib/views/dashboard/gohst_dashboard.dart"
-          echo 'SUCCESS: v0.4 smart UI files installed'
-
-      - name: Apply EXACT GohstVpn v0.5 dashboard and auto-ping update
-        shell: bash
-        run: |
-          set -euo pipefail
-          PATCH="$GITHUB_WORKSPACE/GohstVpn-v0.5.0-update.zip"
-          if [[ ! -f "$PATCH" ]]; then
-            echo '::error::Upload EXACT GohstVpn-v0.5.0-update.zip to the repository ROOT'
-            exit 1
-          fi
-          unzip -tq "$PATCH" >/dev/null
-          unzip -oq "$PATCH" -d "$RUNNER_TEMP/gohstvpn-locked-v4"
-          grep -q 'version: 0.5.0+5' "$GOHSTVPN_PROJECT/pubspec.yaml"
-          grep -q 'class _GohstDashboardState' "$GOHSTVPN_PROJECT/lib/views/dashboard/gohst_dashboard.dart"
-          test -s "$GOHSTVPN_PROJECT/assets/images/gohst_refresh.svg"
-          echo 'SUCCESS: v0.5 update overlay installed'
-
-      - name: Fix dashboard Dart analysis warnings (V10)
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "$GOHSTVPN_PROJECT"
-          python3 - <<'PY_DART'
-          from pathlib import Path
-          import re
-          file = Path('lib/views/dashboard/gohst_dashboard.dart')
-          source = file.read_text(encoding='utf-8')
-          unused = "import 'package:fl_clash/icons/icons.dart';\n"
-          if source.count(unused) != 1:
-              raise SystemExit('ERROR: dashboard source differs from v0.5; unused import mismatch')
-          source = source.replace(unused, '')
-          pattern = re.compile(r'^(?P<indent>[ \t]*)if \((?P<cond>.+?)\) (?P<stmt>.+;)$')
-          updated = []
-          fixed = 0
-          for line in source.splitlines(keepends=True):
-              match = pattern.fullmatch(line.rstrip('\n'))
-              if match and '...[' not in match.group('stmt'):
-                  indent, cond, stmt = match.group('indent', 'cond', 'stmt')
-                  updated.append(f'{indent}if ({cond}) {{\n{indent}  {stmt}\n{indent}}}\n')
-                  fixed += 1
-              else:
-                  updated.append(line)
-          if fixed != 17:
-              raise SystemExit(f'ERROR: unexpected dashboard version; expected 17 inline if statements but got {fixed}')
-          file.write_text(''.join(updated), encoding='utf-8')
-          print(f'SUCCESS: removed unused icon import; fixed {fixed} curly-brace issues')
-          PY_DART
-
-      - name: Apply EXACT GHOST VPN v0.6 brand, toasts and subscription alerts
-        shell: bash
-        run: |
-          set -euo pipefail
-          PATCH="$GITHUB_WORKSPACE/GHOST-VPN-v0.6.0-update.zip"
-          if [[ ! -s "$PATCH" ]]; then
-            echo '::error::Upload EXACT GHOST-VPN-v0.6.0-update.zip to repository root'
-            exit 1
-          fi
-          unzip -tq "$PATCH" >/dev/null
-          unzip -oq "$PATCH" -d "$RUNNER_TEMP/gohstvpn-locked-v4"
-          grep -q 'version: 0.6.0+6' "$GOHSTVPN_PROJECT/pubspec.yaml"
-          grep -q 'GHOST VPN' "$GOHSTVPN_PROJECT/lib/common/constant.dart"
-          test -s "$GOHSTVPN_PROJECT/assets/images/ghost_brand_logo.png"
-          echo 'SUCCESS: v0.6 updates overlaid onto V10 fixes'
-
-      - name: Apply GHOST VPN v0.6.1 real selected server and bot fix
-        shell: bash
-        run: |
-          set -euo pipefail
-          PATCH="$GITHUB_WORKSPACE/GHOST-VPN-v0.6.1-server-info-bot-update.zip"
-          if [[ ! -s "$PATCH" ]]; then
-            echo '::error::Missing exact GHOST-VPN-v0.6.1-server-info-bot-update.zip in repository root'
-            exit 1
-          fi
-          unzip -tq "$PATCH" >/dev/null
-          unzip -oq "$PATCH" -d "$RUNNER_TEMP/gohstvpn-locked-v4"
-          cd "$GOHSTVPN_PROJECT"
-          grep -q 'version: 0.6.1+7' pubspec.yaml
-          grep -q 'V2_ghostvpn_bot' lib/common/ghost_purchase_bot.dart
-          test -s lib/common/ghost_active_server.dart
-          test -s test/ghost_active_server_test.dart
-          echo 'SUCCESS: dashboard, ping resolver and Telegram purchase bot patched'
-
-      - name: Fix Telegram bot Dart constant evaluation (v0.6.1)
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "$GOHSTVPN_PROJECT"
-          python3 - <<'PY_GHOST_BOT_FIX'
-          from pathlib import Path
-          path = Path('lib/common/ghost_purchase_bot.dart')
-          source = path.read_text(encoding='utf-8')
-          old = 'const ghostTelegramBotUrl = _configuredGhostTelegramBotUrl.isEmpty'
-          new = 'final ghostTelegramBotUrl = _configuredGhostTelegramBotUrl.isEmpty'
-          if source.count(old) != 1:
-              raise SystemExit('ERROR: expected GHOST VPN 0.6.1 bot declaration not found exactly once')
-          path.write_text(source.replace(old, new, 1), encoding='utf-8')
-          print('FIXED: Telegram bot URL remains the same, but its fallback is evaluated at runtime.')
-          PY_GHOST_BOT_FIX
-          grep -n '^final ghostTelegramBotUrl' lib/common/ghost_purchase_bot.dart
-
-      - name: Apply GHOST VPN v0.7 Persian and manual-access update
-        shell: bash
-        run: |
-          set -euo pipefail
-          PATCH="$GITHUB_WORKSPACE/GHOST-VPN-v0.7.0-update.zip"
-          if [[ ! -s "$PATCH" ]]; then
-            echo '::error::Upload EXACT GHOST-VPN-v0.7.0-update.zip to your repository root'
-            exit 1
-          fi
-          unzip -tq "$PATCH" >/dev/null
-          unzip -oq "$PATCH" -d "$RUNNER_TEMP/gohstvpn-locked-v4"
-          cd "$GOHSTVPN_PROJECT"
-          grep -q 'version: 0.7.0+8' pubspec.yaml
-          test -s arb/intl_fa.arb
-          test -s lib/l10n/intl/messages_fa.dart
-          test -s assets/images/ghost_update_custom.svg
-          test -s assets/images/ghost_toast_success.svg
-          test -s assets/images/ghost_toast_failed.svg
-          test -s android/app/src/main/res/drawable-nodpi/gohstvpn_foreground.png
-          test -s test/common/ghost_latency_rank_test.dart
-          echo 'SUCCESS: v0.7 Persian, multiple VLESS links, app access, ping sorting and icons applied'
-
-      - name: Fix Persian message map Dart type (V16)
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "$GOHSTVPN_PROJECT"
-          python3 - <<'PY_FA_MAP'
-          from pathlib import Path
-          path = Path('lib/l10n/intl/messages_fa.dart')
-          text = path.read_text(encoding='utf-8')
-          old = '...english.messages.messages,'
-          new = '...english.messages.messages.cast<String, Function>(),'
-          if text.count(old) == 1:
-              text = text.replace(old, new, 1)
-              path.write_text(text, encoding='utf-8')
-              print('FIXED: Persian locale now casts English fallback messages to Map<String, Function>.')
-          elif text.count(new) == 1:
-              print('ALREADY FIXED: correct Dart map type is present.')
-          else:
-              raise SystemExit('ERROR: unexpected Persian messages file; refusing to modify it blindly.')
-          assert path.read_text(encoding='utf-8').count(new) == 1
-          PY_FA_MAP
-          grep -nF 'english.messages.messages.cast<String, Function>()' lib/l10n/intl/messages_fa.dart
-
-      - name: Fix nullable TextDirection in animated grid (V18)
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "$GOHSTVPN_PROJECT"
-          python3 - <<'PY_MOTION_GRID_RTL'
-          from pathlib import Path
-          file = Path('lib/widgets/motion_grid.dart')
-          source = file.read_text(encoding='utf-8')
-          old = 'textDirection: textDirection,'
-          new = 'textDirection: textDirection ?? Directionality.of(context),'
-          if source.count(old) == 1:
-              source = source.replace(old, new, 1)
-              file.write_text(source, encoding='utf-8')
-              print('FIXED: MotionGrid now resolves nullable direction against the widget context (supports Persian RTL).')
-          elif source.count(new) == 1 and old not in source:
-              print('ALREADY FIXED: MotionGrid has a non-null TextDirection.')
-          else:
-              raise SystemExit('ERROR: unexpected MotionGrid source; refusing unsafe replacement.')
-          assert file.read_text(encoding='utf-8').count(new) == 1
-          PY_MOTION_GRID_RTL
-          grep -n 'textDirection: textDirection' lib/widgets/motion_grid.dart
+          echo 'GHOST VPN v1.0.0 complete source loaded; previous update overlays are not required.'
 
       - name: Restore public Mihomo core missing from ZIP
         shell: bash
@@ -346,17 +156,18 @@ jobs:
           echo "pubspec located at: $(pwd)/pubspec.yaml"
           flutter pub get
 
-      - name: Format and syntax-check modified Dart files
+      - name: Format Dart changes and check translated source
         shell: bash
         run: |
           set -euo pipefail
           cd "$GOHSTVPN_PROJECT"
-          dart format lib/common/ghost_active_server.dart test/ghost_active_server_test.dart lib/common/ghost_purchase_bot.dart lib/bootstrap.dart lib/application.dart lib/providers/app.dart lib/providers/actions/profiles.dart lib/views/dashboard/gohst_dashboard.dart lib/providers/state/theme.dart
-          dart format lib/common/proxy_link_importer.dart lib/models/profile.dart lib/providers/action.dart lib/providers/actions/profiles.dart lib/providers/state/theme.dart lib/views/disclaimer.dart lib/views/profiles/add.dart test/common/proxy_link_importer_test.dart lib/common/gohst_display_name.dart lib/common/gohst_subscription_notice.dart lib/views/proxies/card.dart lib/views/proxies/proxies.dart lib/views/proxies/gohst_mobile_list.dart lib/views/dashboard/gohst_dashboard.dart test/common/gohst_display_name_test.dart
+          dart format lib/views/profiles/add.dart lib/providers/actions/profiles.dart lib/l10n/intl/messages_fa.dart lib/widgets/motion_grid.dart
+          test "$(grep -c 'version: 1.0.0+9' pubspec.yaml)" -eq 1
+          grep -Fq 'english.messages.messages.cast<String, Function>()' lib/l10n/intl/messages_fa.dart
+          grep -Fq 'textDirection ?? Directionality.of(context)' lib/widgets/motion_grid.dart
+          ! grep -Fq '_addManual' lib/views/profiles/add.dart
 
-          dart format lib/common/ghost_latency_rank.dart test/common/ghost_latency_rank_test.dart lib/views/access.dart lib/views/about.dart lib/common/measure.dart lib/common/l10n_labels.dart lib/widgets/grid.dart lib/widgets/motion_grid.dart lib/l10n/intl/messages_fa.dart lib/l10n/intl/messages_all.dart lib/l10n/l10n.dart lib/application.dart
-
-      - name: Test Dart logic serially without compiling VPN native assets (V17)
+      - name: Test Dart logic serially without compiling VPN native assets
         shell: bash
         run: |
           set -euo pipefail
@@ -406,7 +217,9 @@ jobs:
         run: |
           set -euo pipefail
           cd "$GOHSTVPN_PROJECT"
-          dart analyze --no-fatal-warnings lib/common/ghost_active_server.dart test/ghost_active_server_test.dart lib/common/ghost_purchase_bot.dart lib/views/dashboard/gohst_dashboard.dart lib/providers/actions/profiles.dart lib/providers/state/theme.dart lib/providers/app.dart lib/application.dart lib/bootstrap.dart lib/models/profile.dart lib/common/proxy_link_importer.dart test/common/proxy_link_importer_test.dart lib/common/ghost_latency_rank.dart test/common/ghost_latency_rank_test.dart lib/views/access.dart lib/views/about.dart lib/common/measure.dart lib/common/l10n_labels.dart lib/widgets/grid.dart lib/widgets/motion_grid.dart lib/l10n/intl/messages_fa.dart lib/l10n/intl/messages_all.dart lib/l10n/l10n.dart lib/views/profiles/add.dart lib/views/proxies/gohst_mobile_list.dart
+          # dart analyze accepts zero or ONE directory argument, not a list of files.
+          # Analyze the project to catch actual errors; warnings are nonfatal.
+          dart analyze --no-fatal-warnings
 
       # 1) Existing secrets: true permanent signing (works for both public/private repositories).
       # 2) No secrets + PRIVATE repository: generate once, reuse via private artifacts.
@@ -544,13 +357,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/gohstvpn-apk-v9"
+          mkdir -p "$RUNNER_TEMP/gohstvpn-apk-v20"
           count=0
           for folder in "$GOHSTVPN_PROJECT/dist" "$GOHSTVPN_PROJECT/build/app/outputs/flutter-apk"; do
             if [[ -d "$folder" ]]; then
               while IFS= read -r -d '' apk; do
                 count=$((count + 1))
-                cp "$apk" "$RUNNER_TEMP/gohstvpn-apk-v9/${count}-$(basename "$apk")"
+                cp "$apk" "$RUNNER_TEMP/gohstvpn-apk-v20/${count}-$(basename "$apk")"
               done < <(find "$folder" -type f -name '*.apk' -print0)
             fi
           done
@@ -558,13 +371,51 @@ jobs:
             echo '::error::Build ended but no APK exists in dist/ or Flutter APK output folder'
             exit 1
           fi
-          ls -lh "$RUNNER_TEMP/gohstvpn-apk-v9/"
+          ls -lh "$RUNNER_TEMP/gohstvpn-apk-v20/"
+
+      - name: Verify APK version, package identity and Android signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$SDK" && test -d "$SDK/build-tools" || {
+            echo '::error::Android build tools not found for verification.'; exit 1;
+          }
+          APKSIGNER=$(find "$SDK/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -1)
+          AAPT=$(find "$SDK/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -1)
+          test -x "$APKSIGNER" && test -x "$AAPT" || {
+            echo '::error::apksigner/aapt are missing.'; exit 1;
+          }
+          for apk in "$RUNNER_TEMP"/gohstvpn-apk-v20/*.apk; do
+            echo "Checking $(basename "$apk")"
+            "$APKSIGNER" verify --verbose --print-certs "$apk"
+            PACKAGE_INFO=$("$AAPT" dump badging "$apk" | grep '^package: ')
+            echo "$PACKAGE_INFO"
+            grep -q "versionName='1.0.0'" <<< "$PACKAGE_INFO" || {
+              echo '::error::Unexpected APK version; expected 1.0.0.'; exit 1;
+            }
+            grep -q "versionCode='9'" <<< "$PACKAGE_INFO" || {
+              echo '::error::Unexpected APK build number; expected 9.'; exit 1;
+            }
+            case '${{ steps.signing.outputs.mode }}' in
+              secrets|private-artifact)
+                grep -q "name='com.gohstvpn.app'" <<< "$PACKAGE_INFO" || {
+                  echo '::error::Release package ID is wrong.'; exit 1;
+                } ;;
+              public-test)
+                grep -q "name='com.gohstvpn.app.dev'" <<< "$PACKAGE_INFO" || {
+                  echo '::error::Debug-test package ID is wrong.'; exit 1;
+                }
+                echo '::warning::APK is DEBUG-signed; its certificate is not a permanent release signing identity.' ;;
+            esac
+          done
+          echo 'APK integrity, version and signature verification passed.'
 
       - name: Upload GohstVpn APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GHOST-VPN-arm64-V18-${{ steps.signing.outputs.mode }}
-          path: ${{ runner.temp }}/gohstvpn-apk-v9/*.apk
+          name: GHOST-VPN-arm64-V20-${{ steps.signing.outputs.mode }}
+          path: ${{ runner.temp }}/gohstvpn-apk-v20/*.apk
           if-no-files-found: error
           retention-days: 14
 
