@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.1.45 Dark Installer
+name: Build BankMovie Windows v1.1.46 Stable Failover + Bale
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.1.45-dark-installer.zip
+  SOURCE_ZIP: BankMovie-v1.1.46-stable-failover-bale.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -36,7 +36,7 @@ jobs:
         working-directory: ${{ env.DESKTOP_DIR }}
         run: |
           $pkg = Get-Content package.json -Raw | ConvertFrom-Json
-          if ($pkg.version -ne '1.1.45') { throw 'Expected version 1.1.45' }
+          if ($pkg.version -ne '1.1.46') { throw 'Expected version 1.1.45' }
           if ($env:GITHUB_REF -like 'refs/tags/v*' -and $env:GITHUB_REF -ne "refs/tags/v$($pkg.version)") { throw 'Release tag does not match app version' }
           $main = Get-Content electron/main.js -Raw
           $preload = Get-Content electron/preload.js -Raw
@@ -55,6 +55,8 @@ jobs:
           if ($main -notmatch 'api6\.php') { throw 'Archive 3 API route missing' }
           if ($preload -notmatch 'advancedSearch') { throw 'Preload bridge missing' }
           if ($preload -notmatch 'weeklySchedule') { throw 'Weekly schedule bridge missing' }
+          if ($pkg.build.nsis.include) { throw 'Standard NSIS must not load any custom dark theme hook' }
+          if ($main -notmatch 'BMFailover') { throw 'Signed content failover missing' }
           if ($main -notmatch 'weekly_schedule\.php') { throw 'Weekly schedule API integration missing' }
 
       - name: Setup Node.js
@@ -74,13 +76,12 @@ jobs:
           node --check src/app.js
           node --check electron/main.js
           node --check electron/preload.js
+          node --check electron/content-failover.js
           node --check electron/runtime.generated.js
           node --check scripts/afterPack.js
           node --check scripts/obfuscate-production.js
           node --check tests/security-smoke.js
           node tests/security-smoke.js
-          node --check tests/installer-theme-smoke.js
-          node tests/installer-theme-smoke.js
 
       - name: Obfuscate privileged Electron code
         shell: pwsh
@@ -89,6 +90,7 @@ jobs:
           node scripts/obfuscate-production.js
           node --check electron/main.js
           node --check electron/preload.js
+          node --check electron/content-failover.js
           node --check electron/runtime.generated.js
 
       # Manual/branch artifacts may remain unsigned for internal testing only.
@@ -141,7 +143,7 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-v1.1.45-Dark-${{ github.sha }}
+          name: BankMovie-Windows-v1.1.46-${{ github.sha }}
           path: |
             ${{ env.DESKTOP_DIR }}/dist/*.exe
             ${{ env.DESKTOP_DIR }}/dist/*.blockmap
