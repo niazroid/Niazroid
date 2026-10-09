@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.1.46 Stable Failover + Bale
+name: Build BankMovie Windows v1.1.48 Weekly in Categories
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.1.46-stable-failover-bale.zip
+  SOURCE_ZIP: BankMovie-v1.1.48-weekly-in-categories.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -36,7 +36,7 @@ jobs:
         working-directory: ${{ env.DESKTOP_DIR }}
         run: |
           $pkg = Get-Content package.json -Raw | ConvertFrom-Json
-          if ($pkg.version -ne '1.1.46') { throw 'Expected version 1.1.45' }
+          if ($pkg.version -ne '1.1.48') { throw 'Expected version 1.1.48' }
           if ($env:GITHUB_REF -like 'refs/tags/v*' -and $env:GITHUB_REF -ne "refs/tags/v$($pkg.version)") { throw 'Release tag does not match app version' }
           $main = Get-Content electron/main.js -Raw
           $preload = Get-Content electron/preload.js -Raw
@@ -74,6 +74,8 @@ jobs:
         working-directory: ${{ env.DESKTOP_DIR }}
         run: |
           node --check src/app.js
+          node --check src/desktop-policy.js
+          node --check src/desktop-policy-ui.js
           node --check electron/main.js
           node --check electron/preload.js
           node --check electron/content-failover.js
@@ -82,6 +84,9 @@ jobs:
           node --check scripts/obfuscate-production.js
           node --check tests/security-smoke.js
           node tests/security-smoke.js
+          node tests/desktop-policy.test.js
+          node tests/comment-ui.test.js
+          node tests/weekly-navigation.test.js
 
       - name: Obfuscate privileged Electron code
         shell: pwsh
