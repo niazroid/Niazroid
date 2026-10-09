@@ -1,7 +1,7 @@
 # GohstVpn source is stored as one ZIP in the repository ROOT.
 # Install this file at .github/workflows/gohstvpn-android.yml
 # Do not run the older V3 or other FlClash/Karing workflows.
-name: GHOST VPN V13 - Auto Signing on GitHub
+name: GHOST VPN V14 - Telegram Bot Dart Fix
 
 on:
   workflow_dispatch:
@@ -177,6 +177,24 @@ jobs:
           test -s lib/common/ghost_active_server.dart
           test -s test/ghost_active_server_test.dart
           echo 'SUCCESS: dashboard, ping resolver and Telegram purchase bot patched'
+
+      - name: Fix Telegram bot Dart constant evaluation (v0.6.1)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GOHSTVPN_PROJECT"
+          python3 - <<'PY_GHOST_BOT_FIX'
+          from pathlib import Path
+          path = Path('lib/common/ghost_purchase_bot.dart')
+          source = path.read_text(encoding='utf-8')
+          old = 'const ghostTelegramBotUrl = _configuredGhostTelegramBotUrl.isEmpty'
+          new = 'final ghostTelegramBotUrl = _configuredGhostTelegramBotUrl.isEmpty'
+          if source.count(old) != 1:
+              raise SystemExit('ERROR: expected GHOST VPN 0.6.1 bot declaration not found exactly once')
+          path.write_text(source.replace(old, new, 1), encoding='utf-8')
+          print('FIXED: Telegram bot URL remains the same, but its fallback is evaluated at runtime.')
+          PY_GHOST_BOT_FIX
+          grep -n '^final ghostTelegramBotUrl' lib/common/ghost_purchase_bot.dart
 
       - name: Restore public Mihomo core missing from ZIP
         shell: bash
@@ -421,7 +439,7 @@ jobs:
       - name: Upload GohstVpn APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GHOST-VPN-arm64-V13-${{ steps.signing.outputs.mode }}
+          name: GHOST-VPN-arm64-V14-${{ steps.signing.outputs.mode }}
           path: ${{ runner.temp }}/gohstvpn-apk-v9/*.apk
           if-no-files-found: error
           retention-days: 14
