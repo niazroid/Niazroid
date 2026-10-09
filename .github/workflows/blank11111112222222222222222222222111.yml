@@ -1,7 +1,7 @@
 # GohstVpn source is stored as one ZIP in the repository ROOT.
 # Install this file at .github/workflows/gohstvpn-android.yml
 # Do not run the older V3 or other FlClash/Karing workflows.
-name: GHOST VPN V18 - Persian RTL MotionGrid Fix
+name: GHOST VPN V18 - RTL and Analyze Fix
 
 on:
   workflow_dispatch:
@@ -406,7 +406,7 @@ jobs:
         run: |
           set -euo pipefail
           cd "$GOHSTVPN_PROJECT"
-          dart analyze --no-fatal-infos --no-fatal-warnings lib/common/ghost_active_server.dart test/ghost_active_server_test.dart lib/common/ghost_purchase_bot.dart lib/views/dashboard/gohst_dashboard.dart lib/providers/actions/profiles.dart lib/providers/state/theme.dart lib/providers/app.dart lib/application.dart lib/bootstrap.dart lib/models/profile.dart lib/common/proxy_link_importer.dart test/common/proxy_link_importer_test.dart lib/common/ghost_latency_rank.dart test/common/ghost_latency_rank_test.dart lib/views/access.dart lib/views/about.dart lib/common/measure.dart lib/common/l10n_labels.dart lib/widgets/grid.dart lib/widgets/motion_grid.dart lib/l10n/intl/messages_fa.dart lib/l10n/intl/messages_all.dart lib/l10n/l10n.dart lib/views/profiles/add.dart lib/views/proxies/gohst_mobile_list.dart
+          dart analyze --no-fatal-warnings lib/common/ghost_active_server.dart test/ghost_active_server_test.dart lib/common/ghost_purchase_bot.dart lib/views/dashboard/gohst_dashboard.dart lib/providers/actions/profiles.dart lib/providers/state/theme.dart lib/providers/app.dart lib/application.dart lib/bootstrap.dart lib/models/profile.dart lib/common/proxy_link_importer.dart test/common/proxy_link_importer_test.dart lib/common/ghost_latency_rank.dart test/common/ghost_latency_rank_test.dart lib/views/access.dart lib/views/about.dart lib/common/measure.dart lib/common/l10n_labels.dart lib/widgets/grid.dart lib/widgets/motion_grid.dart lib/l10n/intl/messages_fa.dart lib/l10n/intl/messages_all.dart lib/l10n/l10n.dart lib/views/profiles/add.dart lib/views/proxies/gohst_mobile_list.dart
 
       # 1) Existing secrets: true permanent signing (works for both public/private repositories).
       # 2) No secrets + PRIVATE repository: generate once, reuse via private artifacts.
