@@ -1,7 +1,7 @@
 # GohstVpn source is stored as one ZIP in the repository ROOT.
 # Install this file at .github/workflows/gohstvpn-android.yml
 # Use this standalone full-source build rather than the older overlay workflows.
-name: GHOST VPN V20 - Version 1 Release
+name: GHOST VPN V21 - Flexible Workflow Path
 
 on:
   workflow_dispatch:
@@ -24,17 +24,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: V20 preflight - confirm one-file source and analyzer command
+      - name: V21 preflight - detect actual workflow filename
         shell: bash
         run: |
           set -euo pipefail
-          echo 'GHOST VPN V20 PRE-FLIGHT OK - V1 SOURCE'
+          echo 'GHOST VPN V21 PRE-FLIGHT OK - DYNAMIC WORKFLOW PATH'
           echo "Commit: $GITHUB_SHA"
           echo "Workflow: $GITHUB_WORKFLOW_REF"
-          WORKFLOW="$GITHUB_WORKSPACE/.github/workflows/gohstvpn-android.yml"
-          test -f "$WORKFLOW" || { echo '::error::Expected workflow file not found'; exit 1; }
-          grep -Fq 'name: GHOST VPN V20 - Version 1 Release' "$WORKFLOW" || {
-            echo '::error::You launched an older workflow/commit. Commit V20 to .github/workflows/gohstvpn-android.yml and start a NEW run.'
+          # Resolve the ACTUAL workflow path; the file can be named anything
+          # under .github/workflows/, e.g. blank111...yml.
+          WORKFLOW_REF_PATH="${GITHUB_WORKFLOW_REF%@*}"
+          WORKFLOW_RELATIVE="${WORKFLOW_REF_PATH#"$GITHUB_REPOSITORY"/}"
+          if [[ "$WORKFLOW_RELATIVE" == "$WORKFLOW_REF_PATH" ||
+                "$WORKFLOW_RELATIVE" != .github/workflows/* ||
+                "$WORKFLOW_RELATIVE" == *'..'* ]]; then
+            echo "::error::Unexpected GITHUB_WORKFLOW_REF: $GITHUB_WORKFLOW_REF"
+            exit 1
+          fi
+          WORKFLOW="$GITHUB_WORKSPACE/$WORKFLOW_RELATIVE"
+          echo "Resolved workflow file: $WORKFLOW_RELATIVE"
+          test -f "$WORKFLOW" || { echo "::error::Workflow file missing at checked out commit: $WORKFLOW_RELATIVE"; exit 1; }
+          grep -Fxq 'name: GHOST VPN V21 - Flexible Workflow Path' "$WORKFLOW" || {
+            echo "::error::Wrong workflow version at $WORKFLOW_RELATIVE. Commit V21 and start a NEW run (not Re-run jobs)."
             exit 1
           }
           if grep -n -- '--no-fatal-'"infos" "$WORKFLOW"; then
@@ -42,10 +53,10 @@ jobs:
             exit 1
           fi
           grep -Fq 'dart analyze --no-fatal-warnings' "$WORKFLOW" || {
-            echo '::error::V20 analyzer step is missing.'
+            echo '::error::V21 analyzer step is missing.'
             exit 1
           }
-          echo 'VERIFIED: invalid analyzer option absent and V20 command present.'
+          echo 'VERIFIED: invalid analyzer option absent and V21 command present.'
 
       - name: Extract complete GHOST VPN 1.0.0 source (no layered patches)
         shell: bash
