@@ -1,7 +1,7 @@
 # GohstVpn source is stored as one ZIP in the repository ROOT.
 # Install this file at .github/workflows/gohstvpn-android.yml
 # Do not run the older V3 or other FlClash/Karing workflows.
-name: GohstVpn V10 - Dashboard Analyze Fix
+name: GHOST VPN V12 - Correct Server & Telegram Bot
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   android-apk:
-    name: Apply v0.2-v0.5 overlays, build ARM64 APK
+    name: Apply v0.2-v0.6 overlays, build signed ARM64 APK
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
@@ -19,11 +19,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Require persistent release signing key (never public)
+        shell: bash
+        env:
+          STORE_B64: ${{ secrets.GHOST_KEYSTORE_B64 }}
+          STORE_PASSWORD: ${{ secrets.GHOST_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.GHOST_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.GHOST_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in STORE_B64 STORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing signing secret for $name. See GHOST-VPN-SIGNING-FA.md. No APK can be safely signed without a fixed keystore."
+              exit 1
+            fi
+          done
+          echo 'Fixed signing secrets are configured (values remain hidden).'
+
       - name: PROOF V6 - extract EXACT GohstVpn v0.1 ZIP
         shell: bash
         run: |
           set -euo pipefail
-          echo '===== GOHSTVPN V10 DART HOTFIX ====='
+          echo '===== GHOST VPN V11 FIXED RELEASE ====='
           ZIP="$GITHUB_WORKSPACE/GohstVpn-FlClash-v0.1.0-source.zip"
           PROJECT="$RUNNER_TEMP/gohstvpn-locked-v4/GohstVpn"
           echo "Locked ZIP: $ZIP"
@@ -139,6 +156,40 @@ jobs:
           print(f'SUCCESS: removed unused icon import; fixed {fixed} curly-brace issues')
           PY_DART
 
+      - name: Apply EXACT GHOST VPN v0.6 brand, toasts and subscription alerts
+        shell: bash
+        run: |
+          set -euo pipefail
+          PATCH="$GITHUB_WORKSPACE/GHOST-VPN-v0.6.0-update.zip"
+          if [[ ! -s "$PATCH" ]]; then
+            echo '::error::Upload EXACT GHOST-VPN-v0.6.0-update.zip to repository root'
+            exit 1
+          fi
+          unzip -tq "$PATCH" >/dev/null
+          unzip -oq "$PATCH" -d "$RUNNER_TEMP/gohstvpn-locked-v4"
+          grep -q 'version: 0.6.0+6' "$GOHSTVPN_PROJECT/pubspec.yaml"
+          grep -q 'GHOST VPN' "$GOHSTVPN_PROJECT/lib/common/constant.dart"
+          test -s "$GOHSTVPN_PROJECT/assets/images/ghost_brand_logo.png"
+          echo 'SUCCESS: v0.6 updates overlaid onto V10 fixes'
+
+      - name: Apply GHOST VPN v0.6.1 real selected server and bot fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          PATCH="$GITHUB_WORKSPACE/GHOST-VPN-v0.6.1-server-info-bot-update.zip"
+          if [[ ! -s "$PATCH" ]]; then
+            echo '::error::Missing exact GHOST-VPN-v0.6.1-server-info-bot-update.zip in repository root'
+            exit 1
+          fi
+          unzip -tq "$PATCH" >/dev/null
+          unzip -oq "$PATCH" -d "$RUNNER_TEMP/gohstvpn-locked-v4"
+          cd "$GOHSTVPN_PROJECT"
+          grep -q 'version: 0.6.1+7' pubspec.yaml
+          grep -q 'V2_ghostvpn_bot' lib/common/ghost_purchase_bot.dart
+          test -s lib/common/ghost_active_server.dart
+          test -s test/ghost_active_server_test.dart
+          echo 'SUCCESS: dashboard, ping resolver and Telegram purchase bot patched'
+
       - name: Restore public Mihomo core missing from ZIP
         shell: bash
         run: |
@@ -226,7 +277,7 @@ jobs:
         run: |
           set -euo pipefail
           cd "$GOHSTVPN_PROJECT"
-          dart format lib/bootstrap.dart lib/application.dart lib/providers/app.dart lib/providers/actions/profiles.dart lib/views/dashboard/gohst_dashboard.dart lib/providers/state/theme.dart
+          dart format lib/common/ghost_active_server.dart test/ghost_active_server_test.dart lib/common/ghost_purchase_bot.dart lib/bootstrap.dart lib/application.dart lib/providers/app.dart lib/providers/actions/profiles.dart lib/views/dashboard/gohst_dashboard.dart lib/providers/state/theme.dart
           dart format lib/common/proxy_link_importer.dart lib/models/profile.dart lib/providers/action.dart lib/providers/actions/profiles.dart lib/providers/state/theme.dart lib/views/disclaimer.dart lib/views/profiles/add.dart test/common/proxy_link_importer_test.dart lib/common/gohst_display_name.dart lib/common/gohst_subscription_notice.dart lib/views/proxies/card.dart lib/views/proxies/proxies.dart lib/views/proxies/gohst_mobile_list.dart lib/views/dashboard/gohst_dashboard.dart test/common/gohst_display_name_test.dart
 
       - name: Test VLESS conversion with synthetic data
@@ -234,23 +285,39 @@ jobs:
         run: |
           set -euo pipefail
           cd "$GOHSTVPN_PROJECT"
-          flutter test test/common/proxy_link_importer_test.dart test/common/gohst_display_name_test.dart
+          flutter test test/common/proxy_link_importer_test.dart test/common/gohst_display_name_test.dart test/ghost_active_server_test.dart
 
       - name: Analyze modified Dart modules
         shell: bash
         run: |
           set -euo pipefail
           cd "$GOHSTVPN_PROJECT"
-          dart analyze lib/views/dashboard/gohst_dashboard.dart lib/providers/actions/profiles.dart lib/providers/state/theme.dart lib/providers/app.dart lib/application.dart lib/bootstrap.dart lib/models/profile.dart
+          dart analyze lib/common/ghost_active_server.dart test/ghost_active_server_test.dart lib/common/ghost_purchase_bot.dart lib/views/dashboard/gohst_dashboard.dart lib/providers/actions/profiles.dart lib/providers/state/theme.dart lib/providers/app.dart lib/application.dart lib/bootstrap.dart lib/models/profile.dart
+
+      - name: Install persistent release signing key securely
+        shell: bash
+        env:
+          STORE_B64: ${{ secrets.GHOST_KEYSTORE_B64 }}
+        run: |
+          set -euo pipefail
+          cd "$GOHSTVPN_PROJECT"
+          printf '%s' "$STORE_B64" | base64 --decode > android/app/keystore.jks
+          test -s android/app/keystore.jks
+          chmod 600 android/app/keystore.jks
+          echo 'Persistent keystore installed privately for this build.'
 
       - name: Build Android ARM64 APK
         shell: bash
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+          GHOST_STORE_PASSWORD: ${{ secrets.GHOST_STORE_PASSWORD }}
+          GHOST_KEY_ALIAS: ${{ secrets.GHOST_KEY_ALIAS }}
+          GHOST_KEY_PASSWORD: ${{ secrets.GHOST_KEY_PASSWORD }}
+          GHOST_TELEGRAM_BOT_URL: ${{ vars.GHOST_TELEGRAM_BOT_URL }}
         run: |
           set -euo pipefail
           cd "$GOHSTVPN_PROJECT"
-          dart setup.dart android --env dev --arch arm64 --targets apk -v
+          dart setup.dart android --env stable --arch arm64 --targets apk -v
 
       - name: Collect APK output
         shell: bash
@@ -275,7 +342,8 @@ jobs:
       - name: Upload GohstVpn APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GohstVpn-arm64-V10
+          name: GHOST-VPN-arm64-V12-SIGNED
           path: ${{ runner.temp }}/gohstvpn-apk-v9/*.apk
           if-no-files-found: error
           retention-days: 14
+
