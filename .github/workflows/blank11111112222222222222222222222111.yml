@@ -1,7 +1,7 @@
 # GohstVpn source is stored as one ZIP in the repository ROOT.
 # Install this file at .github/workflows/gohstvpn-android.yml
 # Do not run the older V3 or other FlClash/Karing workflows.
-name: GHOST VPN V17 - Native Test Build Fix
+name: GHOST VPN V18 - Persian RTL MotionGrid Fix
 
 on:
   workflow_dispatch:
@@ -241,6 +241,29 @@ jobs:
           PY_FA_MAP
           grep -nF 'english.messages.messages.cast<String, Function>()' lib/l10n/intl/messages_fa.dart
 
+      - name: Fix nullable TextDirection in animated grid (V18)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GOHSTVPN_PROJECT"
+          python3 - <<'PY_MOTION_GRID_RTL'
+          from pathlib import Path
+          file = Path('lib/widgets/motion_grid.dart')
+          source = file.read_text(encoding='utf-8')
+          old = 'textDirection: textDirection,'
+          new = 'textDirection: textDirection ?? Directionality.of(context),'
+          if source.count(old) == 1:
+              source = source.replace(old, new, 1)
+              file.write_text(source, encoding='utf-8')
+              print('FIXED: MotionGrid now resolves nullable direction against the widget context (supports Persian RTL).')
+          elif source.count(new) == 1 and old not in source:
+              print('ALREADY FIXED: MotionGrid has a non-null TextDirection.')
+          else:
+              raise SystemExit('ERROR: unexpected MotionGrid source; refusing unsafe replacement.')
+          assert file.read_text(encoding='utf-8').count(new) == 1
+          PY_MOTION_GRID_RTL
+          grep -n 'textDirection: textDirection' lib/widgets/motion_grid.dart
+
       - name: Restore public Mihomo core missing from ZIP
         shell: bash
         run: |
@@ -331,7 +354,7 @@ jobs:
           dart format lib/common/ghost_active_server.dart test/ghost_active_server_test.dart lib/common/ghost_purchase_bot.dart lib/bootstrap.dart lib/application.dart lib/providers/app.dart lib/providers/actions/profiles.dart lib/views/dashboard/gohst_dashboard.dart lib/providers/state/theme.dart
           dart format lib/common/proxy_link_importer.dart lib/models/profile.dart lib/providers/action.dart lib/providers/actions/profiles.dart lib/providers/state/theme.dart lib/views/disclaimer.dart lib/views/profiles/add.dart test/common/proxy_link_importer_test.dart lib/common/gohst_display_name.dart lib/common/gohst_subscription_notice.dart lib/views/proxies/card.dart lib/views/proxies/proxies.dart lib/views/proxies/gohst_mobile_list.dart lib/views/dashboard/gohst_dashboard.dart test/common/gohst_display_name_test.dart
 
-          dart format lib/common/ghost_latency_rank.dart test/common/ghost_latency_rank_test.dart lib/views/access.dart lib/views/about.dart lib/common/measure.dart lib/common/l10n_labels.dart lib/widgets/grid.dart lib/l10n/intl/messages_fa.dart lib/l10n/intl/messages_all.dart lib/l10n/l10n.dart lib/application.dart
+          dart format lib/common/ghost_latency_rank.dart test/common/ghost_latency_rank_test.dart lib/views/access.dart lib/views/about.dart lib/common/measure.dart lib/common/l10n_labels.dart lib/widgets/grid.dart lib/widgets/motion_grid.dart lib/l10n/intl/messages_fa.dart lib/l10n/intl/messages_all.dart lib/l10n/l10n.dart lib/application.dart
 
       - name: Test Dart logic serially without compiling VPN native assets (V17)
         shell: bash
@@ -383,7 +406,7 @@ jobs:
         run: |
           set -euo pipefail
           cd "$GOHSTVPN_PROJECT"
-          dart analyze --no-fatal-infos --no-fatal-warnings lib/common/ghost_active_server.dart test/ghost_active_server_test.dart lib/common/ghost_purchase_bot.dart lib/views/dashboard/gohst_dashboard.dart lib/providers/actions/profiles.dart lib/providers/state/theme.dart lib/providers/app.dart lib/application.dart lib/bootstrap.dart lib/models/profile.dart lib/common/proxy_link_importer.dart test/common/proxy_link_importer_test.dart lib/common/ghost_latency_rank.dart test/common/ghost_latency_rank_test.dart lib/views/access.dart lib/views/about.dart lib/common/measure.dart lib/common/l10n_labels.dart lib/widgets/grid.dart lib/l10n/intl/messages_fa.dart lib/l10n/intl/messages_all.dart lib/l10n/l10n.dart lib/views/profiles/add.dart lib/views/proxies/gohst_mobile_list.dart
+          dart analyze --no-fatal-infos --no-fatal-warnings lib/common/ghost_active_server.dart test/ghost_active_server_test.dart lib/common/ghost_purchase_bot.dart lib/views/dashboard/gohst_dashboard.dart lib/providers/actions/profiles.dart lib/providers/state/theme.dart lib/providers/app.dart lib/application.dart lib/bootstrap.dart lib/models/profile.dart lib/common/proxy_link_importer.dart test/common/proxy_link_importer_test.dart lib/common/ghost_latency_rank.dart test/common/ghost_latency_rank_test.dart lib/views/access.dart lib/views/about.dart lib/common/measure.dart lib/common/l10n_labels.dart lib/widgets/grid.dart lib/widgets/motion_grid.dart lib/l10n/intl/messages_fa.dart lib/l10n/intl/messages_all.dart lib/l10n/l10n.dart lib/views/profiles/add.dart lib/views/proxies/gohst_mobile_list.dart
 
       # 1) Existing secrets: true permanent signing (works for both public/private repositories).
       # 2) No secrets + PRIVATE repository: generate once, reuse via private artifacts.
@@ -540,7 +563,7 @@ jobs:
       - name: Upload GohstVpn APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GHOST-VPN-arm64-V17-${{ steps.signing.outputs.mode }}
+          name: GHOST-VPN-arm64-V18-${{ steps.signing.outputs.mode }}
           path: ${{ runner.temp }}/gohstvpn-apk-v9/*.apk
           if-no-files-found: error
           retention-days: 14
