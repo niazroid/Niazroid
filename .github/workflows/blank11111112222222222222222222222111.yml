@@ -1,7 +1,7 @@
 # GohstVpn source is stored as one ZIP in the repository ROOT.
 # Install this file at .github/workflows/gohstvpn-android.yml
 # Do not run the older V3 or other FlClash/Karing workflows.
-name: GohstVpn V9 - Home & Auto Ping
+name: GohstVpn V10 - Dashboard Analyze Fix
 
 on:
   workflow_dispatch:
@@ -23,7 +23,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo '===== GOHSTVPN V9 HOME UPDATE ====='
+          echo '===== GOHSTVPN V10 DART HOTFIX ====='
           ZIP="$GITHUB_WORKSPACE/GohstVpn-FlClash-v0.1.0-source.zip"
           PROJECT="$RUNNER_TEMP/gohstvpn-locked-v4/GohstVpn"
           echo "Locked ZIP: $ZIP"
@@ -107,6 +107,37 @@ jobs:
           grep -q 'class _GohstDashboardState' "$GOHSTVPN_PROJECT/lib/views/dashboard/gohst_dashboard.dart"
           test -s "$GOHSTVPN_PROJECT/assets/images/gohst_refresh.svg"
           echo 'SUCCESS: v0.5 update overlay installed'
+
+      - name: Fix dashboard Dart analysis warnings (V10)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GOHSTVPN_PROJECT"
+          python3 - <<'PY_DART'
+          from pathlib import Path
+          import re
+          file = Path('lib/views/dashboard/gohst_dashboard.dart')
+          source = file.read_text(encoding='utf-8')
+          unused = "import 'package:fl_clash/icons/icons.dart';\n"
+          if source.count(unused) != 1:
+              raise SystemExit('ERROR: dashboard source differs from v0.5; unused import mismatch')
+          source = source.replace(unused, '')
+          pattern = re.compile(r'^(?P<indent>[ \t]*)if \((?P<cond>.+?)\) (?P<stmt>.+;)$')
+          updated = []
+          fixed = 0
+          for line in source.splitlines(keepends=True):
+              match = pattern.fullmatch(line.rstrip('\n'))
+              if match and '...[' not in match.group('stmt'):
+                  indent, cond, stmt = match.group('indent', 'cond', 'stmt')
+                  updated.append(f'{indent}if ({cond}) {{\n{indent}  {stmt}\n{indent}}}\n')
+                  fixed += 1
+              else:
+                  updated.append(line)
+          if fixed != 17:
+              raise SystemExit(f'ERROR: unexpected dashboard version; expected 17 inline if statements but got {fixed}')
+          file.write_text(''.join(updated), encoding='utf-8')
+          print(f'SUCCESS: removed unused icon import; fixed {fixed} curly-brace issues')
+          PY_DART
 
       - name: Restore public Mihomo core missing from ZIP
         shell: bash
@@ -244,7 +275,7 @@ jobs:
       - name: Upload GohstVpn APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GohstVpn-arm64-V9
+          name: GohstVpn-arm64-V10
           path: ${{ runner.temp }}/gohstvpn-apk-v9/*.apk
           if-no-files-found: error
           retention-days: 14
