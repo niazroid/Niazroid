@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.1.41 Weekly Schedule Hardened Zero-Secret
+name: Build BankMovie Windows v1.1.44 Weekly Schedule Hardened Zero-Secret
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.1.41-weekly.zip
+  SOURCE_ZIP: BankMovie-v1.1.44-movie-info-svg.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -36,7 +36,7 @@ jobs:
         working-directory: ${{ env.DESKTOP_DIR }}
         run: |
           $pkg = Get-Content package.json -Raw | ConvertFrom-Json
-          if ($pkg.version -ne '1.1.41') { throw 'Expected version 1.1.41' }
+          if ($pkg.version -ne '1.1.44') { throw 'Expected version 1.1.44' }
           $main = Get-Content electron/main.js -Raw
           $preload = Get-Content electron/preload.js -Raw
           $runtime = Get-Content electron/runtime.generated.js -Raw
@@ -109,7 +109,7 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-v1.1.41-${{ github.sha }}
+          name: BankMovie-Windows-v1.1.44-${{ github.sha }}
           path: |
             ${{ env.DESKTOP_DIR }}/dist/*.exe
             ${{ env.DESKTOP_DIR }}/dist/*.blockmap
