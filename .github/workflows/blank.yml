@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.1.49 Weekly in Categories
+name: Build BankMovie Windows v1.1.49 Home Fix
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.1.49-home-and-cleanup.zip
+  SOURCE_ZIP: BankMovie-v1.1.49-home-fix.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -25,7 +25,11 @@ jobs:
         shell: pwsh
         run: |
           $zip = Join-Path "${{ github.workspace }}" "${{ env.SOURCE_ZIP }}"
-          if (-not (Test-Path $zip)) { throw "Required source archive not found: $zip" }
+          if (-not (Test-Path -LiteralPath $zip -PathType Leaf)) {
+            Write-Host "Available ZIP files in repository root:"
+            Get-ChildItem -LiteralPath "${{ github.workspace }}" -Filter '*.zip' -File | Select-Object -ExpandProperty Name | ForEach-Object { Write-Host " - $_" }
+            throw "Missing ${{ env.SOURCE_ZIP }} in repository root. Upload/commit the v1.1.49 source ZIP beside README (not the server patches)."
+          }
           $dest = Join-Path "${{ github.workspace }}" "${{ env.EXTRACT_DIR }}"
           if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
           New-Item -ItemType Directory -Path $dest | Out-Null
@@ -153,7 +157,7 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-v1.1.46-${{ github.sha }}
+          name: BankMovie-Windows-v1.1.49-${{ github.sha }}
           path: |
             ${{ env.DESKTOP_DIR }}/dist/*.exe
             ${{ env.DESKTOP_DIR }}/dist/*.blockmap
