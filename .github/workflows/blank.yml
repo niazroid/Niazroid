@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.0.0 Separate x64 and ia32
+name: Build BankMovie v1.0.0 Archive Policy Fix x64 and ia32
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.0.0-x64-ia32-update-fix.zip
+  SOURCE_ZIP: BankMovie-v1.0.0-archive-disable-UI-x64-ia32.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -76,6 +76,11 @@ jobs:
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
         run: node tests/update-gate-v1.0.0.test.js
+
+      - name: Test disabled archives policy and UI version placement
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: node tests/archive-policy-disable-v1.0.0.test.js
 
       - name: Test Home navigation
         shell: pwsh
