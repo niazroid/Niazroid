@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.0.0 Archive Reset
+name: Build BankMovie Windows v1.0.0 Separate x64 and ia32
 
 on:
   workflow_dispatch:
@@ -10,13 +10,17 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.0.0-archive-reset.zip
+  SOURCE_ZIP: BankMovie-v1.0.0-x64-ia32-update-fix.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
 jobs:
   build-windows:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, ia32]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -67,6 +71,11 @@ jobs:
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
         run: node tests/release-v1-archive-reset.test.js
+
+      - name: Test update gate (version 1.0.0)
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: node tests/update-gate-v1.0.0.test.js
 
       - name: Test Home navigation
         shell: pwsh
@@ -125,14 +134,27 @@ jobs:
             throw 'Public release requires WIN_CSC_LINK and WIN_CSC_KEY_PASSWORD secrets.'
           }
 
-      - name: Build hardened Windows installer
+      - name: Build hardened Windows installer (${{ matrix.arch }})
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-        run: npx electron-builder --win nsis --publish never
+        # Explicit target:arch is essential! Building both in one command creates one combined installer.
+        run: npx electron-builder --win nsis:${{ matrix.arch }} --publish never
+
+      - name: Check expected architecture-specific installer
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: |
+          $expected = "BankMovie-Setup-1.0.0-${{ matrix.arch }}.exe"
+          if (-not (Test-Path (Join-Path dist $expected))) { 
+            Get-ChildItem dist | Select-Object -ExpandProperty Name
+            throw "Missing separate $expected"
+          }
+          $installers = @(Get-ChildItem dist -Filter 'BankMovie-Setup-*.exe' -File)
+          if ($installers.Count -ne 1) { throw "Expected exactly one ${{ matrix.arch }} installer per job" }
 
       - name: Verify installer Authenticode signature for release tags
         if: startsWith(github.ref, 'refs/tags/v')
@@ -148,36 +170,53 @@ jobs:
             }
           }
 
-      - name: Create SHA-256 checksums
+      - name: Create SHA-256 checksum for this architecture
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
         run: |
-          $lines = @()
-          Get-ChildItem dist -File | Where-Object { $_.Extension -in '.exe', '.blockmap', '.yml' } | ForEach-Object {
-            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
-            $lines += "$hash  $($_.Name)"
-          }
-          $lines | Set-Content dist/SHA256SUMS.txt -Encoding ascii
+          $installer = Get-Item "dist/BankMovie-Setup-1.0.0-${{ matrix.arch }}.exe"
+          $hash = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLower()
+          "$hash  $($installer.Name)" | Set-Content "dist/SHA256SUMS-${{ matrix.arch }}.txt" -Encoding ascii
 
-      - name: Upload Windows artifact
+      - name: Upload separate Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-v1.0.0-${{ github.sha }}
+          name: BankMovie-Windows-v1.0.0-${{ matrix.arch }}
           path: |
-            ${{ env.DESKTOP_DIR }}/dist/*.exe
-            ${{ env.DESKTOP_DIR }}/dist/*.blockmap
-            ${{ env.DESKTOP_DIR }}/dist/*.yml
-            ${{ env.DESKTOP_DIR }}/dist/SHA256SUMS.txt
+            ${{ env.DESKTOP_DIR }}/dist/BankMovie-Setup-1.0.0-${{ matrix.arch }}.exe
+            ${{ env.DESKTOP_DIR }}/dist/SHA256SUMS-${{ matrix.arch }}.txt
           if-no-files-found: error
           retention-days: 30
 
+  publish-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-windows
+    runs-on: windows-latest
+    steps:
+      - name: Collect the two separate installers
+        uses: actions/download-artifact@v4
+        with:
+          pattern: BankMovie-Windows-v1.0.0-*
+          path: release-files
+          merge-multiple: true
+
+      - name: Verify both installers and create release checksums
+        shell: pwsh
+        run: |
+          $expected = @('BankMovie-Setup-1.0.0-x64.exe', 'BankMovie-Setup-1.0.0-ia32.exe')
+          $lines = @()
+          foreach ($name in $expected) {
+            $path = Join-Path release-files $name
+            if (-not (Test-Path $path)) { throw "Missing release artifact: $name" }
+            $hash = (Get-FileHash $path -Algorithm SHA256).Hash.ToLower()
+            $lines += "$hash  $name"
+          }
+          $lines | Set-Content release-files/SHA256SUMS.txt -Encoding ascii
+
       - name: Publish GitHub Release assets
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: |
-            ${{ env.DESKTOP_DIR }}/dist/*.exe
-            ${{ env.DESKTOP_DIR }}/dist/*.blockmap
-            ${{ env.DESKTOP_DIR }}/dist/*.yml
-            ${{ env.DESKTOP_DIR }}/dist/SHA256SUMS.txt
+            release-files/*.exe
+            release-files/SHA256SUMS.txt
