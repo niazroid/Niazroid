@@ -1,4 +1,4 @@
-name: Build BankMovie Windows v1.1.49 Home Fix
+name: Build BankMovie Windows v1.0.0 Archive Reset
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.1.49-home-fix.zip
+  SOURCE_ZIP: BankMovie-v1.0.0-archive-reset.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -28,7 +28,7 @@ jobs:
           if (-not (Test-Path -LiteralPath $zip -PathType Leaf)) {
             Write-Host "Available ZIP files in repository root:"
             Get-ChildItem -LiteralPath "${{ github.workspace }}" -Filter '*.zip' -File | Select-Object -ExpandProperty Name | ForEach-Object { Write-Host " - $_" }
-            throw "Missing ${{ env.SOURCE_ZIP }} in repository root. Upload/commit the v1.1.49 source ZIP beside README (not the server patches)."
+            throw "Missing ${{ env.SOURCE_ZIP }} in repository root. Upload/commit the v1.0.0 source ZIP beside README (not the server patches)."
           }
           $dest = Join-Path "${{ github.workspace }}" "${{ env.EXTRACT_DIR }}"
           if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
@@ -40,7 +40,7 @@ jobs:
         working-directory: ${{ env.DESKTOP_DIR }}
         run: |
           $pkg = Get-Content package.json -Raw | ConvertFrom-Json
-          if ($pkg.version -ne '1.1.49') { throw 'Expected version 1.1.49' }
+          if ($pkg.version -ne '1.0.0') { throw 'Expected version 1.0.0' }
           if ($env:GITHUB_REF -like 'refs/tags/v*' -and $env:GITHUB_REF -ne "refs/tags/v$($pkg.version)") { throw 'Release tag does not match app version' }
           $main = Get-Content electron/main.js -Raw
           $preload = Get-Content electron/preload.js -Raw
@@ -62,6 +62,11 @@ jobs:
           if ($pkg.build.nsis.include) { throw 'Standard NSIS must not load any custom dark theme hook' }
           if ($main -notmatch 'BMFailover') { throw 'Signed content failover missing' }
           if ($main -notmatch 'weekly_schedule\.php') { throw 'Weekly schedule API integration missing' }
+
+      - name: Test version and Archive 1 fallback
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: node tests/release-v1-archive-reset.test.js
 
       - name: Test Home navigation
         shell: pwsh
@@ -157,7 +162,7 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-Windows-v1.1.49-${{ github.sha }}
+          name: BankMovie-Windows-v1.0.0-${{ github.sha }}
           path: |
             ${{ env.DESKTOP_DIR }}/dist/*.exe
             ${{ env.DESKTOP_DIR }}/dist/*.blockmap
