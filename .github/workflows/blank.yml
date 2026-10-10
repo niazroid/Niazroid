@@ -1,4 +1,4 @@
-name: Build BankMovie v1.0.0 Archive Policy Fix x64 and ia32
+name: Build BankMovie v1.0.0 STATS x64 and ia32
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.0.0-archive-disable-UI-x64-ia32.zip
+  SOURCE_ZIP: BankMovie-v1.0.0-STATS-x64-ia32.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -65,6 +65,7 @@ jobs:
           if ($preload -notmatch 'weeklySchedule') { throw 'Weekly schedule bridge missing' }
           if ($pkg.build.nsis.include) { throw 'Standard NSIS must not load any custom dark theme hook' }
           if ($main -notmatch 'BMFailover') { throw 'Signed content failover missing' }
+          if ($main -notmatch 'desktop_stats\.php' -or $main -notmatch 'bmReportStatsLaunch') { throw 'Authenticated desktop launch telemetry missing' }
           if ($main -notmatch 'weekly_schedule\.php') { throw 'Weekly schedule API integration missing' }
 
       - name: Test version and Archive 1 fallback
