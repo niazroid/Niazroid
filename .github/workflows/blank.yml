@@ -1,4 +1,4 @@
-name: Build BankMovie v1.0.0 STATS x64 and ia32
+name: Build BankMovie v1.0.0 OPTIMIZED STATS x64 and ia32
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.0.0-STATS-x64-ia32.zip
+  SOURCE_ZIP: BankMovie-v1.0.0-STATS-OPTIMIZED-x64-ia32.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -82,6 +82,11 @@ jobs:
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
         run: node tests/archive-policy-disable-v1.0.0.test.js
+
+      - name: Test offline statistics persistence and retry
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: node tests/stats-offline-retry.test.js
 
       - name: Test Home navigation
         shell: pwsh
