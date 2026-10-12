@@ -1,7 +1,7 @@
-# GohstVpn source is stored as one ZIP in the repository ROOT.
-# Install this file at .github/workflows/gohstvpn-android.yml
+# Use the integrated v1.0.0 source ZIP plus ONE small v1.0.1 importer update ZIP.
+# Install this file in ANY filename under .github/workflows/.
 # Use this standalone full-source build rather than the older overlay workflows.
-name: GHOST VPN V22 - ARM64 VersionCode Fix
+name: GHOST VPN V23 - Multi Protocol Subscription Import
 
 on:
   workflow_dispatch:
@@ -24,11 +24,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: V22 preflight - detect actual workflow filename
+      - name: V23 preflight - detect actual workflow filename
         shell: bash
         run: |
           set -euo pipefail
-          echo 'GHOST VPN V22 PRE-FLIGHT OK - ARM64 VERSIONCODE FIX'
+          echo 'GHOST VPN V23 PRE-FLIGHT OK - MULTI PROTOCOL IMPORT'
           echo "Commit: $GITHUB_SHA"
           echo "Workflow: $GITHUB_WORKFLOW_REF"
           # Resolve the ACTUAL workflow path; the file can be named anything
@@ -44,8 +44,8 @@ jobs:
           WORKFLOW="$GITHUB_WORKSPACE/$WORKFLOW_RELATIVE"
           echo "Resolved workflow file: $WORKFLOW_RELATIVE"
           test -f "$WORKFLOW" || { echo "::error::Workflow file missing at checked out commit: $WORKFLOW_RELATIVE"; exit 1; }
-          grep -Fxq 'name: GHOST VPN V22 - ARM64 VersionCode Fix' "$WORKFLOW" || {
-            echo "::error::Wrong workflow version at $WORKFLOW_RELATIVE. Commit V22 and start a NEW run (not Re-run jobs)."
+          grep -Fxq 'name: GHOST VPN V23 - Multi Protocol Subscription Import' "$WORKFLOW" || {
+            echo "::error::Wrong workflow version at $WORKFLOW_RELATIVE. Commit V23 and start a NEW run (not Re-run jobs)."
             exit 1
           }
           if grep -n -- '--no-fatal-'"infos" "$WORKFLOW"; then
@@ -53,12 +53,12 @@ jobs:
             exit 1
           fi
           grep -Fq 'dart analyze --no-fatal-warnings' "$WORKFLOW" || {
-            echo '::error::V22 analyzer step is missing.'
+            echo '::error::V23 analyzer step is missing.'
             exit 1
           }
-          echo 'VERIFIED: invalid analyzer option absent and V22 command present.'
+          echo 'VERIFIED: invalid analyzer option absent and V23 command present.'
 
-      - name: Extract complete GHOST VPN 1.0.0 source (no layered patches)
+      - name: Extract v1.0.0 base and apply the v1.0.1 importer fix
         shell: bash
         run: |
           set -euo pipefail
@@ -82,8 +82,22 @@ jobs:
             echo '::error::Manual config entry remains in the source.'
             exit 1
           fi
+          # Only one small additive overlay on the tested v1.0.0 base.
+          UPDATE="$GITHUB_WORKSPACE/GHOST-VPN-v1.0.1-import-fix.zip"
+          test -s "$UPDATE" || { echo '::error::Upload GHOST-VPN-v1.0.1-import-fix.zip to repository ROOT.'; exit 1; }
+          unzip -tq "$UPDATE" >/dev/null
+          unzip -qo "$UPDATE" -d "$RUNNER_TEMP/gohstvpn-locked-v4"
+          grep -qx 'version: 1.0.1+10' <(grep '^version:' "$PROJECT/pubspec.yaml") || {
+            echo '::error::v1.0.1 update did not replace pubspec version.'; exit 1;
+          }
+          grep -Fq 'static Map<String, Object> _parseVmess' "$PROJECT/lib/common/proxy_link_importer.dart" || {
+            echo '::error::VMess converter missing after overlay.'; exit 1;
+          }
+          grep -Fq "test('mixed VLESS, VMess, Trojan" "$PROJECT/test/common/proxy_link_importer_test.dart" || {
+            echo '::error::Regression tests missing after overlay.'; exit 1;
+          }
           echo "GOHSTVPN_PROJECT=$PROJECT" >> "$GITHUB_ENV"
-          echo 'GHOST VPN v1.0.0 complete source loaded; previous update overlays are not required.'
+          echo 'GHOST VPN v1.0.1 source loaded; previous legacy overlays are NOT required.'
 
       - name: Restore public Mihomo core missing from ZIP
         shell: bash
@@ -172,8 +186,8 @@ jobs:
         run: |
           set -euo pipefail
           cd "$GOHSTVPN_PROJECT"
-          dart format lib/views/profiles/add.dart lib/providers/actions/profiles.dart lib/l10n/intl/messages_fa.dart lib/widgets/motion_grid.dart
-          test "$(grep -c 'version: 1.0.0+9' pubspec.yaml)" -eq 1
+          dart format lib/views/profiles/add.dart lib/providers/actions/profiles.dart lib/l10n/intl/messages_fa.dart lib/widgets/motion_grid.dart lib/common/proxy_link_importer.dart test/common/proxy_link_importer_test.dart
+          test "$(grep -c 'version: 1.0.1+10' pubspec.yaml)" -eq 1
           grep -Fq 'english.messages.messages.cast<String, Function>()' lib/l10n/intl/messages_fa.dart
           grep -Fq 'textDirection ?? Directionality.of(context)' lib/widgets/motion_grid.dart
           ! grep -Fq '_addManual' lib/views/profiles/add.dart
@@ -368,13 +382,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/gohstvpn-apk-v22"
+          mkdir -p "$RUNNER_TEMP/gohstvpn-apk-v23"
           count=0
           for folder in "$GOHSTVPN_PROJECT/dist" "$GOHSTVPN_PROJECT/build/app/outputs/flutter-apk"; do
             if [[ -d "$folder" ]]; then
               while IFS= read -r -d '' apk; do
                 count=$((count + 1))
-                cp "$apk" "$RUNNER_TEMP/gohstvpn-apk-v22/${count}-$(basename "$apk")"
+                cp "$apk" "$RUNNER_TEMP/gohstvpn-apk-v23/${count}-$(basename "$apk")"
               done < <(find "$folder" -type f -name '*.apk' -print0)
             fi
           done
@@ -382,7 +396,7 @@ jobs:
             echo '::error::Build ended but no APK exists in dist/ or Flutter APK output folder'
             exit 1
           fi
-          ls -lh "$RUNNER_TEMP/gohstvpn-apk-v22/"
+          ls -lh "$RUNNER_TEMP/gohstvpn-apk-v23/"
 
       - name: Verify APK version, package identity and Android signature
         shell: bash
@@ -397,19 +411,19 @@ jobs:
           test -x "$APKSIGNER" && test -x "$AAPT" || {
             echo '::error::apksigner/aapt are missing.'; exit 1;
           }
-          for apk in "$RUNNER_TEMP"/gohstvpn-apk-v22/*.apk; do
+          for apk in "$RUNNER_TEMP"/gohstvpn-apk-v23/*.apk; do
             echo "Checking $(basename "$apk")"
             "$APKSIGNER" verify --verbose --print-certs "$apk"
             PACKAGE_INFO=$("$AAPT" dump badging "$apk" | grep '^package: ')
             echo "$PACKAGE_INFO"
-            grep -q "versionName='1.0.0'" <<< "$PACKAGE_INFO" || {
-              echo '::error::Unexpected APK version; expected 1.0.0.'; exit 1;
+            grep -q "versionName='1.0.1'" <<< "$PACKAGE_INFO" || {
+              echo '::error::Unexpected APK version; expected 1.0.1.'; exit 1;
             }
             # Flutter's --split-per-abi adds 2000 to the base pubspec
-            # versionCode for the arm64-v8a APK: 1.0.0+9 -> 2009.
+            # versionCode for the arm64-v8a APK: 1.0.1+10 -> 2010.
             # Do not lower the Android code to 9; that would break updates.
-            grep -q "versionCode='2009'" <<< "$PACKAGE_INFO" || {
-              echo '::error::Unexpected ARM64 APK build number; expected 2009 (2000+9).'; exit 1;
+            grep -q "versionCode='2010'" <<< "$PACKAGE_INFO" || {
+              echo '::error::Unexpected ARM64 APK build number; expected 2010 (2000+10).'; exit 1;
             }
             case '${{ steps.signing.outputs.mode }}' in
               secrets|private-artifact)
@@ -429,13 +443,13 @@ jobs:
               *) echo '::error::Unknown signing mode.'; exit 1 ;;
             esac
           done
-          echo 'APK integrity, ARM64 versionCode=2009, versionName=1.0.0 and signature verification passed.'
+          echo 'APK integrity, ARM64 versionCode=2010, versionName=1.0.1 and signature verification passed.'
 
       - name: Upload GohstVpn APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GHOST-VPN-arm64-V22-${{ steps.signing.outputs.mode }}
-          path: ${{ runner.temp }}/gohstvpn-apk-v22/*.apk
+          name: GHOST-VPN-arm64-V23-${{ steps.signing.outputs.mode }}
+          path: ${{ runner.temp }}/gohstvpn-apk-v23/*.apk
           if-no-files-found: error
           retention-days: 14
 
