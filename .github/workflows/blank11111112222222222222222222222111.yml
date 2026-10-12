@@ -1,7 +1,7 @@
 # Use the integrated v1.0.0 source ZIP plus ONE small v1.0.1 importer update ZIP.
 # Install this file in ANY filename under .github/workflows/.
 # Use this standalone full-source build rather than the older overlay workflows.
-name: GHOST VPN V23 - Multi Protocol Subscription Import
+name: GHOST VPN XRAY LAB 1 - ARM64 Native Bridge
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   android-apk:
-    name: Build ARM64 APK with automatic signing
+    name: Experimental Xray JNI + old VPN (NOT Xray tunnel)
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
@@ -24,11 +24,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: V23 preflight - detect actual workflow filename
+      - name: Xray Lab preflight - detect actual workflow filename
         shell: bash
         run: |
           set -euo pipefail
-          echo 'GHOST VPN V23 PRE-FLIGHT OK - MULTI PROTOCOL IMPORT'
+          echo 'GHOST VPN XRAY LAB 1 PRE-FLIGHT OK - REAL XRAY BRIDGE'
           echo "Commit: $GITHUB_SHA"
           echo "Workflow: $GITHUB_WORKFLOW_REF"
           # Resolve the ACTUAL workflow path; the file can be named anything
@@ -44,8 +44,8 @@ jobs:
           WORKFLOW="$GITHUB_WORKSPACE/$WORKFLOW_RELATIVE"
           echo "Resolved workflow file: $WORKFLOW_RELATIVE"
           test -f "$WORKFLOW" || { echo "::error::Workflow file missing at checked out commit: $WORKFLOW_RELATIVE"; exit 1; }
-          grep -Fxq 'name: GHOST VPN V23 - Multi Protocol Subscription Import' "$WORKFLOW" || {
-            echo "::error::Wrong workflow version at $WORKFLOW_RELATIVE. Commit V23 and start a NEW run (not Re-run jobs)."
+          grep -Fxq 'name: GHOST VPN XRAY LAB 1 - ARM64 Native Bridge' "$WORKFLOW" || {
+            echo "::error::Wrong workflow version at $WORKFLOW_RELATIVE. Commit the new Xray Lab YAML and start a NEW run (not Re-run jobs)."
             exit 1
           }
           if grep -n -- '--no-fatal-'"infos" "$WORKFLOW"; then
@@ -53,10 +53,10 @@ jobs:
             exit 1
           fi
           grep -Fq 'dart analyze --no-fatal-warnings' "$WORKFLOW" || {
-            echo '::error::V23 analyzer step is missing.'
+            echo '::error::Xray Lab analyzer step is missing.'
             exit 1
           }
-          echo 'VERIFIED: invalid analyzer option absent and V23 command present.'
+          echo 'VERIFIED: invalid analyzer option absent and Xray Lab analyzer command present.'
 
       - name: Extract v1.0.0 base and apply the v1.0.1 importer fix
         shell: bash
@@ -96,8 +96,18 @@ jobs:
           grep -Fq "test('mixed VLESS, VMess, Trojan" "$PROJECT/test/common/proxy_link_importer_test.dart" || {
             echo '::error::Regression tests missing after overlay.'; exit 1;
           }
+          LAB="$GITHUB_WORKSPACE/GHOST-VPN-Xray-Lab-v1.0.2-overlay.zip"
+          test -s "$LAB" || { echo '::error::Upload GHOST-VPN-Xray-Lab-v1.0.2-overlay.zip in the repository root'; exit 1; }
+          unzip -tq "$LAB" >/dev/null
+          unzip -qo "$LAB" -d "$RUNNER_TEMP/gohstvpn-locked-v4"
+          grep -qx 'version: 1.0.2+11' <(grep '^version:' "$PROJECT/pubspec.yaml") || {
+            echo '::error::Xray Lab overlay failed (version 1.0.2+11 absent)'; exit 1;
+          }
+          test -s "$PROJECT/integration/xray/Xray-core-26.3.27.zip"
+          test -s "$PROJECT/integration/xray/ghostmobile/bridge.go"
+          test -s "$PROJECT/android/app/src/main/kotlin/com/follow/clash/plugins/GhostXrayPlugin.kt"
           echo "GOHSTVPN_PROJECT=$PROJECT" >> "$GITHUB_ENV"
-          echo 'GHOST VPN v1.0.1 source loaded; previous legacy overlays are NOT required.'
+          echo 'GHOST VPN Xray LAB bridge overlay loaded. Old VPN route remains Mihomo pending end-to-end tests.'
 
       - name: Restore public Mihomo core missing from ZIP
         shell: bash
@@ -165,6 +175,35 @@ jobs:
           add-to-path: true
           link-to-sdk: true
 
+      - name: Compile actual Xray-core Android ARM64 library (gomobile)
+        shell: bash
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          set -euo pipefail
+          XDIR="$RUNNER_TEMP/ghost-xray-upstream"
+          mkdir -p "$XDIR"
+          unzip -q "$GOHSTVPN_PROJECT/integration/xray/Xray-core-26.3.27.zip" -d "$XDIR"
+          SRC="$XDIR/Xray-core-26.3.27"
+          test -s "$SRC/go.mod"
+          mkdir -p "$SRC/ghostmobile"
+          cp "$GOHSTVPN_PROJECT/integration/xray/ghostmobile/"*.go "$SRC/ghostmobile/"
+          cd "$SRC"
+          echo 'Downloading dependencies for USER-PROVIDED Xray-core 26.3.27'
+          go mod download
+          echo 'Building/testing real Xray bridge (not just renaming a .so)'
+          go test ./ghostmobile -v
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          go install golang.org/x/mobile/cmd/gobind@latest
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          gomobile init
+          mkdir -p "$GOHSTVPN_PROJECT/android/app/libs"
+          gomobile bind -v -target=android/arm64 -androidapi 24 \
+            -o "$GOHSTVPN_PROJECT/android/app/libs/ghostxray.aar" ./ghostmobile
+          test -s "$GOHSTVPN_PROJECT/android/app/libs/ghostxray.aar"
+          unzip -tq "$GOHSTVPN_PROJECT/android/app/libs/ghostxray.aar" >/dev/null
+          echo 'Go bridge tests passed and ghostxray.aar is built from Xray 26.3.27.'
+
       - name: Install Rust Android target
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -187,7 +226,7 @@ jobs:
           set -euo pipefail
           cd "$GOHSTVPN_PROJECT"
           dart format lib/views/profiles/add.dart lib/providers/actions/profiles.dart lib/l10n/intl/messages_fa.dart lib/widgets/motion_grid.dart lib/common/proxy_link_importer.dart test/common/proxy_link_importer_test.dart
-          test "$(grep -c 'version: 1.0.1+10' pubspec.yaml)" -eq 1
+          test "$(grep -c 'version: 1.0.2+11' pubspec.yaml)" -eq 1
           grep -Fq 'english.messages.messages.cast<String, Function>()' lib/l10n/intl/messages_fa.dart
           grep -Fq 'textDirection ?? Directionality.of(context)' lib/widgets/motion_grid.dart
           ! grep -Fq '_addManual' lib/views/profiles/add.dart
@@ -368,6 +407,17 @@ jobs:
           print('VERIFIED: both native engine build hooks are enabled for Android APK.')
           PY_NATIVE_RELEASE
 
+      - name: Verify experimental Xray native library before APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$GOHSTVPN_PROJECT/android/app/libs/ghostxray.aar" || {
+            echo '::error::No real Xray library was built. Refusing to label this as Xray Lab.'; exit 1;
+          }
+          unzip -l "$GOHSTVPN_PROJECT/android/app/libs/ghostxray.aar" | grep -Eq '(jni/arm64-v8a/|arm64-v8a/).*\.so' || {
+            echo '::error::Android ARM64 native Xray binary missing from AAR.'; exit 1;
+          }
+
       - name: Build Android ARM64 APK
         shell: bash
         env:
@@ -382,13 +432,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/gohstvpn-apk-v23"
+          mkdir -p "$RUNNER_TEMP/gohstvpn-apk-xraylab1"
           count=0
           for folder in "$GOHSTVPN_PROJECT/dist" "$GOHSTVPN_PROJECT/build/app/outputs/flutter-apk"; do
             if [[ -d "$folder" ]]; then
               while IFS= read -r -d '' apk; do
                 count=$((count + 1))
-                cp "$apk" "$RUNNER_TEMP/gohstvpn-apk-v23/${count}-$(basename "$apk")"
+                cp "$apk" "$RUNNER_TEMP/gohstvpn-apk-xraylab1/${count}-$(basename "$apk")"
               done < <(find "$folder" -type f -name '*.apk' -print0)
             fi
           done
@@ -396,7 +446,7 @@ jobs:
             echo '::error::Build ended but no APK exists in dist/ or Flutter APK output folder'
             exit 1
           fi
-          ls -lh "$RUNNER_TEMP/gohstvpn-apk-v23/"
+          ls -lh "$RUNNER_TEMP/gohstvpn-apk-xraylab1/"
 
       - name: Verify APK version, package identity and Android signature
         shell: bash
@@ -411,19 +461,19 @@ jobs:
           test -x "$APKSIGNER" && test -x "$AAPT" || {
             echo '::error::apksigner/aapt are missing.'; exit 1;
           }
-          for apk in "$RUNNER_TEMP"/gohstvpn-apk-v23/*.apk; do
+          for apk in "$RUNNER_TEMP"/gohstvpn-apk-xraylab1/*.apk; do
             echo "Checking $(basename "$apk")"
             "$APKSIGNER" verify --verbose --print-certs "$apk"
             PACKAGE_INFO=$("$AAPT" dump badging "$apk" | grep '^package: ')
             echo "$PACKAGE_INFO"
-            grep -q "versionName='1.0.1'" <<< "$PACKAGE_INFO" || {
-              echo '::error::Unexpected APK version; expected 1.0.1.'; exit 1;
+            grep -q "versionName='1.0.2'" <<< "$PACKAGE_INFO" || {
+              echo '::error::Unexpected APK version; expected 1.0.2.'; exit 1;
             }
             # Flutter's --split-per-abi adds 2000 to the base pubspec
-            # versionCode for the arm64-v8a APK: 1.0.1+10 -> 2010.
+            # versionCode for the arm64-v8a APK: 1.0.2+11 -> 2011.
             # Do not lower the Android code to 9; that would break updates.
-            grep -q "versionCode='2010'" <<< "$PACKAGE_INFO" || {
-              echo '::error::Unexpected ARM64 APK build number; expected 2010 (2000+10).'; exit 1;
+            grep -q "versionCode='2011'" <<< "$PACKAGE_INFO" || {
+              echo '::error::Unexpected ARM64 APK build number; expected 2011 (2000+11).'; exit 1;
             }
             case '${{ steps.signing.outputs.mode }}' in
               secrets|private-artifact)
@@ -443,16 +493,24 @@ jobs:
               *) echo '::error::Unknown signing mode.'; exit 1 ;;
             esac
           done
-          echo 'APK integrity, ARM64 versionCode=2010, versionName=1.0.1 and signature verification passed.'
+          echo 'APK integrity, ARM64 versionCode=2011, versionName=1.0.1 and signature verification passed.'
 
       - name: Upload GohstVpn APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GHOST-VPN-arm64-V23-${{ steps.signing.outputs.mode }}
-          path: ${{ runner.temp }}/gohstvpn-apk-v23/*.apk
+          name: GHOST-VPN-XRAY-LAB1-arm64-${{ steps.signing.outputs.mode }}
+          path: ${{ runner.temp }}/gohstvpn-apk-xraylab1/*.apk
           if-no-files-found: error
           retention-days: 14
 
+
+      - name: Xray Lab status summary
+        if: always()
+        shell: bash
+        run: |
+          echo '### Xray Lab: not a completed engine migration' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Native Xray core may compile and be bundled, but **GHOST VPN still routes its Android VPN/TUN through Mihomo**.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Do not publish this as an Xray-powered VPN until TUN, routing, ping and DNS are migrated and tested.' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Explain signing result
         if: always()
