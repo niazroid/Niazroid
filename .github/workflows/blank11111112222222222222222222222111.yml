@@ -1,8 +1,9 @@
 # Use the integrated v1.0.0 source ZIP plus ONE small v1.0.1 importer update ZIP.
 # Install this file in ANY filename under .github/workflows/.
 # Use this standalone full-source build rather than the older overlay workflows.
-name: GHOST VPN XRAY LAB 1 - ARM64 Native Bridge
+name: GHOST VPN XRAY LAB 2 - Go Mobile Dependency Fix
 
+# This remains an experimental bridge: Android VPN traffic still uses Mihomo.
 on:
   workflow_dispatch:
 
@@ -28,7 +29,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo 'GHOST VPN XRAY LAB 1 PRE-FLIGHT OK - REAL XRAY BRIDGE'
+          echo 'GHOST VPN XRAY LAB 2 PRE-FLIGHT OK - GOMOBILE DEPENDENCY'
           echo "Commit: $GITHUB_SHA"
           echo "Workflow: $GITHUB_WORKFLOW_REF"
           # Resolve the ACTUAL workflow path; the file can be named anything
@@ -44,8 +45,8 @@ jobs:
           WORKFLOW="$GITHUB_WORKSPACE/$WORKFLOW_RELATIVE"
           echo "Resolved workflow file: $WORKFLOW_RELATIVE"
           test -f "$WORKFLOW" || { echo "::error::Workflow file missing at checked out commit: $WORKFLOW_RELATIVE"; exit 1; }
-          grep -Fxq 'name: GHOST VPN XRAY LAB 1 - ARM64 Native Bridge' "$WORKFLOW" || {
-            echo "::error::Wrong workflow version at $WORKFLOW_RELATIVE. Commit the new Xray Lab YAML and start a NEW run (not Re-run jobs)."
+          grep -Fxq 'name: GHOST VPN XRAY LAB 2 - Go Mobile Dependency Fix' "$WORKFLOW" || {
+            echo "::error::Wrong workflow version at $WORKFLOW_RELATIVE. Commit the new Xray Lab 2 YAML and start a NEW run (not Re-run jobs)."
             exit 1
           }
           if grep -n -- '--no-fatal-'"infos" "$WORKFLOW"; then
@@ -175,7 +176,7 @@ jobs:
           add-to-path: true
           link-to-sdk: true
 
-      - name: Compile actual Xray-core Android ARM64 library (gomobile)
+      - name: Compile actual Xray-core Android ARM64 library (gomobile with explicit mobile tool dependency)
         shell: bash
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
@@ -193,8 +194,19 @@ jobs:
           go mod download
           echo 'Building/testing real Xray bridge (not just renaming a .so)'
           go test ./ghostmobile -v
-          go install golang.org/x/mobile/cmd/gomobile@latest
-          go install golang.org/x/mobile/cmd/gobind@latest
+
+          # New gomobile refuses to bind if x/mobile is absent from the
+          # *current Xray module dependency graph*. Installing gomobile/gobind
+          # globally is NOT enough. Go 1.26 supports go get -tool directives.
+          # Both gomobile and gobind are pinned to the same revision shown by
+          # the existing Actions logs to prevent different tool revisions.
+          MOBILE_VERSION='v0.0.0-20261011034528-197770444867'
+          go get -tool "golang.org/x/mobile/cmd/gobind@$MOBILE_VERSION"
+          echo 'Verify that x/mobile is reachable from the Xray module:'
+          go list -m golang.org/x/mobile
+          go list golang.org/x/mobile/bind
+          go install "golang.org/x/mobile/cmd/gomobile@$MOBILE_VERSION"
+          go install "golang.org/x/mobile/cmd/gobind@$MOBILE_VERSION"
           export PATH="$(go env GOPATH)/bin:$PATH"
           gomobile init
           mkdir -p "$GOHSTVPN_PROJECT/android/app/libs"
@@ -493,12 +505,12 @@ jobs:
               *) echo '::error::Unknown signing mode.'; exit 1 ;;
             esac
           done
-          echo 'APK integrity, ARM64 versionCode=2011, versionName=1.0.1 and signature verification passed.'
+          echo 'APK integrity, ARM64 versionCode=2011, versionName=1.0.2 and signature verification passed.'
 
       - name: Upload GohstVpn APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GHOST-VPN-XRAY-LAB1-arm64-${{ steps.signing.outputs.mode }}
+          name: GHOST-VPN-XRAY-LAB2-arm64-${{ steps.signing.outputs.mode }}
           path: ${{ runner.temp }}/gohstvpn-apk-xraylab1/*.apk
           if-no-files-found: error
           retention-days: 14
