@@ -1,4 +1,4 @@
-name: Build BankMovie 2.4 Discover Site Style ALL6 (ID-only)
+name: Build BankMovie 2.4 Native Discover + Search + Notifications
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_DISCOVER_ALL6_CI_HOTFIX.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_NATIVE_DISCOVER_FIX.zip
 
 jobs:
   build:
@@ -87,7 +87,8 @@ jobs:
             fi
           done
           echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
-          echo "::notice::Verified Discover/ID-only source identity."
+          test -s app/src/main/res/drawable/ic_nav_discover.xml
+          echo "::notice::Verified Native Discover/ID-only source identity."
 
       - name: Set monotonic Android versionCode
         shell: bash
@@ -419,7 +420,7 @@ jobs:
           grep -Fq 'X-BM-Watchlist-IDs' app/src/main/java/ir/bankmoviee/app/AccountApi.kt
           grep -Fq 'live_search=' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -Fq 'optJSONArray("people")' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -Fq 'DiscoverAppBridge.install' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          bash verify_v24_native_discover.sh
           grep -Fq 'PosterDiskCache' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -Fq 'versionName "2.4"' app/build.gradle
           test -s BANKMOVIE_RELEASE_2_4.txt
