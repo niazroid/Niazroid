@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_DISCOVER_ALL6.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_DISCOVER_ALL6_CI_HOTFIX.zip
 
 jobs:
   build:
