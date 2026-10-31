@@ -1,37 +1,28 @@
-name: Build BankMovie 2.3 V7.47.1.25.2 (Android Lite + Full)
+name: Build BankMovie 2.4 Discover Site Style ALL6 (ID-only)
 
-# Historical verifiers are cumulative; the active source is V7.47.1.25.2.
-# V7.47.1.18 cumulative release marker
-# Bankmovie-v2.3-V7.47.1.18-LIGHT-THEME-CONTRAST-HARDENED-FULLSOURCE.zip
+# Builds the actual six-feature Discover release, not an older extracted project.
+# Existing app APIs and previous Android app versions remain untouched by this CI job.
 
 on:
   workflow_dispatch:
   push:
     branches:
       - main
-    paths:
-      - 'Bankmovie-v2.3-V7.47.1.25.2-MOBILE-HEADER-SAFE-INSETS-FULLSOURCE*.zip'
-      - '*irancell*.zip'
-      - '*.ttf'
-      - '*.otf'
-      - '*.woff2'
-      - '.github/workflows/build-apk.yml'
 
 permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7471-25-2-main-${{ github.ref }}
+  group: bankmovie-v24-discover-site-style-all6-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.25.2-MOBILE-HEADER-SAFE-INSETS-FULLSOURCE.zip
-  SOURCE_SHA256: e9774421c6b9e1c8cd85762783986d42db07b9002128deac2803560ae9c78ed6
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_DISCOVER_ALL6.zip
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - name: Checkout repository
@@ -41,48 +32,62 @@ jobs:
           # was deleted from the current branch but still exists in Git history.
           fetch-depth: 0
 
-      - name: Locate and verify exact V7.47.1.25.2 source
+      - name: Locate EXACT Discover Site Style ALL6 project
         shell: bash
         run: |
           set -euo pipefail
+          workspace="$GITHUB_WORKSPACE"
+          source_zip="$workspace/$SOURCE_ZIP"
 
-          # Only build the explicitly selected release ZIP, never an older unpacked project.
-          source_zip="$GITHUB_WORKSPACE/$SOURCE_ZIP"
-          if [[ ! -s "$source_zip" ]]; then
-            # Files downloaded twice locally can acquire a " (1)" suffix.
-            source_zip="$GITHUB_WORKSPACE/${SOURCE_ZIP%.zip} (1).zip"
+          # Prefer the explicitly named new ZIP. Never silently build an older
+          # extracted project just because app/build.gradle exists in the repo.
+          if [[ -s "$source_zip" ]]; then
+            unzip -tq "$source_zip" >/dev/null
+            extract_dir="$RUNNER_TEMP/bankmovie-discover-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+            mkdir -p "$extract_dir"
+            unzip -q "$source_zip" -d "$extract_dir"
+            mapfile -t matches < <(find "$extract_dir" -maxdepth 7 -type f -path '*/app/build.gradle' ! -path '*/app/build/*' | sort)
+            if [[ ${#matches[@]} -ne 1 ]]; then
+              echo "::error::Expected exactly one app/build.gradle inside $SOURCE_ZIP; found ${#matches[@]}."
+              exit 1
+            fi
+            project_dir="$(dirname "$(dirname "${matches[0]}")")"
+            echo "::notice::Using the exact Discover source ZIP: $SOURCE_ZIP"
+          else
+            # Alternative: project extracted and committed into the repository.
+            mapfile -t matches < <(find "$workspace" -maxdepth 7 -type f -path '*/app/build.gradle' ! -path '*/app/build/*' | sort)
+            if [[ ${#matches[@]} -ne 1 ]]; then
+              echo "::error::Upload $SOURCE_ZIP to the repository root, or commit exactly one extracted Android project."
+              exit 1
+            fi
+            project_dir="$(dirname "$(dirname "${matches[0]}")")"
+            echo "::notice::Using extracted Android project: $project_dir"
           fi
-          if [[ ! -s "$source_zip" ]]; then
-            echo "::error::Missing latest full source ZIP: $SOURCE_ZIP"
-            echo "::error::Upload the V7.47.1.25.2 FULLSOURCE ZIP to the repository root."
+
+          # Ensure the workflow cannot silently publish a version 2.3 artifact.
+          if ! grep -Eq '^[[:space:]]*versionName[[:space:]]+"2\.4"' "$project_dir/app/build.gradle"; then
+            echo "::error::Android versionName is not 2.4 in the selected source."
+            exit 1
+          fi
+          if ! grep -Fq "applicationId 'ir.bankmoviee.app'" "$project_dir/app/build.gradle"; then
+            echo "::error::Unexpected Android applicationId: updates must keep ir.bankmoviee.app."
             exit 1
           fi
 
-          actual_sha="$(sha256sum "$source_zip" | awk '{print $1}')"
-          if [[ "$actual_sha" != "$SOURCE_SHA256" ]]; then
-            echo "::error::Source ZIP checksum mismatch. This workflow is pinned to the supplied V7.47.1.25.2 archive."
-            echo "::error::Expected $SOURCE_SHA256, received $actual_sha"
-            exit 1
-          fi
-          unzip -tq "$source_zip" >/dev/null
-
-          extract_dir="$RUNNER_TEMP/bankmovie-v7471-25-2-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
-          rm -rf "$extract_dir"
-          mkdir -p "$extract_dir"
-          unzip -q "$source_zip" -d "$extract_dir"
-
-          build_file="$(find "$extract_dir" -type f -path '*/app/build.gradle' ! -path '*/app/build/*' -print -quit || true)"
-          if [[ -z "$build_file" ]]; then
-            echo "::error::Android app/build.gradle was not found inside the selected ZIP."
-            exit 1
-          fi
-          project_dir="$(dirname "$(dirname "$build_file")")"
-          test -f "$project_dir/verify_v7471_25_2_mobile_header_safe_insets.sh" || {
-            echo "::error::This source does not contain the V7.47.1.25.2 verifier."
-            exit 1
-          }
+          # Hard-stop on stale builds (like V7.47.1.17/25.2 with no new features).
+          for required in \
+            app/src/main/java/ir/bankmoviee/app/DiscoverAppBridge.kt \
+            app/src/main/java/ir/bankmoviee/app/PosterDiskCache.kt \
+            app/src/main/java/ir/bankmoviee/app/WatchlistIdentity.kt \
+            app/src/main/assets/bm_discover_app.css \
+            app/src/main/assets/bm_discover_app.js; do
+            if [[ ! -s "$project_dir/$required" ]]; then
+              echo "::error::Missing six-feature release file: $required"
+              exit 1
+            fi
+          done
           echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
-          echo "::notice::Verified and extracted V7.47.1.25.2 full source."
+          echo "::notice::Verified Discover/ID-only source identity."
 
       - name: Set monotonic Android versionCode
         shell: bash
@@ -324,7 +329,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.47.1.25.2 mobile header safe insets
+      - name: Verify original BankMovie regressions (through V7.47.1.25.2)
         shell: bash
         run: |
           set -euo pipefail
@@ -399,6 +404,26 @@ jobs:
 
           bash verify_v7471_25_2_mobile_header_safe_insets.sh
           echo WORKFLOW_VERIFY_V7471_25_2_OK
+
+      - name: Verify Discover ALL6 features and payload assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          test -s app/src/main/java/ir/bankmoviee/app/DiscoverAppBridge.kt
+          test -s app/src/main/java/ir/bankmoviee/app/PosterDiskCache.kt
+          test -s app/src/main/java/ir/bankmoviee/app/WatchlistIdentity.kt
+          test -s app/src/main/assets/bm_discover_app.js
+          test -s app/src/main/assets/bm_discover_app.css
+          node --check app/src/main/assets/bm_discover_app.js
+          grep -Fq 'X-BM-Watchlist-IDs' app/src/main/java/ir/bankmoviee/app/AccountApi.kt
+          grep -Fq 'live_search=' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -Fq 'optJSONArray("people")' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -Fq 'DiscoverAppBridge.install' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -Fq 'PosterDiskCache' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -Fq 'versionName "2.4"' app/build.gradle
+          test -s BANKMOVIE_RELEASE_2_4.txt
+          echo "DISCOVER_SITE_STYLE_ALL6_SMOKE_CHECK_OK"
 
       - name: Install and verify BankMovie font pack
         shell: bash
@@ -593,7 +618,7 @@ jobs:
                 ;;
             esac
 
-            target="output/Bankmovie-v2.3-$edition-$abi.apk"
+            target="output/Bankmovie-v2.4-$edition-$abi.apk"
             if [[ -e "$target" ]]; then
               echo "::error::More than one APK maps to output file: $target"
               exit 1
@@ -603,14 +628,14 @@ jobs:
           done
 
           expected=(
-            Bankmovie-v2.3-ABI2-Lite-Universal.apk
-            Bankmovie-v2.3-ABI2-Lite-Armeabi-v7a.apk
-            Bankmovie-v2.3-ABI2-Lite-Arm64-v8a.apk
-            Bankmovie-v2.3-ABI4-Full-Universal.apk
-            Bankmovie-v2.3-ABI4-Full-Armeabi-v7a.apk
-            Bankmovie-v2.3-ABI4-Full-Arm64-v8a.apk
-            Bankmovie-v2.3-ABI4-Full-X86.apk
-            Bankmovie-v2.3-ABI4-Full-X86_64.apk
+            Bankmovie-v2.4-ABI2-Lite-Universal.apk
+            Bankmovie-v2.4-ABI2-Lite-Armeabi-v7a.apk
+            Bankmovie-v2.4-ABI2-Lite-Arm64-v8a.apk
+            Bankmovie-v2.4-ABI4-Full-Universal.apk
+            Bankmovie-v2.4-ABI4-Full-Armeabi-v7a.apk
+            Bankmovie-v2.4-ABI4-Full-Arm64-v8a.apk
+            Bankmovie-v2.4-ABI4-Full-X86.apk
+            Bankmovie-v2.4-ABI4-Full-X86_64.apk
           )
 
           for apk in "${expected[@]}"; do
@@ -643,6 +668,11 @@ jobs:
           while IFS= read -r apk; do
             "$apksigner" verify --verbose --print-certs "$apk"
             actual_version_code="$($aapt_bin dump badging "$apk" | sed -n "s/.*versionCode='\([0-9][0-9]*\)'.*/\1/p" | head -n 1)"
+            actual_version_name="$($aapt_bin dump badging "$apk" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" | head -n 1)"
+            if [[ "$actual_version_name" != "2.4" ]]; then
+              echo "::error::Unexpected versionName in $apk: $actual_version_name (expected 2.4)"
+              exit 1
+            fi
             if [[ "$actual_version_code" != "$BANKMOVIE_VERSION_CODE" ]]; then
               echo "::error::Unexpected versionCode in $apk: $actual_version_code (expected $BANKMOVIE_VERSION_CODE)"
               exit 1
@@ -652,7 +682,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.47.1.25.2 release APK sizes (bytes)"
+            echo "BankMovie 2.4 Discover Site Style ALL6 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -660,71 +690,71 @@ jobs:
       - name: Upload ABI2 Lite Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-ABI2-Lite-Universal
-          path: output/Bankmovie-v2.3-ABI2-Lite-Universal.apk
+          name: Bankmovie-2.4-ABI2-Lite-Universal
+          path: output/Bankmovie-v2.4-ABI2-Lite-Universal.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI2 Lite Armeabi-v7a
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-ABI2-Lite-Armeabi-v7a
-          path: output/Bankmovie-v2.3-ABI2-Lite-Armeabi-v7a.apk
+          name: Bankmovie-2.4-ABI2-Lite-Armeabi-v7a
+          path: output/Bankmovie-v2.4-ABI2-Lite-Armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI2 Lite Arm64-v8a
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-ABI2-Lite-Arm64-v8a
-          path: output/Bankmovie-v2.3-ABI2-Lite-Arm64-v8a.apk
+          name: Bankmovie-2.4-ABI2-Lite-Arm64-v8a
+          path: output/Bankmovie-v2.4-ABI2-Lite-Arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-ABI4-Full-Universal
-          path: output/Bankmovie-v2.3-ABI4-Full-Universal.apk
+          name: Bankmovie-2.4-ABI4-Full-Universal
+          path: output/Bankmovie-v2.4-ABI4-Full-Universal.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full Armeabi-v7a
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-ABI4-Full-Armeabi-v7a
-          path: output/Bankmovie-v2.3-ABI4-Full-Armeabi-v7a.apk
+          name: Bankmovie-2.4-ABI4-Full-Armeabi-v7a
+          path: output/Bankmovie-v2.4-ABI4-Full-Armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full Arm64-v8a
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-ABI4-Full-Arm64-v8a
-          path: output/Bankmovie-v2.3-ABI4-Full-Arm64-v8a.apk
+          name: Bankmovie-2.4-ABI4-Full-Arm64-v8a
+          path: output/Bankmovie-v2.4-ABI4-Full-Arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full X86
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-ABI4-Full-X86
-          path: output/Bankmovie-v2.3-ABI4-Full-X86.apk
+          name: Bankmovie-2.4-ABI4-Full-X86
+          path: output/Bankmovie-v2.4-ABI4-Full-X86.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full X86_64
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-ABI4-Full-X86_64
-          path: output/Bankmovie-v2.3-ABI4-Full-X86_64.apk
+          name: Bankmovie-2.4-ABI4-Full-X86_64
+          path: output/Bankmovie-v2.4-ABI4-Full-X86_64.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.47.1.25.2-Manifests
+          name: Bankmovie-2.4-DISCOVER-SITE-STYLE-ALL6-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
