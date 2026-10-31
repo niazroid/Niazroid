@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_NATIVE_DISCOVER_FIX.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_NATIVE_DISCOVER_CI_PATHFIX.zip
 
 jobs:
   build:
@@ -86,8 +86,15 @@ jobs:
               exit 1
             fi
           done
+          # The project is extracted into RUNNER_TEMP, not the checkout root.
+          # Check the icon against the selected source so the verifier does not
+          # fail silently with exit code 1 after the ZIP is located.
+          icon_file="$project_dir/app/src/main/res/drawable/ic_nav_discover.xml"
+          if [[ ! -s "$icon_file" ]]; then
+            echo "::error::Native Discover icon not found in selected Android project: $icon_file"
+            exit 1
+          fi
           echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
-          test -s app/src/main/res/drawable/ic_nav_discover.xml
           echo "::notice::Verified Native Discover/ID-only source identity."
 
       - name: Set monotonic Android versionCode
