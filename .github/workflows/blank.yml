@@ -1,4 +1,7 @@
-name: Build BankMovie 2.3 V7.47.1.17 White Theme Selector Quick Appearance
+name: Build BankMovie 2.3 Discover Site Style ALL6 (ID-only)
+
+# Builds the actual six-feature Discover release, not an older extracted project.
+# Existing app APIs and previous Android app versions remain untouched by this CI job.
 
 on:
   workflow_dispatch:
@@ -10,16 +13,16 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-2.3-v7471-17-main-${{ github.ref }}
-  cancel-in-progress: true
+  group: bankmovie-discover-site-style-all6-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: Bankmovie-v2.3-V7.47.1.17-WHITE-THEME-SELECTOR-QUICK-APPEARANCE-FULLSOURCE.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_DISCOVER_SITE_STYLE_ALL6.zip
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - name: Checkout repository
@@ -29,38 +32,52 @@ jobs:
           # was deleted from the current branch but still exists in Git history.
           fetch-depth: 0
 
-      - name: Locate V7.47.1.17 project
+      - name: Locate EXACT Discover Site Style ALL6 project
         shell: bash
         run: |
           set -euo pipefail
-
           workspace="$GITHUB_WORKSPACE"
-          build_file="$(find "$workspace" -maxdepth 6 -type f -path '*/app/build.gradle' ! -path '*/app/build/*' -print -quit || true)"
-          if [[ -n "$build_file" ]]; then
-            project_dir="$(dirname "$(dirname "$build_file")")"
-            echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
-            echo "::notice::Using Android project from repository: $project_dir"
-            exit 0
+          source_zip="$workspace/$SOURCE_ZIP"
+
+          # Prefer the explicitly named new ZIP. Never silently build an older
+          # extracted project just because app/build.gradle exists in the repo.
+          if [[ -s "$source_zip" ]]; then
+            unzip -tq "$source_zip" >/dev/null
+            extract_dir="$RUNNER_TEMP/bankmovie-discover-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+            mkdir -p "$extract_dir"
+            unzip -q "$source_zip" -d "$extract_dir"
+            mapfile -t matches < <(find "$extract_dir" -maxdepth 7 -type f -path '*/app/build.gradle' ! -path '*/app/build/*' | sort)
+            if [[ ${#matches[@]} -ne 1 ]]; then
+              echo "::error::Expected exactly one app/build.gradle inside $SOURCE_ZIP; found ${#matches[@]}."
+              exit 1
+            fi
+            project_dir="$(dirname "$(dirname "${matches[0]}")")"
+            echo "::notice::Using the exact Discover source ZIP: $SOURCE_ZIP"
+          else
+            # Alternative: project extracted and committed into the repository.
+            mapfile -t matches < <(find "$workspace" -maxdepth 7 -type f -path '*/app/build.gradle' ! -path '*/app/build/*' | sort)
+            if [[ ${#matches[@]} -ne 1 ]]; then
+              echo "::error::Upload $SOURCE_ZIP to the repository root, or commit exactly one extracted Android project."
+              exit 1
+            fi
+            project_dir="$(dirname "$(dirname "${matches[0]}")")"
+            echo "::notice::Using extracted Android project: $project_dir"
           fi
 
-          source_zip="$workspace/$SOURCE_ZIP"
-          if [[ ! -s "$source_zip" ]]; then
-            echo "::error::Neither an extracted Android project nor $SOURCE_ZIP was found."
-            exit 1
-          fi
-          unzip -tq "$source_zip" >/dev/null
-          extract_dir="$RUNNER_TEMP/bankmovie-v7471-17-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
-          rm -rf "$extract_dir"
-          mkdir -p "$extract_dir"
-          unzip -q "$source_zip" -d "$extract_dir"
-          build_file="$(find "$extract_dir" -type f -path '*/app/build.gradle' ! -path '*/app/build/*' -print -quit || true)"
-          if [[ -z "$build_file" ]]; then
-            echo "::error::app/build.gradle was not found inside $SOURCE_ZIP"
-            exit 1
-          fi
-          project_dir="$(dirname "$(dirname "$build_file")")"
+          # Hard-stop on stale builds (like V7.47.1.17/25.2 with no new features).
+          for required in \
+            app/src/main/java/ir/bankmoviee/app/DiscoverAppBridge.kt \
+            app/src/main/java/ir/bankmoviee/app/PosterDiskCache.kt \
+            app/src/main/java/ir/bankmoviee/app/WatchlistIdentity.kt \
+            app/src/main/assets/bm_discover_app.css \
+            app/src/main/assets/bm_discover_app.js; do
+            if [[ ! -s "$project_dir/$required" ]]; then
+              echo "::error::Missing six-feature release file: $required"
+              exit 1
+            fi
+          done
           echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
-          echo "::notice::Using Android project extracted from: $SOURCE_ZIP"
+          echo "::notice::Verified Discover/ID-only source identity."
 
       - name: Set monotonic Android versionCode
         shell: bash
@@ -302,7 +319,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify V7.47.1.17 white theme selectors and previous fixes
+      - name: Verify original BankMovie regressions (through V7.47.1.25.2)
         shell: bash
         run: |
           set -euo pipefail
@@ -346,7 +363,55 @@ jobs:
           bash verify_v7471_14_theme_logo_avatar_remote.sh
           bash verify_v7471_16_white_theme.sh
           bash verify_v7471_17_theme_selector_settings.sh
-          echo WORKFLOW_VERIFY_V7471_17_OK
+          bash verify_v7471_18_light_theme_contrast.sh
+          bash verify_v7471_19_theme_account_hero_skeleton_boxoffice.sh
+          bash verify_v7471_20_local_theme_notifications_modal_toggle.sh
+          echo WORKFLOW_VERIFY_V7471_20_OK
+
+          bash verify_v7471_21_detail_year_hero_icon_weekly_player_light.sh
+          echo WORKFLOW_VERIFY_V7471_21_OK
+
+          bash verify_v7471_22_home_skeleton_nav_about_modal.sh
+          echo WORKFLOW_VERIFY_V7471_22_OK
+
+          bash verify_v7471_23_android_badge_fullscreen_force_update.sh
+          echo WORKFLOW_VERIFY_V7471_23_OK
+
+          bash verify_v7471_23_1_kotlin_compile_hotfix.sh
+          echo WORKFLOW_VERIFY_V7471_23_1_OK
+
+          bash verify_v7471_23_2_update_checkmarks_real_action.sh
+          echo WORKFLOW_VERIFY_V7471_23_2_OK
+
+          bash verify_v7471_24_notification_delete_persistent.sh
+          echo WORKFLOW_VERIFY_V7471_24_OK
+
+          bash verify_v7471_25_tv_dark_only_detail_up_scroll.sh
+          echo WORKFLOW_VERIFY_V7471_25_OK
+
+          bash verify_v7471_25_1_verifier_compat_hotfix.sh
+          echo WORKFLOW_VERIFY_V7471_25_1_OK
+
+          bash verify_v7471_25_2_mobile_header_safe_insets.sh
+          echo WORKFLOW_VERIFY_V7471_25_2_OK
+
+      - name: Verify Discover ALL6 features and payload assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          test -s app/src/main/java/ir/bankmoviee/app/DiscoverAppBridge.kt
+          test -s app/src/main/java/ir/bankmoviee/app/PosterDiskCache.kt
+          test -s app/src/main/java/ir/bankmoviee/app/WatchlistIdentity.kt
+          test -s app/src/main/assets/bm_discover_app.js
+          test -s app/src/main/assets/bm_discover_app.css
+          node --check app/src/main/assets/bm_discover_app.js
+          grep -Fq 'X-BM-Watchlist-IDs' app/src/main/java/ir/bankmoviee/app/AccountApi.kt
+          grep -Fq 'live_search=' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -Fq 'optJSONArray("people")' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -Fq 'DiscoverAppBridge.install' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          grep -Fq 'PosterDiskCache' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
+          echo "DISCOVER_SITE_STYLE_ALL6_SMOKE_CHECK_OK"
 
       - name: Install and verify BankMovie font pack
         shell: bash
@@ -600,7 +665,7 @@ jobs:
 
           sha256sum output/*.apk | tee output/SHA256SUMS.txt
           {
-            echo "BankMovie 2.3 V7.47.1.16 release APK sizes (bytes)"
+            echo "BankMovie 2.3 Discover Site Style ALL6 release APK sizes (bytes)"
             find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
           } | tee output/APK-SIZES.txt
           echo "::notice::All 8 APK files were found and their signatures verified."
@@ -672,7 +737,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.3-V7.47.1.16-Manifests
+          name: Bankmovie-2.3-DISCOVER-SITE-STYLE-ALL6-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
