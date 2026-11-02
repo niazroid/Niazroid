@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_PREMIUM_NATIVE_SEARCH_WATCHLIST.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_DISCOVER_CINEMA_UPGRADE.zip
 
 jobs:
   build:
