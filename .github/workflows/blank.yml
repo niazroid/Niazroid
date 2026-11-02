@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_DISCOVER_CINEMA_UPGRADE.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_DISCOVER_NEUMORPHIC_FOR_YOU_V2.zip
 
 jobs:
   build:
