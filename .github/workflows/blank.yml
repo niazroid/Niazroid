@@ -1,4 +1,4 @@
-name: Build BankMovie 2.4 Neumorphic Final
+name: Build BankMovie 2.4 Site Original Art V5
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_DISCOVER_NEUMORPHIC_FOR_YOU_V4_FINAL.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_SITE_ORIGINAL_ART_DETAIL_LAYOUT_V5.zip
 
 jobs:
   build:
