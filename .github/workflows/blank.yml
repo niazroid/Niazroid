@@ -1,4 +1,4 @@
-name: Build BankMovie 2.4 Premium Native Discover
+name: Build BankMovie 2.4 Neumorphic Final
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -13,11 +13,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-v24-discover-site-style-all6-${{ github.ref }}
+  group: bankmovie-v24-neumorphic-final-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_DISCOVER_NEUMORPHIC_FOR_YOU_V2.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_DISCOVER_NEUMORPHIC_FOR_YOU_V4_FINAL.zip
 
 jobs:
   build:
@@ -89,6 +89,16 @@ jobs:
           # The project is extracted into RUNNER_TEMP, not the checkout root.
           # Check the icon against the selected source so the verifier does not
           # fail silently with exit code 1 after the ZIP is located.
+          for art in bm_home_updated_movies bm_home_updated_series bm_home_anime_art bm_home_turkey; do
+            if [[ ! -s "$project_dir/app/src/main/res/drawable-nodpi/$art.webp" ]]; then
+              echo "::error::Missing BankMovie site header art: $art"
+              exit 1
+            fi
+          done
+          if [[ ! -s "$project_dir/verify_v24_neumorph_avatar_home_detail.sh" ]]; then
+            echo "::error::Missing V2.4 final polish verifier"
+            exit 1
+          fi
           icon_file="$project_dir/app/src/main/res/drawable/ic_nav_discover.xml"
           if [[ ! -s "$icon_file" ]]; then
             echo "::error::Native Discover icon not found in selected Android project: $icon_file"
@@ -429,6 +439,7 @@ jobs:
           grep -Fq 'optJSONArray("people")' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           bash verify_v24_native_discover.sh
           bash verify_v24_premium_search_watchlist.sh
+          bash verify_v24_neumorph_avatar_home_detail.sh
           grep -Fq 'PosterDiskCache' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -Fq 'versionName "2.4"' app/build.gradle
           test -s BANKMOVIE_RELEASE_2_4.txt
