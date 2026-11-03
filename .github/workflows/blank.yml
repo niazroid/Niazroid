@@ -1,4 +1,4 @@
-name: Build BankMovie 2.4 Hero Actors TV Recovery V9
+name: Build BankMovie 2.4 V10 Toast Watchlist Archive Control
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -13,11 +13,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-v24-hero-actors-tv-recovery-v9-${{ github.ref }}
+  group: bankmovie-v24-toast-watchlist-archives-v10-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_HERO_ACTORS_TV_RECOVERY_V9.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_TOAST_WATCHLIST_ARCHIVES_V10.zip
 
 jobs:
   build:
@@ -32,7 +32,7 @@ jobs:
           # was deleted from the current branch but still exists in Git history.
           fetch-depth: 0
 
-      - name: Locate EXACT Discover V9 Hero Actors TV Recovery project
+      - name: Locate EXACT Discover V10 Toast Watchlist Archive Control project
         shell: bash
         run: |
           set -euo pipefail
@@ -388,7 +388,7 @@ jobs:
           grep -q 'tvSideNavCollapseGuardUntil' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -q 'settings:connections' app/src/main/java/ir/bankmoviee/app/DownloadsActivity.kt
           grep -q 'wireTvFocusOrder' app/src/main/java/ir/bankmoviee/app/OfflineLibraryActivity.kt
-          grep -q '#33CC99' app/src/main/res/drawable/ic_trailer.xml
+          grep -Fq 'android:viewportWidth="24"' app/src/main/res/drawable/ic_trailer.xml
           bash verify_v7471_7_tv_drawer_offline_focus.sh
           bash verify_v7471_8_tv_drawer_click_bridge.sh
           bash verify_v7471_9_boxoffice_profile_unified_ui.sh
@@ -454,6 +454,7 @@ jobs:
           bash verify_v24_circular_home_portrait_crop_v7.sh
           bash verify_v24_archive_hero_theme_mixer_v8.sh
           bash verify_v24_hero_actors_tv_recovery_v9.sh
+          bash verify_v24_v10_toast_quota_archives.sh
           grep -Fq 'PosterDiskCache' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -Fq 'versionName "2.4"' app/build.gradle
           test -s BANKMOVIE_RELEASE_2_4.txt
