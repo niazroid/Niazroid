@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_SITE_ART_COMPACT_V6.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_HOME_ICON_CROP_FIX_V7.zip
 
 jobs:
   build:
@@ -97,7 +97,7 @@ jobs:
               exit 1
             fi
           done
-          for art in bm_site_neon_collections bm_site_neon_anime bm_site_neon_animation bm_site_neon_turkey bm_site_neon_korea bm_site_neon_dub bm_site_neon_top; do
+          for art in bm_site_neon_collections bm_site_neon_anime bm_site_neon_animation bm_site_neon_turkey bm_site_neon_korea bm_site_neon_dub bm_site_neon_top bm_site_neon_china bm_site_neon_subtitle; do
             if [[ ! -s "$project_dir/app/src/main/res/drawable-nodpi/$art.png" ]]; then
               echo "::error::Missing BankMovie live site header PNG: $art"
               exit 1
@@ -451,6 +451,7 @@ jobs:
           bash verify_v24_premium_search_watchlist.sh
           bash verify_v24_neumorph_avatar_home_detail.sh
           bash verify_v24_mobile_compact_v6.sh
+          bash verify_v24_circular_home_portrait_crop_v7.sh
           grep -Fq 'PosterDiskCache' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -Fq 'versionName "2.4"' app/build.gradle
           test -s BANKMOVIE_RELEASE_2_4.txt
