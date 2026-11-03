@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_HOME_ICON_CROP_FIX_V7.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_HERO_THEME_MIXER_V8.zip
 
 jobs:
   build:
@@ -32,7 +32,7 @@ jobs:
           # was deleted from the current branch but still exists in Git history.
           fetch-depth: 0
 
-      - name: Locate EXACT Discover V6 Compact Site Art project
+      - name: Locate EXACT Discover V8 Hero Theme Mixer project
         shell: bash
         run: |
           set -euo pipefail
@@ -452,10 +452,11 @@ jobs:
           bash verify_v24_neumorph_avatar_home_detail.sh
           bash verify_v24_mobile_compact_v6.sh
           bash verify_v24_circular_home_portrait_crop_v7.sh
+          bash verify_v24_archive_hero_theme_mixer_v8.sh
           grep -Fq 'PosterDiskCache' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -Fq 'versionName "2.4"' app/build.gradle
           test -s BANKMOVIE_RELEASE_2_4.txt
-          echo "DISCOVER_SITE_STYLE_V6_SMOKE_CHECK_OK"
+          echo "DISCOVER_HERO_THEME_MIXER_V8_SMOKE_CHECK_OK"
 
       - name: Install and verify BankMovie font pack
         shell: bash
