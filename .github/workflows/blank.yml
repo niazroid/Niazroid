@@ -1,4 +1,4 @@
-name: Build BankMovie 2.4 V15 Site Actor Fallback & Trailer Icon
+name: Build BankMovie 2.4 V17 Native Unified Explorer
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -13,11 +13,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-v24-actor-trailer-v15-${{ github.ref }}
+  group: bankmovie-v24-native-explorer-v17-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_ACTOR_SITE_FALLBACK_TRAILER_V15.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_NATIVE_EXPLORER_V17.zip
 
 jobs:
   build:
@@ -32,7 +32,7 @@ jobs:
           # was deleted from the current branch but still exists in Git history.
           fetch-depth: 0
 
-      - name: Locate EXACT BankMovie V15 Actor/Trailer project
+      - name: Locate EXACT BankMovie V17 Native Unified Explorer project
         shell: bash
         run: |
           set -euo pipefail
@@ -80,12 +80,20 @@ jobs:
             app/src/main/java/ir/bankmoviee/app/PosterDiskCache.kt \
             app/src/main/java/ir/bankmoviee/app/WatchlistIdentity.kt \
             app/src/main/assets/bm_discover_app.css \
-            app/src/main/assets/bm_discover_app.js; do
+            app/src/main/assets/bm_discover_app.js \
+            app/src/main/assets/bm_explorer_v17.js \
+            app/src/main/assets/bm_explorer_v17.css \
+            app/src/main/assets/bm_explorer_v17.html \
+            app/src/main/java/ir/bankmoviee/app/ExplorerActivity.kt; do
             if [[ ! -s "$project_dir/$required" ]]; then
               echo "::error::Missing six-feature release file: $required"
               exit 1
             fi
           done
+          if ! grep -Fq 'android:name=".ExplorerActivity"' "$project_dir/app/src/main/AndroidManifest.xml"; then
+            echo "::error::Native Explorer Activity is missing; refusing to build an older ZIP."
+            exit 1
+          fi
           # The project is extracted into RUNNER_TEMP, not the checkout root.
           # Check the icon against the selected source so the verifier does not
           # fail silently with exit code 1 after the ZIP is located.
@@ -433,7 +441,7 @@ jobs:
           bash verify_v7471_25_2_mobile_header_safe_insets.sh
           echo WORKFLOW_VERIFY_V7471_25_2_OK
 
-      - name: Verify Discover ALL6 features and payload assets
+      - name: Verify Discover, V17 unified explorer and archived features
         shell: bash
         run: |
           set -euo pipefail
@@ -461,6 +469,8 @@ jobs:
           bash verify_v24_v13_1_kotlin_compile_hotfix.sh
           bash verify_v24_archive5_metadata_promo_v15.sh
           bash verify_v24_v15_actor_site_fallback_trailer.sh
+          bash verify_v24_lookapo_discover_v16.sh
+          bash verify_v24_native_explorer_v17.sh
           grep -Fq 'PosterDiskCache' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -Fq 'versionName "2.4"' app/build.gradle
           test -s BANKMOVIE_RELEASE_2_4.txt
