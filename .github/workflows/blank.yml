@@ -1,4 +1,4 @@
-name: Build BankMovie 2.4 V14 Archive5 Metadata, Promo Filter & Icon Pack
+name: Build BankMovie 2.4 V15 Site Actor Fallback & Trailer Icon
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -13,11 +13,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-v24-archive5-metadata-v14-${{ github.ref }}
+  group: bankmovie-v24-actor-trailer-v15-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_ARCHIVE5_METADATA_PROMO_ICONS_V14.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_ACTOR_SITE_FALLBACK_TRAILER_V15.zip
 
 jobs:
   build:
@@ -32,7 +32,7 @@ jobs:
           # was deleted from the current branch but still exists in Git history.
           fetch-depth: 0
 
-      - name: Locate EXACT BankMovie V14 Archive5 project
+      - name: Locate EXACT BankMovie V15 Actor/Trailer project
         shell: bash
         run: |
           set -euo pipefail
@@ -459,11 +459,12 @@ jobs:
           bash verify_v24_archive5_cast_icons_v12.sh
           bash verify_v24_archive5_detail_header_v13.sh
           bash verify_v24_v13_1_kotlin_compile_hotfix.sh
-          bash verify_v24_archive5_metadata_promo_icons_v14.sh
+          bash verify_v24_archive5_metadata_promo_v15.sh
+          bash verify_v24_v15_actor_site_fallback_trailer.sh
           grep -Fq 'PosterDiskCache' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -Fq 'versionName "2.4"' app/build.gradle
           test -s BANKMOVIE_RELEASE_2_4.txt
-          echo "BANKMOVIE_V14_ARCHIVE5_METADATA_PROMO_ICONS_OK"
+          echo "BANKMOVIE_V15_ACTOR_SITE_FALLBACK_TRAILER_OK"
 
       - name: Install and verify BankMovie font pack
         shell: bash
