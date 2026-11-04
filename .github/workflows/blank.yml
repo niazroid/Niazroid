@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_ARCHIVE5_DETAIL_UI_FIX_V13.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_ARCHIVE5_DETAIL_UI_COMPILE_HOTFIX_V13_1.zip
 
 jobs:
   build:
@@ -458,6 +458,7 @@ jobs:
           bash verify_v24_bmadmin_archive5_guest_push_v11.sh
           bash verify_v24_archive5_cast_icons_v12.sh
           bash verify_v24_archive5_detail_header_v13.sh
+          bash verify_v24_v13_1_kotlin_compile_hotfix.sh
           grep -Fq 'PosterDiskCache' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -Fq 'versionName "2.4"' app/build.gradle
           test -s BANKMOVIE_RELEASE_2_4.txt
