@@ -1,4 +1,4 @@
-name: Build BankMovie 2.4 V18 Explorer Search and Preview Fix
+name: Build BankMovie 2.4 V19 BM Admin Access and Icons
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -13,11 +13,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-v24-native-explorer-v18-${{ github.ref }}
+  group: bankmovie-v24-bmadmin-v19-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_EXPLORER_SEARCH_PREVIEW_V18.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_BMADMIN_SORT_VIP_LOGIN_ICON_V19.zip
 
 jobs:
   build:
@@ -441,7 +441,7 @@ jobs:
           bash verify_v7471_25_2_mobile_header_safe_insets.sh
           echo WORKFLOW_VERIFY_V7471_25_2_OK
 
-      - name: Verify Discover, V18 search / preview and archived features
+      - name: Verify Discover, V18 explorer + V19 archive icon regressions
         shell: bash
         run: |
           set -euo pipefail
@@ -472,6 +472,7 @@ jobs:
           bash verify_v24_lookapo_discover_v16.sh
           bash verify_v24_native_explorer_v17.sh
           bash verify_v18_explorer_search_preview.sh
+          bash verify_v19_admin_icon.sh
           grep -Fq 'PosterDiskCache' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -Fq 'versionName "2.4"' app/build.gradle
           test -s BANKMOVIE_RELEASE_2_4.txt
