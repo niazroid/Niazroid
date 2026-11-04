@@ -1,4 +1,4 @@
-name: Build BankMovie 2.4 V12 Archive5 Cast Carousel Icons
+name: Build BankMovie 2.4 V13 Archive5 Details & UI Fix
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_ARCHIVE5_CAST_ICONS_V12.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_ARCHIVE5_DETAIL_UI_FIX_V13.zip
 
 jobs:
   build:
@@ -32,7 +32,7 @@ jobs:
           # was deleted from the current branch but still exists in Git history.
           fetch-depth: 0
 
-      - name: Locate EXACT BankMovie V12 Archive5 project
+      - name: Locate EXACT BankMovie V13 Archive5 project
         shell: bash
         run: |
           set -euo pipefail
@@ -457,10 +457,11 @@ jobs:
           bash verify_v24_v10_toast_quota_archives.sh
           bash verify_v24_bmadmin_archive5_guest_push_v11.sh
           bash verify_v24_archive5_cast_icons_v12.sh
+          bash verify_v24_archive5_detail_header_v13.sh
           grep -Fq 'PosterDiskCache' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -Fq 'versionName "2.4"' app/build.gradle
           test -s BANKMOVIE_RELEASE_2_4.txt
-          echo "BANKMOVIE_V12_ARCHIVE5_CAST_ICONS_OK"
+          echo "BANKMOVIE_V13_ARCHIVE5_DETAIL_UI_FIX_OK"
 
       - name: Install and verify BankMovie font pack
         shell: bash
