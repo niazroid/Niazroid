@@ -1,4 +1,4 @@
-name: Build BankMovie 2.4 V20 Glass Player Mirror Fallback Smart Next
+name: Build BankMovie 2.4 V20.1 Glass Player Mirror Smart Next Compile Guard
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -13,11 +13,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-v24-smartnext-v20-${{ github.ref }}
+  group: bankmovie-v24-smartnext-v20-1-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_GLASS_PLAY_MIRROR_SMARTNEXT_V20.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_GLASS_PLAY_MIRROR_SMARTNEXT_V20_1.zip
 
 jobs:
   build:
@@ -32,7 +32,7 @@ jobs:
           # was deleted from the current branch but still exists in Git history.
           fetch-depth: 0
 
-      - name: Locate EXACT BankMovie V20 Glass Player Mirror and Smart Next project
+      - name: Locate EXACT BankMovie V20.1 project
         shell: bash
         run: |
           set -euo pipefail
@@ -369,6 +369,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Report silent grep / test failures with the precise failing script.
+          trap 'echo "::error::Verification failed at line $LINENO: $BASH_COMMAND" >&2' ERR
           cd "$PROJECT_DIR"
 
           bash verify_v7454_watch_party_chat_badges.sh
@@ -445,6 +447,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Report silent grep / test failures with the precise failing script.
+          trap 'echo "::error::Verification failed at line $LINENO: $BASH_COMMAND" >&2' ERR
           cd "$PROJECT_DIR"
           test -s app/src/main/java/ir/bankmoviee/app/DiscoverAppBridge.kt
           test -s app/src/main/java/ir/bankmoviee/app/PosterDiskCache.kt
@@ -474,6 +478,7 @@ jobs:
           bash verify_v18_explorer_search_preview.sh
           bash verify_v19_admin_icon.sh
           bash verify_v20_glass_mirror_smartnext.sh
+          bash verify_v20_1_regression_guards.sh
           grep -Fq 'PosterDiskCache' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -Fq 'versionName "2.4"' app/build.gradle
           test -s BANKMOVIE_RELEASE_2_4.txt
