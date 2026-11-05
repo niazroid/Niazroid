@@ -1,4 +1,4 @@
-name: Build BankMovie 2.4 V21 Notifications & Smart Next 97
+name: Build BankMovie 2.4 V22.1 TV-safe device proof and player TLS check
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -13,11 +13,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-v24-notifications-v21-${{ github.ref }}
+  group: bankmovie-v24-secure-v22-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_BMADMIN_NOTIFICATIONS_CTA_SVG_NEXT97_V21.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_TLS_PLAYER_ONLY_TV_COMPAT_V22_1.zip
 
 jobs:
   build:
@@ -32,7 +32,7 @@ jobs:
           # was deleted from the current branch but still exists in Git history.
           fetch-depth: 0
 
-      - name: Locate EXACT BankMovie V20.1 project
+      - name: Locate EXACT BankMovie V22 project
         shell: bash
         run: |
           set -euo pipefail
@@ -386,6 +386,7 @@ jobs:
           if [[ -x ./verify_v7471_2_signing_hotfix.sh ]]; then bash ./verify_v7471_2_signing_hotfix.sh; fi
           bash verify_v7471_3_notification_tap_rail_actions.sh
           bash verify_v21_notification_cta_svg_next97.sh
+          bash verify_v22_1_tv_tls_compat.sh
           bash verify_v7471_4_slider_nav_remote_ux.sh
           bash verify_v7471_5_player_tv_focus_unified_ui.sh
 
