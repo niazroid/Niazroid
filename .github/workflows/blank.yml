@@ -1,4 +1,4 @@
-name: Build BankMovie 2.4 V20.1 Glass Player Mirror Smart Next Compile Guard
+name: Build BankMovie 2.4 V21 Notifications & Smart Next 97
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -13,11 +13,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-v24-smartnext-v20-1-${{ github.ref }}
+  group: bankmovie-v24-notifications-v21-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_GLASS_PLAY_MIRROR_SMARTNEXT_V20_1.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_BMADMIN_NOTIFICATIONS_CTA_SVG_NEXT97_V21.zip
 
 jobs:
   build:
@@ -385,6 +385,7 @@ jobs:
           bash verify_v7471_1_tinteddrawable_compile_hotfix.sh
           if [[ -x ./verify_v7471_2_signing_hotfix.sh ]]; then bash ./verify_v7471_2_signing_hotfix.sh; fi
           bash verify_v7471_3_notification_tap_rail_actions.sh
+          bash verify_v21_notification_cta_svg_next97.sh
           bash verify_v7471_4_slider_nav_remote_ux.sh
           bash verify_v7471_5_player_tv_focus_unified_ui.sh
 
