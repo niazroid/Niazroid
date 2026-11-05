@@ -1,4 +1,4 @@
-name: Build BankMovie 2.4 V22.1 TV-safe device proof and player TLS check
+name: Build BankMovie 2.4 V22.5 real API request quota + TV-safe security
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -13,11 +13,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-v24-secure-v22-${{ github.ref }}
+  group: bankmovie-v24-secure-v22-5-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_TLS_PLAYER_ONLY_TV_COMPAT_V22_1.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_REAL_API_QUOTA_V22_5.zip
 
 jobs:
   build:
@@ -387,6 +387,9 @@ jobs:
           bash verify_v7471_3_notification_tap_rail_actions.sh
           bash verify_v21_notification_cta_svg_next97.sh
           bash verify_v22_1_tv_tls_compat.sh
+          bash verify_v22_2_rate_limit_toast.sh
+
+          bash verify_v22_5_real_requests.sh
           bash verify_v7471_4_slider_nav_remote_ux.sh
           bash verify_v7471_5_player_tv_focus_unified_ui.sh
 
