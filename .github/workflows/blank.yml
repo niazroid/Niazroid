@@ -1,4 +1,4 @@
-name: Build BankMovie 2.4 V22.5.3 adaptive TV posters + account security
+name: Build BankMovie 2.4 V22.5.5.2 links, comments + CI hotfix
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_LINKS_PROFILE_COMMENTS_V22_5_5_1_CI_FIX.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_LINKS_PROFILE_COMMENTS_V22_5_5_2_CI_FIX.zip
 
 jobs:
   build:
