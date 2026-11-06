@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_LINKS_PROFILE_COMMENTS_V22_5_5.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_LINKS_PROFILE_COMMENTS_V22_5_5_1_CI_FIX.zip
 
 jobs:
   build:
