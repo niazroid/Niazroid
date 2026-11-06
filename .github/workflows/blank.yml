@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_TV_ACCOUNT_V22_5_3.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_TV_ACCOUNT_V22_5_3_1_CI_FIX.zip
 
 jobs:
   build:
