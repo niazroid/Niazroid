@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_LINKS_PROFILE_COMMENTS_V22_5_5_3_CI_FIX.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_TV_NEON_DISCOVER_COMMENTS_V22_5_6.zip
 
 jobs:
   build:
@@ -394,6 +394,7 @@ jobs:
           bash verify_v22_5_3_tv_account.sh
           bash verify_v22_5_4_tv_avatar_weekly_longseries.sh
           bash verify_v22_5_5_links_profile_comment_parity.sh
+          bash verify_v22_5_6_comment_tv_discover.sh
           bash verify_v22_5_4_1_poster_cards_ci.sh
           bash verify_v7471_4_slider_nav_remote_ux.sh
           bash verify_v7471_5_player_tv_focus_unified_ui.sh
