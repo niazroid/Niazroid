@@ -1,4 +1,4 @@
-name: Build BankMovie 2.4 V22.5.1 real API quota CI fix
+name: Build BankMovie 2.4 V22.5.3 adaptive TV posters + account security
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -13,11 +13,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-v24-secure-v22-5-1-${{ github.ref }}
+  group: bankmovie-v24-tv-account-v22-5-3-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_REAL_API_QUOTA_V22_5_1_CI_FIX.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_TV_ACCOUNT_V22_5_3.zip
 
 jobs:
   build:
@@ -390,6 +390,8 @@ jobs:
           bash verify_v22_2_rate_limit_toast.sh
 
           bash verify_v22_5_real_requests.sh
+          bash verify_v22_5_2_performance.sh
+          bash verify_v22_5_3_tv_account.sh
           bash verify_v7471_4_slider_nav_remote_ux.sh
           bash verify_v7471_5_player_tv_focus_unified_ui.sh
 
