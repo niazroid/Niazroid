@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_POSTER_CI_FIX_V22_5_4_1.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_POSTER_CI_FIX_V22_5_4_2.zip
 
 jobs:
   build:
