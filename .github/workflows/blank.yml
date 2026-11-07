@@ -1,4 +1,4 @@
-name: Build BankMovie 2.4 V22.5.7.10 subtitle import + profile redesign
+name: Build BankMovie 2.4 V22.5.7.10.1 subtitle VLC compile fix
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_MANUAL_SUBTITLE_PROFILE_REDESIGN_V22_5_7_10.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_MANUAL_SUBTITLE_PROFILE_REDESIGN_V22_5_7_10_1_COMPILE_FIX.zip
 
 jobs:
   build:
