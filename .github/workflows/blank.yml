@@ -1,4 +1,4 @@
-name: Build BankMovie 2.4 V22.5.5.2 links, comments + CI hotfix
+name: Build BankMovie 2.4 V22.5.7.10 subtitle import + profile redesign
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_TV_HOME_V23_STABLE_RETURN_V22_5_7_7.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_MANUAL_SUBTITLE_PROFILE_REDESIGN_V22_5_7_10.zip
 
 jobs:
   build:
@@ -399,6 +399,7 @@ jobs:
           bash verify_v22_5_7_2_discover_tv_focus.sh
           bash verify_v22_5_7_6_tv_home_shell_restore.sh
           bash verify_v22_5_7_7_tv_home_v23_stable_return.sh
+          bash verify_v22_5_7_10_manual_subtitle_profile.sh
           bash verify_v22_5_4_1_poster_cards_ci.sh
           bash verify_v7471_4_slider_nav_remote_ux.sh
           bash verify_v7471_5_player_tv_focus_unified_ui.sh
