@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_TV_HOME_BACK_RAIL_CLIP_V22_5_7_4.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_TV_HOME_SHELL_RESTORE_V22_5_7_6.zip
 
 jobs:
   build:
@@ -397,7 +397,7 @@ jobs:
           bash verify_v22_5_6_comment_tv_discover.sh
           bash verify_v22_5_7_tv_discover_auth_comments.sh
           bash verify_v22_5_7_2_discover_tv_focus.sh
-          bash verify_v22_5_7_4_tv_home_return_bounds.sh
+          bash verify_v22_5_7_6_tv_home_shell_restore.sh
           bash verify_v22_5_4_1_poster_cards_ci.sh
           bash verify_v7471_4_slider_nav_remote_ux.sh
           bash verify_v7471_5_player_tv_focus_unified_ui.sh
