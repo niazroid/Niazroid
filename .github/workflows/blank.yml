@@ -1,4 +1,4 @@
-name: Build BankMovie 2.4 - Glass Ads Image Fix
+name: BankMovie 2.4 - Fast Ads Offline SVG CTA
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_AD_IMAGE_PUBLIC_ROUTE_FIX.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_AD_FAST_SVG_CTA_FIX.zip
 
 jobs:
   build:
@@ -556,6 +556,11 @@ jobs:
           python3 verify_v24_site_search_collections_ads.py
           python3 verify_v24_ad_image_glass.py
           python3 verify_v24_ad_image_public_route.py
+          python3 verify_v24_ad_fast_cta.py
+          for icon in arrow bag eye play external; do
+            test -s "app/src/main/res/drawable/bm_ad_svg_${icon}.xml"
+            test -s "app/src/main/assets/bm_ads_offline_svg/${icon}.svg"
+          done
           grep -Fq 'PosterDiskCache' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -Fq 'versionName "2.4"' app/build.gradle
           test -s BANKMOVIE_RELEASE_2_4.txt
