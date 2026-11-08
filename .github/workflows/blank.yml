@@ -1,4 +1,4 @@
-name: BankMovie 2.4 - Fast Ads Offline SVG CTA
+name: BankMovie 2.4 - Archive5 New Rails + Home Ads Refresh
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_AD_FAST_SVG_CTA_FIX.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_ARC5_CHINA_INDIA_POPULAR_ADS_FIX.zip
 
 jobs:
   build:
@@ -94,6 +94,19 @@ jobs:
             echo "::error::Native Explorer Activity is missing; refusing to build an older ZIP."
             exit 1
           fi
+          # New Archive 5 release contract: all three rails, refresh hook and actual site assets.
+          for rail in popular chinese indian; do
+            if ! grep -Fq "\"$rail\"" "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"; then
+              echo "::error::Archive 5 rail not wired: $rail"
+              exit 1
+            fi
+          done
+          grep -Fq 'refreshHomeAdFromController()' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
+          for art in bm_site_neon_china_arc5 bm_site_neon_india_arc5 bm_site_neon_popular_arc5; do
+            test -s "$project_dir/app/src/main/res/drawable-nodpi/$art.png"
+            test -s "$project_dir/app/src/main/assets/site-home-art/$art.svg"
+          done
+
           # The project is extracted into RUNNER_TEMP, not the checkout root.
           # Check the icon against the selected source so the verifier does not
           # fail silently with exit code 1 after the ZIP is located.
