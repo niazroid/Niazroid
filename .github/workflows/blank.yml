@@ -1,4 +1,4 @@
-name: Build BankMovie 2.4 V22.5.7.12 Archive 2 Genres + Archive 1 Dedup
+name: Build BankMovie 2.4 Site Search + Collection Search + Ads
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_ARCHIVE2_GENRES_ARCHIVE1_DEDUP_V22_5_7_12.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_SEARCH_COLLECTIONS_ADS.zip
 
 jobs:
   build:
@@ -497,6 +497,7 @@ jobs:
           bash verify_v19_admin_icon.sh
           bash verify_v20_glass_mirror_smartnext.sh
           bash verify_v20_1_regression_guards.sh
+          python3 verify_v24_site_search_collections_ads.py
           grep -Fq 'PosterDiskCache' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -Fq 'versionName "2.4"' app/build.gradle
           test -s BANKMOVIE_RELEASE_2_4.txt
