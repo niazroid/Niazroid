@@ -1,4 +1,4 @@
-name: Build BankMovie 2.4 Search Collections Ads - Network Retry
+name: Build BankMovie 2.4 - Glass Ads Image Fix
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_SEARCH_COLLECTIONS_ADS_NPLUS1_FIX.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_AD_IMAGE_GLASS_FIX.zip
 
 jobs:
   build:
@@ -463,6 +463,7 @@ jobs:
 
           php -l server-required/app_user_api.php
           php -l server-required/app_config.php
+          php -l server-required/app_ad_image.php
           php -l server-required/app_api.php
           php -l server-required/bm_admin.php
           php -l server-required/includes/archive_control.php
@@ -553,6 +554,7 @@ jobs:
           bash verify_v20_glass_mirror_smartnext.sh
           bash verify_v20_1_regression_guards.sh
           python3 verify_v24_site_search_collections_ads.py
+          python3 verify_v24_ad_image_glass.py
           grep -Fq 'PosterDiskCache' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -Fq 'versionName "2.4"' app/build.gradle
           test -s BANKMOVIE_RELEASE_2_4.txt
