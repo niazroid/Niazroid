@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_SEARCH_COLLECTIONS_ADS.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_SEARCH_COLLECTIONS_ADS_NPLUS1_FIX.zip
 
 jobs:
   build:
@@ -391,6 +391,7 @@ jobs:
 
           bash verify_v22_5_real_requests.sh
           bash verify_v22_5_2_performance.sh
+          php verify_v24_collections_query_paths.php
           bash verify_v22_5_3_tv_account.sh
           bash verify_v22_5_4_tv_avatar_weekly_longseries.sh
           bash verify_v22_5_5_links_profile_comment_parity.sh
