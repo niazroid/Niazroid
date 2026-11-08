@@ -1,4 +1,4 @@
-name: Build BankMovie 2.4 Site Search + Collection Search + Ads
+name: Build BankMovie 2.4 Search Collections Ads - Network Retry
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -365,6 +365,60 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
+      - name: Prepare resilient Gradle artifact downloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          # CI-only settings; original Android source and dependency versions stay unchanged.
+          # Kotlin compiler 2.0.21 is a large artifact and can time out while downloading.
+          cat >> "$PROJECT_DIR/gradle.properties" <<'GRADLE_PROPERTIES'
+          systemProp.org.gradle.internal.http.connectionTimeout=120000
+          systemProp.org.gradle.internal.http.socketTimeout=180000
+          GRADLE_PROPERTIES
+
+          helper="$RUNNER_TEMP/bankmovie-gradle-retry.sh"
+          cat > "$helper" <<'BASH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          max_attempts=3
+          for ((attempt=1; attempt<=max_attempts; attempt++)); do
+            log_file="$(mktemp "${RUNNER_TEMP:-/tmp}/bankmovie-gradle-log.XXXXXX")"
+            echo "::group::Gradle attempt ${attempt}/${max_attempts}: $*"
+            set +e
+            gradle --no-daemon --stacktrace "$@" 2>&1 | tee "$log_file"
+            status=${PIPESTATUS[0]}
+            set -e
+            echo '::endgroup::'
+            if (( status == 0 )); then
+              rm -f "$log_file"
+              exit 0
+            fi
+            # Retry ONLY transient network failures; never conceal source/compiler errors.
+            if (( attempt == max_attempts )) || ! grep -Eiq \
+              'Read timed out|SocketTimeoutException|Connect timed out|Connection timed out|Connection reset|Broken pipe|UnknownHostException|Temporary failure in name resolution|503 Service Unavailable|502 Bad Gateway|504 Gateway Timeout|Too Many Requests|Received status code (429|50[0-9])|HTTP (429|50[0-9])' \
+              "$log_file"; then
+              echo "::error::Gradle stopped with exit code $status (attempt $attempt/$max_attempts)."
+              rm -f "$log_file"
+              exit "$status"
+            fi
+            rm -f "$log_file"
+            pause=$((attempt * 15))
+            echo "::warning::Transient dependency download failure; retrying Gradle in ${pause}s (attempt $((attempt+1))/$max_attempts)."
+            sleep "$pause"
+          done
+          BASH
+          chmod +x "$helper"
+          echo "BANKMOVIE_GRADLE_RETRY=$helper" >> "$GITHUB_ENV"
+          echo '::notice::Gradle download timeouts set to 120s connect / 180s read; network-only retry enabled.'
+
+      - name: Warm Gradle plugin classpath before APK builds
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          # Fail early/retry while resolving the Kotlin 2.0.21 plugin/compiler jars.
+          "$BANKMOVIE_GRADLE_RETRY" help
+
       - name: Verify original BankMovie regressions (through V7.47.1.25.2)
         shell: bash
         run: |
@@ -640,7 +694,7 @@ jobs:
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
-          gradle --no-daemon --stacktrace clean assembleAbi2LiteRelease
+          "$BANKMOVIE_GRADLE_RETRY" clean assembleAbi2LiteRelease
 
       - name: Build ABI4 Full releases
         shell: bash
@@ -649,7 +703,7 @@ jobs:
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
-          gradle --no-daemon --stacktrace assembleAbi4FullRelease
+          "$BANKMOVIE_GRADLE_RETRY" assembleAbi4FullRelease
 
       - name: Collect and verify signed APKs
         shell: bash
