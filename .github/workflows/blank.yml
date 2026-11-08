@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_ARC5_CHINA_INDIA_POPULAR_ADS_FIX.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_ARC5_REMOTE_AD_RAILS_CONFIG_RECOVERY.zip
 
 jobs:
   build:
@@ -102,6 +102,8 @@ jobs:
             fi
           done
           grep -Fq 'refreshHomeAdFromController()' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
+          grep -Fq 'fromPrimaryController' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt" || { echo "::error::Missing authoritative-controller config revision recovery"; exit 1; }
+          grep -Fq 'distinctBy { homeSectionPolicyKey(selectedArchive, it) }' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt" || { echo "::error::Missing Archive5 section dedup"; exit 1; }
           for art in bm_site_neon_china_arc5 bm_site_neon_india_arc5 bm_site_neon_popular_arc5; do
             test -s "$project_dir/app/src/main/res/drawable-nodpi/$art.png"
             test -s "$project_dir/app/src/main/assets/site-home-art/$art.svg"
