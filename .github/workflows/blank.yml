@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_AD_IMAGE_GLASS_FIX.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_AD_IMAGE_PUBLIC_ROUTE_FIX.zip
 
 jobs:
   build:
@@ -555,6 +555,7 @@ jobs:
           bash verify_v20_1_regression_guards.sh
           python3 verify_v24_site_search_collections_ads.py
           python3 verify_v24_ad_image_glass.py
+          python3 verify_v24_ad_image_public_route.py
           grep -Fq 'PosterDiskCache' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
           grep -Fq 'versionName "2.4"' app/build.gradle
           test -s BANKMOVIE_RELEASE_2_4.txt
