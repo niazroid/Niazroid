@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_TV_MOBILE_WEEKLY_FOCUS_COPY_SPINNER.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_TV_MOBILE_WEEKLY_FOCUS_COPY_SPINNER_CI_FIXED.zip
 
 jobs:
   build:
