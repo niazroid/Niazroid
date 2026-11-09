@@ -1,4 +1,4 @@
-name: BankMovie 2.4 - TV Startup, Explore, Archive 5 and Collections Fix
+name: BankMovie 2.4 - Smooth Startup + All Public Screens In-Memory Cache
 
 # Builds the exact TV/Mobile weekly, focus, copy and loading release ZIP.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_TV_STARTUP_EXPLORE_ARCHIVE5_COLLECTIONS_FIX.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_SMOOTH_STARTUP_PUBLIC_PAGES_CACHE.zip
 
 jobs:
   build:
@@ -480,6 +480,7 @@ jobs:
           bash verify_v22_5_7_7_tv_home_v23_stable_return.sh
           python3 verify_v24_tv_profile_skeleton_spinner_fix.py
           python3 verify_v24_tv_startup_explore_archive5_collections.py
+          python3 verify_v24_smooth_startup_home_session_cache.py
           bash verify_v22_5_7_10_manual_subtitle_profile.sh
           bash verify_v22_5_7_11_archive_recommend_tv_scroll_upload.sh
           python3 verify_v22_5_7_12_archive_genre_dedup.py
@@ -542,6 +543,13 @@ jobs:
 
           bash verify_v7471_25_2_mobile_header_safe_insets.sh
           echo WORKFLOW_VERIFY_V7471_25_2_OK
+
+      - name: Verify no-refetch public navigation, with sensitive screens excluded
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          python3 verify_public_session_pages_cache.py
 
       - name: Verify Discover, V18 explorer + V19 archive icon regressions
         shell: bash
