@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_TV_HOME_POSTER_RAIL_FIX.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_CUSTOM_LOADERS_SKELETON_V2.zip
 
 jobs:
   build:
@@ -154,7 +154,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected="BankMovie_Android_FULLSOURCE_V2.4_TV_HOME_POSTER_RAIL_FIX.zip"
+          expected="BankMovie_Android_FULLSOURCE_V2.4_CUSTOM_LOADERS_SKELETON_V2.zip"
           if [[ "$SOURCE_ZIP" != "$expected" ]]; then
             echo "::error::Unexpected source ZIP: $SOURCE_ZIP"
             exit 1
@@ -164,7 +164,7 @@ jobs:
             echo "::error::TV profile verifier missing: $verifier"
             exit 1
           fi
-          if ! grep -Fq 'TV_HOME_POSTER_RAIL_FIX\.zip' "$verifier"; then
+          if ! grep -Fq 'CUSTOM_LOADERS_SKELETON_V2\.zip' "$verifier"; then
             echo "::error::TV profile verifier is not aligned with $SOURCE_ZIP"
             exit 1
           fi
@@ -500,6 +500,8 @@ jobs:
           bash verify_v22_5_7_6_tv_home_shell_restore.sh
           bash verify_v22_5_7_7_tv_home_v23_stable_return.sh
           python3 verify_v24_tv_profile_skeleton_spinner_fix.py
+          python3 verify_v24_custom_loader_selection.py
+          python3 verify_v24_loader_classification_integrity.py
           python3 verify_v24_tv_startup_explore_archive5_collections.py
           python3 verify_v24_smooth_startup_home_session_cache.py
           bash verify_v22_5_7_10_manual_subtitle_profile.sh
