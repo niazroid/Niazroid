@@ -1,6 +1,6 @@
-name: BankMovie 2.4 - Live Config Refresh Without Uninstall
+name: BankMovie 2.4 - TV Mobile Weekly Focus Copy Spinner
 
-# Builds the actual six-feature Discover release, not an older extracted project.
+# Builds the exact TV/Mobile weekly, focus, copy and loading release ZIP.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
 
 on:
@@ -13,11 +13,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-v24-tv-account-v22-5-3-${{ github.ref }}
+  group: bankmovie-v24-tv-mobile-weekly-focus-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_LIVE_CONFIG_FOREGROUND_FIX.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_TV_MOBILE_WEEKLY_FOCUS_COPY_SPINNER.zip
 
 jobs:
   build:
@@ -108,6 +108,11 @@ jobs:
           grep -Fq 'homeConfigDisplaySignature(after)' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt" || { echo "::error::Home rails/ad refresh check is missing"; exit 1; }
           grep -Fq 'fromPrimaryController' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt" || { echo "::error::Missing authoritative-controller config revision recovery"; exit 1; }
           grep -Fq 'distinctBy { homeSectionPolicyKey(selectedArchive, it) }' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt" || { echo "::error::Missing Archive5 section dedup"; exit 1; }
+          # TV + mobile patch identity: refuse accidentally building the older app.
+          test -s "$project_dir/app/src/main/java/ir/bankmoviee/app/ThemeWindowLoadingView.kt" || { echo "::error::New lightweight TV loader missing"; exit 1; }
+          grep -Fq 'ThemeWindowLoadingView(this@MainActivity)' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt" || { echo "::error::Lightweight TV loader not wired"; exit 1; }
+          grep -Fq 'Last 100 visits' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt" || { echo "::error::Last 100 visits label missing"; exit 1; }
+          grep -Fq 'Copied ✓' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt" || { echo "::error::Copy link feedback missing"; exit 1; }
           for art in bm_site_neon_china_arc5 bm_site_neon_india_arc5 bm_site_neon_popular_arc5; do
             test -s "$project_dir/app/src/main/res/drawable-nodpi/$art.png"
             test -s "$project_dir/app/src/main/assets/site-home-art/$art.svg"
