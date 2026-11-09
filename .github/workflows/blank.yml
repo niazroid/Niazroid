@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_SMOOTH_STARTUP_PUBLIC_PAGES_CACHE_CI_PROFILE_FIX.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_TV_HOME_POSTER_RAIL_FIX.zip
 
 jobs:
   build:
@@ -149,14 +149,12 @@ jobs:
           echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
           echo "::notice::Verified Native Discover/ID-only source identity."
 
-      # Compatibility for the V2.4 source ZIP originally distributed with a
-      # regression guard pinned to the obsolete CI_COMMENT_FIX archive name.
-      # This only updates that single stale test assertion, never app sources.
-      - name: Align profile verifier with current source ZIP
+      # Keep the profile verifier pinned to this exact source archive name.
+      - name: Verify profile verifier source ZIP identity
         shell: bash
         run: |
           set -euo pipefail
-          expected="BankMovie_Android_FULLSOURCE_V2.4_SMOOTH_STARTUP_PUBLIC_PAGES_CACHE_CI_PROFILE_FIX.zip"
+          expected="BankMovie_Android_FULLSOURCE_V2.4_TV_HOME_POSTER_RAIL_FIX.zip"
           if [[ "$SOURCE_ZIP" != "$expected" ]]; then
             echo "::error::Unexpected source ZIP: $SOURCE_ZIP"
             exit 1
@@ -166,11 +164,7 @@ jobs:
             echo "::error::TV profile verifier missing: $verifier"
             exit 1
           fi
-          if grep -Fq 'CI_COMMENT_FIX\.zip' "$verifier"; then
-            sed -i 's/CI_COMMENT_FIX/CI_PROFILE_FIX/g' "$verifier"
-            echo "::notice::Repaired the old CI_COMMENT_FIX source-name assertion."
-          fi
-          if ! grep -Fq 'CI_PROFILE_FIX\.zip' "$verifier"; then
+          if ! grep -Fq 'TV_HOME_POSTER_RAIL_FIX\.zip' "$verifier"; then
             echo "::error::TV profile verifier is not aligned with $SOURCE_ZIP"
             exit 1
           fi
