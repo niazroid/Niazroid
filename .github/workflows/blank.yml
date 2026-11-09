@@ -1,4 +1,4 @@
-name: BankMovie 2.4 - Archive5 New Rails + Home Ads Refresh
+name: BankMovie 2.4 - Live Config Refresh Without Uninstall
 
 # Builds the actual six-feature Discover release, not an older extracted project.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_ARC5_REMOTE_AD_RAILS_CONFIG_RECOVERY.zip
+  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_LIVE_CONFIG_FOREGROUND_FIX.zip
 
 jobs:
   build:
@@ -102,6 +102,10 @@ jobs:
             fi
           done
           grep -Fq 'refreshHomeAdFromController()' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
+          # Guards against the exact stale-config regression reported by users.
+          grep -Fq 'val primary = URL(BmV22Client.urlForApi(appConfigUrl))' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt" || { echo "::error::V2 controller URL normalization regression"; exit 1; }
+          grep -Fq 'refreshConfigOnForeground(force = true)' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt" || { echo "::error::Foreground config refresh is missing"; exit 1; }
+          grep -Fq 'homeConfigDisplaySignature(after)' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt" || { echo "::error::Home rails/ad refresh check is missing"; exit 1; }
           grep -Fq 'fromPrimaryController' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt" || { echo "::error::Missing authoritative-controller config revision recovery"; exit 1; }
           grep -Fq 'distinctBy { homeSectionPolicyKey(selectedArchive, it) }' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt" || { echo "::error::Missing Archive5 section dedup"; exit 1; }
           for art in bm_site_neon_china_arc5 bm_site_neon_india_arc5 bm_site_neon_popular_arc5; do
