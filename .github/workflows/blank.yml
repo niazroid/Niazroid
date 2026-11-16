@@ -1,6 +1,6 @@
-name: BankMovie 2.4 - Media3 UI Polish - 8 Separate APKs
+name: BankMovie 2.4 - Verified UI Watch Party Cache - 8 APKs
 
-# Builds the exact TV/Mobile weekly, focus, copy and loading release ZIP.
+# Builds ONLY the exact UI-skeleton / Watch Party / cache ZIP. No fallback to old sources.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
 
 on:
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-v24-tv-startup-explore-archive5-collections-${{ github.ref }}
+  group: bankmovie-v24-media3-source-verified-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -36,24 +36,70 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # No fallback to stale source in the repository. Missing ZIP is a hard failure.
           source_zip="$GITHUB_WORKSPACE/$SOURCE_ZIP"
-          if [[ -s "$source_zip" ]]; then
-            unzip -tq "$source_zip"
-            extract_dir="$RUNNER_TEMP/bankmovie-media3-src"
-            mkdir -p "$extract_dir"
-            unzip -q "$source_zip" -d "$extract_dir"
-            mapfile -t matches < <(find "$extract_dir" -maxdepth 7 -path '*/app/build.gradle' -type f | sort)
-            [[ ${#matches[@]} -eq 1 ]] || { echo "::error::Expected one app/build.gradle in media3 source zip"; exit 1; }
-            project_dir="$(dirname "$(dirname "${matches[0]}")")"
-          else
-            mapfile -t matches < <(find "$GITHUB_WORKSPACE" -maxdepth 7 -path '*/app/build.gradle' -type f ! -path '*/app/build/*' | sort)
-            [[ ${#matches[@]} -eq 1 ]] || { echo "::error::Provide $SOURCE_ZIP or an extracted Android project"; exit 1; }
-            project_dir="$(dirname "$(dirname "${matches[0]}")")"
-          fi
+          [[ -s "$source_zip" ]] || {
+            echo "::error::Required source ZIP missing: $SOURCE_ZIP. Upload this exact ZIP to the repository root."
+            exit 1
+          }
+          echo "a384f23af21505bde9a1500be54f3ed74c44fdc3abeff312cb284a8e7c16cc69  $source_zip" | sha256sum --check --status || {
+            echo '::error::Source ZIP checksum differs from the requested UI/WatchParty/Cache release.'
+            sha256sum "$source_zip"
+            exit 1
+          }
+          unzip -tq "$source_zip"
+          extract_dir="$RUNNER_TEMP/bankmovie-media3-src"
+          mkdir -p "$extract_dir"
+          unzip -q "$source_zip" -d "$extract_dir"
+          mapfile -t matches < <(find "$extract_dir" -maxdepth 7 -path '*/app/build.gradle' -type f | sort)
+          [[ ${#matches[@]} -eq 1 ]] || { echo "::error::Expected one app/build.gradle in media3 ZIP"; exit 1; }
+          project_dir="$(dirname "$(dirname "${matches[0]}")")"
+
+          # Check the precise Kotlin files that contain the requested changes.
+          SRC_ROOT="$project_dir" python3 - <<'PYSOURCE'
+          import hashlib, os
+          from pathlib import Path
+          root = Path(os.environ['SRC_ROOT'])
+          source_dir = root / 'app/src/main/java/ir/bankmoviee/app'
+          expected = {
+              'MainActivity.kt': 'ef80c3f440ae4f96f66993434cdab4b4bc430fcca98717f30ec88ec58483611b',
+              'PlayerActivity.kt': '95f5c5e84815bdd7a0a072e35245bc7de5e41c7120180b353f71a22b9903e704',
+              'PosterDiskCache.kt': '54f80b558e73f57bd381ebbc816bee2255e8c9de7b9ebb5e38f0231702df817a',
+          }
+          required = {
+              'MainActivity.kt': ['val heroHeight = dp(272)', 'private fun actorPageLoadingSkeleton()', 'repeat(9) { index ->'],
+              'PlayerActivity.kt': ['bubbleLp.marginEnd = dp(10)', 'marginStart = dp(6)', 'partyVerifiedBadge(admin, 17)'],
+              'PosterDiskCache.kt': ['MAX_BYTES = 48L * 1024L * 1024L', 'MAX_AGE_MS = 5L'],
+          }
+          for name, expected_hash in expected.items():
+              data = (source_dir / name).read_bytes()
+              actual = hashlib.sha256(data).hexdigest()
+              if actual != expected_hash:
+                  raise SystemExit(f'SOURCE_MISMATCH {name}: {actual} != {expected_hash}')
+              for marker in required[name]:
+                  if marker not in data.decode('utf-8'):
+                      raise SystemExit(f'MISSING_CHANGE {name}: {marker}')
+              print(f'PASS {name} sha256={actual[:20]}')
+          print('REQUIRED_UI_WATCHPARTY_CACHE_SOURCE_VERIFIED')
+          PYSOURCE
+
           [[ -s "$project_dir/verify_media3_migration.py" ]] || { echo '::error::Media3 migration gate missing'; exit 1; }
           python3 "$project_dir/verify_media3_migration.py"
+          python3 "$project_dir/verify_media3_playback_fixes.py"
           python3 "$project_dir/verify_media3_ui_polish.py"
+
+          # Embed a verifiable source stamp into every generated APK (asset is not obfuscated by R8).
+          mkdir -p "$project_dir/app/src/main/assets" "$GITHUB_WORKSPACE/output"
+          {
+            echo 'BANKMOVIE_SOURCE_GUARD_V2_4_20261116'
+            echo "source_zip=$SOURCE_ZIP"
+            echo 'zip_sha256=a384f23af21505bde9a1500be54f3ed74c44fdc3abeff312cb284a8e7c16cc69'
+            echo "build_commit=$GITHUB_SHA"
+            echo "build_run=$GITHUB_RUN_ID"
+          } > "$project_dir/app/src/main/assets/bankmovie_source_proof.txt"
+          cp "$project_dir/app/src/main/assets/bankmovie_source_proof.txt" "$GITHUB_WORKSPACE/output/BANKMOVIE-SOURCE-PROOF.txt"
           echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
+          echo '::notice::Exact requested ZIP and Kotlin source verified; APK stamp injected.'
 
       - name: Set monotonic Android versionCode
         shell: bash
@@ -601,6 +647,11 @@ jobs:
           with zipfile.ZipFile(os.environ['APK_FILE']) as z:
               forbidden = [n for n in z.namelist() if 'libvlc' in n.lower() or 'libvlccore' in n.lower()]
               if forbidden: raise SystemExit(f'VLC native libraries still found: {forbidden}')
+              expected_proof = open('output/BANKMOVIE-SOURCE-PROOF.txt', 'rb').read()
+              actual_proof = z.read('assets/bankmovie_source_proof.txt')
+              if expected_proof != actual_proof:
+                  raise SystemExit('Source stamp absent or wrong in '+os.environ['APK_FILE'])
+              print('APK_SOURCE_STAMP_OK:', os.environ['APK_FILE'])
           PYAUDIT
             echo "Verified $apk"
           done
@@ -677,10 +728,11 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.4-DISCOVER-SITE-STYLE-ALL6-Manifests
+          name: Bankmovie-2.4-Source-Verified-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
+            output/BANKMOVIE-SOURCE-PROOF.txt
           if-no-files-found: error
           retention-days: 30
 
