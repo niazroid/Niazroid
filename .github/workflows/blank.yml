@@ -1,4 +1,4 @@
-name: BankMovie 2.4 - Media3 - ABI2 Lite + ABI4 Full - Eight APKs
+name: BankMovie 2.4 - Media3 Playback Repairs - 8 Separate APKs
 
 # Builds the exact TV/Mobile weekly, focus, copy and loading release ZIP.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_MEDIA3_ABI8_SDK36_FULLSOURCE_V2.4.zip
+  SOURCE_ZIP: BankMovie_Android_MEDIA3_ABI8_PLAYBACK_FIX_V2.4.zip
 
 jobs:
   build:
@@ -363,6 +363,7 @@ jobs:
           set -euo pipefail
           cd "$PROJECT_DIR"
           python3 verify_media3_migration.py
+          python3 verify_media3_playback_fixes.py
 
       - name: Install and verify BankMovie font pack
         shell: bash
