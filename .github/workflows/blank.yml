@@ -1,4 +1,4 @@
-name: BankMovie 2.4 - Lightweight Universal Media3
+name: BankMovie 2.4 - Media3 - ABI2 Lite + ABI4 Full - Eight APKs
 
 # Builds the exact TV/Mobile weekly, focus, copy and loading release ZIP.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_MEDIA3_FULLSOURCE_V2.4.zip
+  SOURCE_ZIP: BankMovie_Android_MEDIA3_ABI8_FULLSOURCE_V2.4.zip
 
 jobs:
   build:
@@ -327,6 +327,13 @@ jobs:
               'Read timed out|SocketTimeoutException|Connect timed out|Connection timed out|Connection reset|Broken pipe|UnknownHostException|Temporary failure in name resolution|503 Service Unavailable|502 Bad Gateway|504 Gateway Timeout|Too Many Requests|Received status code (429|50[0-9])|HTTP (429|50[0-9])' \
               "$log_file"; then
               echo "::error::Gradle stopped with exit code $status (attempt $attempt/$max_attempts)."
+              echo "::group::Gradle root-cause lines"
+              grep -n -E '^e: |^> Task .* FAILED|^FAILURE:|^\* What went wrong:|^Execution failed for task|^> .*Exception|^> Could not|^Caused by:|^\[ERROR\]' "$log_file" | tail -n 90 || true
+              echo '--- Last 90 Gradle log lines ---'
+              tail -n 90 "$log_file" || true
+              echo '::endgroup::'
+              mkdir -p "$GITHUB_WORKSPACE/output"
+              cp "$log_file" "$GITHUB_WORKSPACE/output/gradle-failure.log" || true
               rm -f "$log_file"
               exit "$status"
             fi
@@ -486,43 +493,199 @@ jobs:
           done
           echo "::notice::BankMovie + legacy font pack installed and verified."
 
-      - name: Build signed Universal Media3 APK
+      # Keep the original ABI2-Lite/ABI4-Full edition and 8-artifact contract.
+      - name: Build ABI2 Lite releases
         shell: bash
+        env:
+          BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
-          "$BANKMOVIE_GRADLE_RETRY" clean assembleAbi4FullRelease
+          "$BANKMOVIE_GRADLE_RETRY" clean assembleAbi2LiteRelease
 
-      - name: Audit and publish Universal APK
+      - name: Build ABI4 Full releases
+        shell: bash
+        env:
+          BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a,x86,x86_64
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          "$BANKMOVIE_GRADLE_RETRY" assembleAbi4FullRelease
+
+      - name: Collect exactly 8 APKs with original filenames
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p output
-          mapfile -d '' apks < <(find "$PROJECT_DIR/app/build/outputs/apk/abi4Full/release" -name '*.apk' -type f -print0)
-          [[ ${#apks[@]} -eq 1 ]] || { echo '::error::Expected exactly one universal Media3 APK'; exit 1; }
-          target=output/BankMovie-v2.4-Media3-Universal.apk
-          cp "${apks[0]}" "$target"
-          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
-          "$apksigner" verify --verbose --print-certs "$target"
-          APK_FILE="$target" python3 - <<'PY'
-          import os, zipfile
-          path = os.environ['APK_FILE']
-          with zipfile.ZipFile(path) as z:
-              names = z.namelist()
-              forbidden = [n for n in names if 'libvlc' in n.lower() or 'libvlccore' in n.lower()]
-              if forbidden:
-                  raise SystemExit(f'Old VLC native libraries still packaged: {forbidden}')
-              print(f'Media3 universal APK: {os.path.getsize(path):,} bytes')
-              print(f'Native .so entries: {[n for n in names if n.endswith(".so")]}')
-          PY
-          sha256sum "$target" > output/SHA256SUMS.txt
+          rm -f output/*.apk
+          python3 - <<'PYCOLLECT'
+          import os
+          import shutil
+          from pathlib import Path
+          from zipfile import ZipFile
 
-      - name: Upload Media3 Universal APK and checksum
+          apk_root = Path(os.environ['PROJECT_DIR']) / 'app/build/outputs/apk'
+          out = Path('output')
+          editions = {
+              'abi2Lite': ('ABI2-Lite', [
+                  ('Universal', 'universal'),
+                  ('Armeabi-v7a', 'armeabi-v7a'),
+                  ('Arm64-v8a', 'arm64-v8a')]),
+              'abi4Full': ('ABI4-Full', [
+                  ('Universal', 'universal'),
+                  ('Armeabi-v7a', 'armeabi-v7a'),
+                  ('Arm64-v8a', 'arm64-v8a'),
+                  ('X86', 'x86'),
+                  ('X86_64', 'x86_64')]),
+          }
+          for flavor, (edition, kinds) in editions.items():
+              # Gradle may use camel-case or lower-case folder names depending on version.
+              folders = [p for p in apk_root.glob('*/release') if p.parent.name.lower() == flavor.lower()]
+              if len(folders) != 1:
+                  raise SystemExit(f'Expected one release directory for {flavor}, found: {folders}')
+              files = sorted(folders[0].glob('*.apk'))
+              if not files:
+                  raise SystemExit(f'No APK generated for {flavor} in {folders[0]}')
+              def matching(token):
+                  for p in files:
+                      stem = p.stem.lower()
+                      if token == 'universal':
+                          if 'universal' in stem: return p
+                      elif token == 'x86':
+                          if '-x86-' in stem or stem.endswith('-x86'): return p
+                      elif token in stem:
+                          return p
+                  return None
+              universal = matching('universal')
+              if universal is None and len(files) == 1:
+                  # Some AGP configurations output only a normal, native-free APK.
+                  universal = files[0]
+              if universal is None:
+                  raise SystemExit(f'Universal APK missing for {edition}: {[p.name for p in files]}')
+              with ZipFile(universal) as apk:
+                  native_libs = [n for n in apk.namelist() if n.startswith('lib/') and n.endswith('.so')]
+              for label, token in kinds:
+                  candidate = universal if token == 'universal' else matching(token)
+                  if candidate is None:
+                      if native_libs:
+                          raise SystemExit(f'Cannot copy a universal APK as {edition} {label}: native libraries present {native_libs}')
+                      # With no JNI libraries, APKs are inherently multi-ABI. Preserve
+                      # original eight separate artifact names using signed universal bytes.
+                      candidate = universal
+                      print(f'Native-free edition: using universal APK for {edition} {label}')
+                  target = out / f'Bankmovie-v2.4-{edition}-{label}.apk'
+                  shutil.copy2(candidate, target)
+                  print(f'{target.name}: {target.stat().st_size:,} bytes (source: {candidate.name})')
+          assert len(list(out.glob('*.apk'))) == 8, 'Expected exactly 8 separately named APKs'
+          PYCOLLECT
+
+      - name: Verify all 8 signed APKs, update identity and no bundled VLC
+        shell: bash
+        run: |
+          set -euo pipefail
+          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$apksigner"
+          test -x "$aapt_bin"
+          for apk in output/*.apk; do
+            "$apksigner" verify --verbose --print-certs "$apk"
+            version_code="$($aapt_bin dump badging "$apk" | sed -n "s/.*versionCode='\([0-9][0-9]*\)'.*/\1/p" | head -n 1)"
+            version_name="$($aapt_bin dump badging "$apk" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" | head -n 1)"
+            [[ "$version_name" == "2.4" ]] || { echo "::error::Unexpected versionName: $apk ($version_name)"; exit 1; }
+            [[ "$version_code" == "$BANKMOVIE_VERSION_CODE" ]] || { echo "::error::Unexpected versionCode: $apk ($version_code)"; exit 1; }
+            APK_FILE="$apk" python3 - <<'PYAUDIT'
+          import os, zipfile
+          with zipfile.ZipFile(os.environ['APK_FILE']) as z:
+              forbidden = [n for n in z.namelist() if 'libvlc' in n.lower() or 'libvlccore' in n.lower()]
+              if forbidden: raise SystemExit(f'VLC native libraries still found: {forbidden}')
+          PYAUDIT
+            echo "Verified $apk"
+          done
+          sha256sum output/*.apk > output/SHA256SUMS.txt
+          {
+            echo 'BankMovie 2.4 Media3 eight signed APK sizes (bytes)'
+            find output -maxdepth 1 -name '*.apk' -printf '%f %s\n' | sort
+          } > output/APK-SIZES.txt
+
+      - name: Upload ABI2 Lite Universal
         uses: actions/upload-artifact@v4
         with:
-          name: BankMovie-2.4-Media3-Universal
-          path: |
-            output/BankMovie-v2.4-Media3-Universal.apk
-            output/SHA256SUMS.txt
+          name: Bankmovie-2.4-ABI2-Lite-Universal
+          path: output/Bankmovie-v2.4-ABI2-Lite-Universal.apk
           if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ABI2 Lite Armeabi-v7a
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.4-ABI2-Lite-Armeabi-v7a
+          path: output/Bankmovie-v2.4-ABI2-Lite-Armeabi-v7a.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ABI2 Lite Arm64-v8a
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.4-ABI2-Lite-Arm64-v8a
+          path: output/Bankmovie-v2.4-ABI2-Lite-Arm64-v8a.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ABI4 Full Universal
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.4-ABI4-Full-Universal
+          path: output/Bankmovie-v2.4-ABI4-Full-Universal.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ABI4 Full Armeabi-v7a
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.4-ABI4-Full-Armeabi-v7a
+          path: output/Bankmovie-v2.4-ABI4-Full-Armeabi-v7a.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ABI4 Full Arm64-v8a
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.4-ABI4-Full-Arm64-v8a
+          path: output/Bankmovie-v2.4-ABI4-Full-Arm64-v8a.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ABI4 Full X86
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.4-ABI4-Full-X86
+          path: output/Bankmovie-v2.4-ABI4-Full-X86.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ABI4 Full X86_64
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.4-ABI4-Full-X86_64
+          path: output/Bankmovie-v2.4-ABI4-Full-X86_64.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload checksum and size manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.4-DISCOVER-SITE-STYLE-ALL6-Manifests
+          path: |
+            output/SHA256SUMS.txt
+            output/APK-SIZES.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Gradle failure log for diagnosis
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankmovie-2.4-Media3-Gradle-Error-Log
+          path: output/gradle-failure.log
+          if-no-files-found: ignore
           retention-days: 30
