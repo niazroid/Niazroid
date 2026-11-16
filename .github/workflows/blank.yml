@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_MEDIA3_ABI8_UI_POLISH_CI_FIX_V2.4.zip
+  SOURCE_ZIP: BankMovie_Android_MEDIA3_ABI8_UI_POLISH_SKELETON_WATCHPARTY_CACHE_FIX_V2.4.zip
 
 jobs:
   build:
