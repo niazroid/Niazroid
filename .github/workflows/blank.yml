@@ -667,19 +667,49 @@ jobs:
             [[ "$app_label" == "Bankmovie" ]] || { echo "::error::Expected original Bankmovie label, got: $app_label"; exit 1; }
             [[ "$version_code" == "$BANKMOVIE_VERSION_CODE" ]] || { echo "::error::Unexpected versionCode: $apk ($version_code)"; exit 1; }
             APK_FILE="$apk" python3 - <<'PYAUDIT'
-          import os, zipfile
+          import hashlib, os, zipfile
+          from pathlib import Path
+
+          keys = ('action', 'adventure', 'animation', 'anime', 'biography', 'comedy', 'crime',
+                  'documentary', 'drama', 'family', 'fantasy', 'history', 'horror',
+                  'music', 'musical', 'mystery', 'noir', 'romance', 'school',
+                  'sci_fi', 'science', 'short', 'sport', 'supernatural',
+                  'thriller', 'war', 'western')
+          source_drawables = (Path(os.environ['PROJECT_DIR']) / 'app/src/main/res/drawable-nodpi')
+          expected = {
+              hashlib.sha256((source_drawables / ('bm_genre_' + key + '.webp')).read_bytes()).digest(): key
+              for key in keys
+          }
+          if len(expected) != len(keys):
+              raise SystemExit('Some genre images in source have identical content')
+
           with zipfile.ZipFile(os.environ['APK_FILE']) as z:
-              forbidden = [n for n in z.namelist() if 'libvlc' in n.lower() or 'libvlccore' in n.lower()]
+              names = z.namelist()
+              forbidden = [n for n in names if 'libvlc' in n.lower() or 'libvlccore' in n.lower()]
               if forbidden: raise SystemExit(f'VLC native libraries still found: {forbidden}')
-              if any('ffmpeg' in n.lower() for n in z.namelist() if n.startswith('lib/')):
+              if any('ffmpeg' in n.lower() for n in names if n.startswith('lib/')):
                   raise SystemExit('Unexpected FFmpeg native library packaged')
-              found = {n.rsplit('/',1)[-1].replace('.webp','') for n in z.namelist()
-                       if n.endswith('.webp') and 'bm_genre_' in n}
-              required = {f'bm_genre_{key}' for key in ('action', 'adventure', 'animation', 'anime', 'biography', 'comedy', 'crime', 'documentary', 'drama', 'family', 'fantasy', 'history', 'horror', 'music', 'musical', 'mystery', 'noir', 'romance', 'school', 'sci_fi', 'science', 'short', 'sport', 'supernatural', 'thriller', 'war', 'western')}
-              missing = required - found
-              if missing: raise SystemExit(f'APK missing offline genre images: {sorted(missing)}')
-              print('APK_OFFLINE_GENRES_OK',len(required),os.environ['APK_FILE'])
-              expected_proof = open('output/BANKMOVIE-SOURCE-PROOF.txt', 'rb').read()
+
+              # With shrinkResources=true, AGP/AAPT2 may rename resource paths to
+              # short names such as res/3d or res/X.webp. The basename cannot be
+              # used to audit an optimized release APK. WebP file bytes are kept
+              # intact; verify their SHA-256 instead, regardless of path/extension.
+              found = set()
+              for info in z.infolist():
+                  if not info.filename.startswith('res/') or info.file_size < 20_000:
+                      continue
+                  with z.open(info) as file:
+                      image_hash = hashlib.sha256(file.read()).digest()
+                  if image_hash in expected:
+                      found.add(image_hash)
+              missing = [key for digest, key in expected.items() if digest not in found]
+              if missing:
+                  raise SystemExit('Compiled APK is genuinely missing genre image bytes: '
+                                   + ', '.join(sorted(missing)) + '. '
+                                   + 'If AGP ever re-encodes WebP payloads, update the verifier to inspect compiled resources.')
+              print('APK_OFFLINE_GENRES_OK', len(found), os.environ['APK_FILE'])
+
+              expected_proof = Path('output/BANKMOVIE-SOURCE-PROOF.txt').read_bytes()
               actual_proof = z.read('assets/bankmovie_source_proof.txt')
               if expected_proof != actual_proof:
                   raise SystemExit('Source stamp absent or wrong in '+os.environ['APK_FILE'])
