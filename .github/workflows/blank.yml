@@ -1,6 +1,6 @@
-name: BankMovie TEST UI Check - 8 Separate APKs
+name: BankMovie 2.5 - Film Actor and Watch Party UI - 8 Separate APKs
 
-# Builds ONLY the exact UI-skeleton / Watch Party / cache ZIP. No fallback to old sources.
+# Build ONLY the pinned BankMovie 2.5 film/actor skeleton + Watch Party ZIP. No stale-source fallback.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
 
 on:
@@ -13,11 +13,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-v24-ui-check-${{ github.ref }}
+  group: bankmovie-v25-actor-film-watchparty-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_UI_CHECK_TESTNAME_SOURCE_V2.4.zip
+  SOURCE_ZIP: BankMovie_Android_MEDIA3_ABI8_ACTOR_FILM_WATCHPARTY_V2.5.zip
 
 jobs:
   build:
@@ -42,8 +42,8 @@ jobs:
             echo "::error::Required source ZIP missing: $SOURCE_ZIP. Upload this exact ZIP to the repository root."
             exit 1
           }
-          echo "9e2427809d734ced842f2f8c4f8b7eb41ee3b4eb5f020a4e015eff643d81c1b5  $source_zip" | sha256sum --check --status || {
-            echo '::error::Source ZIP checksum differs from the requested UI/WatchParty/Cache release.'
+          echo "864284736842ce5fd7fa7e2502d112e70cfbed0a0306487208511f6289353894  $source_zip" | sha256sum --check --status || {
+            echo '::error::Source ZIP checksum differs from the required BankMovie 2.5 release.'
             sha256sum "$source_zip"
             exit 1
           }
@@ -62,13 +62,13 @@ jobs:
           root = Path(os.environ['SRC_ROOT'])
           source_dir = root / 'app/src/main/java/ir/bankmoviee/app'
           expected = {
-              'MainActivity.kt': 'ef80c3f440ae4f96f66993434cdab4b4bc430fcca98717f30ec88ec58483611b',
-              'PlayerActivity.kt': '95f5c5e84815bdd7a0a072e35245bc7de5e41c7120180b353f71a22b9903e704',
+              'MainActivity.kt': '2516390bc3e2164707b4c7b9d2a9610a286b06e8935a9e99c9919afd5a512491',
+              'PlayerActivity.kt': 'ad788336decb70c4a6fefa6c0aab98d989a29ddc2fb03c6a662d76be52341b2a',
               'PosterDiskCache.kt': '54f80b558e73f57bd381ebbc816bee2255e8c9de7b9ebb5e38f0231702df817a',
           }
           required = {
-              'MainActivity.kt': ['val heroHeight = dp(272)', 'private fun actorPageLoadingSkeleton()', 'repeat(9) { index ->'],
-              'PlayerActivity.kt': ['bubbleLp.marginEnd = dp(10)', 'marginStart = dp(6)', 'partyVerifiedBadge(admin, 17)'],
+              'MainActivity.kt': ['val heroHeight = dp(356)', 'val castHeight = dp(158)', 'private fun actorPageGlassLoadingSkeleton()', 'if (!isTvLike()) return actorPageGlassLoadingSkeleton()'],
+              'PlayerActivity.kt': ['bubbleLp.marginEnd = dp(15)', 'bubbleLp.marginStart = dp(15)', 'partyVerifiedBadge(admin || verified, 18)', 'partyVerifiedBadge(overlayAdmin || overlayVerified, 18)'],
               'PosterDiskCache.kt': ['MAX_BYTES = 48L * 1024L * 1024L', 'MAX_AGE_MS = 5L'],
           }
           for name, expected_hash in expected.items():
@@ -80,22 +80,23 @@ jobs:
                   if marker not in data.decode('utf-8'):
                       raise SystemExit(f'MISSING_CHANGE {name}: {marker}')
               print(f'PASS {name} sha256={actual[:20]}')
-          print('REQUIRED_UI_WATCHPARTY_CACHE_SOURCE_VERIFIED')
+          print('REQUIRED_BM25_FILM_ACTOR_WATCHPARTY_SOURCE_VERIFIED')
           PYSOURCE
 
           [[ -s "$project_dir/verify_media3_migration.py" ]] || { echo '::error::Media3 migration gate missing'; exit 1; }
           python3 "$project_dir/verify_media3_migration.py"
           python3 "$project_dir/verify_media3_playback_fixes.py"
           python3 "$project_dir/verify_media3_ui_polish.py"
+          python3 "$project_dir/verify_bm25_ui.py"
 
           # Embed a verifiable source stamp into every generated APK (asset is not obfuscated by R8).
           mkdir -p "$project_dir/app/src/main/assets" "$GITHUB_WORKSPACE/output"
           {
-            echo 'BANKMOVIE_TESTNAME_UI_CHECK_20261116'
+            echo 'BANKMOVIE_25_FILM_ACTOR_CHAT_20261116'
             echo "source_zip=$SOURCE_ZIP"
-            echo 'app_label=BankMovie TEST'
-            echo 'version_name=2.4-UI-CHECK'
-            echo 'zip_sha256=9e2427809d734ced842f2f8c4f8b7eb41ee3b4eb5f020a4e015eff643d81c1b5'
+            echo 'app_label=Bankmovie'
+            echo 'version_name=2.5'
+            echo 'zip_sha256=864284736842ce5fd7fa7e2502d112e70cfbed0a0306487208511f6289353894'
             echo "build_commit=$GITHUB_SHA"
             echo "build_run=$GITHUB_RUN_ID"
           } > "$project_dir/app/src/main/assets/bankmovie_source_proof.txt"
@@ -624,7 +625,7 @@ jobs:
                       # original eight separate artifact names using signed universal bytes.
                       candidate = universal
                       print(f'Native-free edition: using universal APK for {edition} {label}')
-                  target = out / f'Bankmovie-v2.4-{edition}-{label}.apk'
+                  target = out / f'Bankmovie-v2.5-{edition}-{label}.apk'
                   shutil.copy2(candidate, target)
                   print(f'{target.name}: {target.stat().st_size:,} bytes (source: {candidate.name})')
           assert len(list(out.glob('*.apk'))) == 8, 'Expected exactly 8 separately named APKs'
@@ -642,9 +643,9 @@ jobs:
             "$apksigner" verify --verbose --print-certs "$apk"
             version_code="$($aapt_bin dump badging "$apk" | sed -n "s/.*versionCode='\([0-9][0-9]*\)'.*/\1/p" | head -n 1)"
             version_name="$($aapt_bin dump badging "$apk" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" | head -n 1)"
-            [[ "$version_name" == "2.4-UI-CHECK" ]] || { echo "::error::Unexpected versionName: $apk ($version_name)"; exit 1; }
+            [[ "$version_name" == "2.5" ]] || { echo "::error::Unexpected versionName: $apk ($version_name)"; exit 1; }
             app_label="$($aapt_bin dump badging "$apk" | sed -n "s/^application-label:'\([^']*\)'.*/\1/p" | head -n 1)"
-            [[ "$app_label" == "BankMovie TEST" ]] || { echo "::error::Expected test app label, got: $app_label"; exit 1; }
+            [[ "$app_label" == "Bankmovie" ]] || { echo "::error::Expected original Bankmovie label, got: $app_label"; exit 1; }
             [[ "$version_code" == "$BANKMOVIE_VERSION_CODE" ]] || { echo "::error::Unexpected versionCode: $apk ($version_code)"; exit 1; }
             APK_FILE="$apk" python3 - <<'PYAUDIT'
           import os, zipfile
@@ -661,78 +662,78 @@ jobs:
           done
           sha256sum output/*.apk > output/SHA256SUMS.txt
           {
-            echo 'BankMovie 2.4 Media3 eight signed APK sizes (bytes)'
+            echo 'BankMovie 2.5 Media3 eight signed APK sizes (bytes)'
             find output -maxdepth 1 -name '*.apk' -printf '%f %s\n' | sort
           } > output/APK-SIZES.txt
 
       - name: Upload ABI2 Lite Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.4-ABI2-Lite-Universal
-          path: output/Bankmovie-v2.4-ABI2-Lite-Universal.apk
+          name: Bankmovie-2.5-ABI2-Lite-Universal
+          path: output/Bankmovie-v2.5-ABI2-Lite-Universal.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI2 Lite Armeabi-v7a
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.4-ABI2-Lite-Armeabi-v7a
-          path: output/Bankmovie-v2.4-ABI2-Lite-Armeabi-v7a.apk
+          name: Bankmovie-2.5-ABI2-Lite-Armeabi-v7a
+          path: output/Bankmovie-v2.5-ABI2-Lite-Armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI2 Lite Arm64-v8a
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.4-ABI2-Lite-Arm64-v8a
-          path: output/Bankmovie-v2.4-ABI2-Lite-Arm64-v8a.apk
+          name: Bankmovie-2.5-ABI2-Lite-Arm64-v8a
+          path: output/Bankmovie-v2.5-ABI2-Lite-Arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full Universal
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.4-ABI4-Full-Universal
-          path: output/Bankmovie-v2.4-ABI4-Full-Universal.apk
+          name: Bankmovie-2.5-ABI4-Full-Universal
+          path: output/Bankmovie-v2.5-ABI4-Full-Universal.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full Armeabi-v7a
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.4-ABI4-Full-Armeabi-v7a
-          path: output/Bankmovie-v2.4-ABI4-Full-Armeabi-v7a.apk
+          name: Bankmovie-2.5-ABI4-Full-Armeabi-v7a
+          path: output/Bankmovie-v2.5-ABI4-Full-Armeabi-v7a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full Arm64-v8a
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.4-ABI4-Full-Arm64-v8a
-          path: output/Bankmovie-v2.4-ABI4-Full-Arm64-v8a.apk
+          name: Bankmovie-2.5-ABI4-Full-Arm64-v8a
+          path: output/Bankmovie-v2.5-ABI4-Full-Arm64-v8a.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full X86
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.4-ABI4-Full-X86
-          path: output/Bankmovie-v2.4-ABI4-Full-X86.apk
+          name: Bankmovie-2.5-ABI4-Full-X86
+          path: output/Bankmovie-v2.5-ABI4-Full-X86.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload ABI4 Full X86_64
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.4-ABI4-Full-X86_64
-          path: output/Bankmovie-v2.4-ABI4-Full-X86_64.apk
+          name: Bankmovie-2.5-ABI4-Full-X86_64
+          path: output/Bankmovie-v2.5-ABI4-Full-X86_64.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.4-Source-Verified-Manifests
+          name: Bankmovie-2.5-Source-Verified-Manifests
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
@@ -744,7 +745,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.4-Media3-Gradle-Error-Log
+          name: Bankmovie-2.5-Media3-Gradle-Error-Log
           path: output/gradle-failure.log
           if-no-files-found: ignore
           retention-days: 30
