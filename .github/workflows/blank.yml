@@ -1,4 +1,4 @@
-name: BankMovie 2.4 - Media3 Playback Repairs - 8 Separate APKs
+name: BankMovie 2.4 - Media3 UI Polish - 8 Separate APKs
 
 # Builds the exact TV/Mobile weekly, focus, copy and loading release ZIP.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_MEDIA3_ABI8_PLAYBACK_FIX_V2.4.zip
+  SOURCE_ZIP: BankMovie_Android_MEDIA3_ABI8_UI_POLISH_V2.4.zip
 
 jobs:
   build:
@@ -52,6 +52,7 @@ jobs:
           fi
           [[ -s "$project_dir/verify_media3_migration.py" ]] || { echo '::error::Media3 migration gate missing'; exit 1; }
           python3 "$project_dir/verify_media3_migration.py"
+          python3 "$project_dir/verify_media3_ui_polish.py"
           echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
 
       - name: Set monotonic Android versionCode
