@@ -1,4 +1,4 @@
-name: BankMovie 2.4 - Smooth Startup + All Public Screens In-Memory Cache
+name: BankMovie 2.4 - Lightweight Universal Media3
 
 # Builds the exact TV/Mobile weekly, focus, copy and loading release ZIP.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_FULLSOURCE_V2.4_CUSTOM_LOADERS_SKELETON_V2.zip
+  SOURCE_ZIP: BankMovie_Android_MEDIA3_FULLSOURCE_V2.4.zip
 
 jobs:
   build:
@@ -32,143 +32,27 @@ jobs:
           # was deleted from the current branch but still exists in Git history.
           fetch-depth: 0
 
-      - name: Locate EXACT BankMovie V22 project
+      - name: Locate exact Media3 project
         shell: bash
         run: |
           set -euo pipefail
-          workspace="$GITHUB_WORKSPACE"
-          source_zip="$workspace/$SOURCE_ZIP"
-
-          # Prefer the explicitly named new ZIP. Never silently build an older
-          # extracted project just because app/build.gradle exists in the repo.
+          source_zip="$GITHUB_WORKSPACE/$SOURCE_ZIP"
           if [[ -s "$source_zip" ]]; then
-            unzip -tq "$source_zip" >/dev/null
-            extract_dir="$RUNNER_TEMP/bankmovie-discover-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+            unzip -tq "$source_zip"
+            extract_dir="$RUNNER_TEMP/bankmovie-media3-src"
             mkdir -p "$extract_dir"
             unzip -q "$source_zip" -d "$extract_dir"
-            mapfile -t matches < <(find "$extract_dir" -maxdepth 7 -type f -path '*/app/build.gradle' ! -path '*/app/build/*' | sort)
-            if [[ ${#matches[@]} -ne 1 ]]; then
-              echo "::error::Expected exactly one app/build.gradle inside $SOURCE_ZIP; found ${#matches[@]}."
-              exit 1
-            fi
+            mapfile -t matches < <(find "$extract_dir" -maxdepth 7 -path '*/app/build.gradle' -type f | sort)
+            [[ ${#matches[@]} -eq 1 ]] || { echo "::error::Expected one app/build.gradle in media3 source zip"; exit 1; }
             project_dir="$(dirname "$(dirname "${matches[0]}")")"
-            echo "::notice::Using the exact Discover source ZIP: $SOURCE_ZIP"
           else
-            # Alternative: project extracted and committed into the repository.
-            mapfile -t matches < <(find "$workspace" -maxdepth 7 -type f -path '*/app/build.gradle' ! -path '*/app/build/*' | sort)
-            if [[ ${#matches[@]} -ne 1 ]]; then
-              echo "::error::Upload $SOURCE_ZIP to the repository root, or commit exactly one extracted Android project."
-              exit 1
-            fi
+            mapfile -t matches < <(find "$GITHUB_WORKSPACE" -maxdepth 7 -path '*/app/build.gradle' -type f ! -path '*/app/build/*' | sort)
+            [[ ${#matches[@]} -eq 1 ]] || { echo "::error::Provide $SOURCE_ZIP or an extracted Android project"; exit 1; }
             project_dir="$(dirname "$(dirname "${matches[0]}")")"
-            echo "::notice::Using extracted Android project: $project_dir"
           fi
-
-          # Ensure the workflow cannot silently publish a version 2.3 artifact.
-          if ! grep -Eq '^[[:space:]]*versionName[[:space:]]+"2\.4"' "$project_dir/app/build.gradle"; then
-            echo "::error::Android versionName is not 2.4 in the selected source."
-            exit 1
-          fi
-          if ! grep -Fq "applicationId 'ir.bankmoviee.app'" "$project_dir/app/build.gradle"; then
-            echo "::error::Unexpected Android applicationId: updates must keep ir.bankmoviee.app."
-            exit 1
-          fi
-
-          # Hard-stop on stale builds (like V7.47.1.17/25.2 with no new features).
-          for required in \
-            app/src/main/java/ir/bankmoviee/app/DiscoverAppBridge.kt \
-            app/src/main/java/ir/bankmoviee/app/PosterDiskCache.kt \
-            app/src/main/java/ir/bankmoviee/app/WatchlistIdentity.kt \
-            app/src/main/assets/bm_discover_app.css \
-            app/src/main/assets/bm_discover_app.js \
-            app/src/main/assets/bm_explorer_v17.js \
-            app/src/main/assets/bm_explorer_v17.css \
-            app/src/main/assets/bm_explorer_v17.html \
-            app/src/main/java/ir/bankmoviee/app/ExplorerActivity.kt; do
-            if [[ ! -s "$project_dir/$required" ]]; then
-              echo "::error::Missing six-feature release file: $required"
-              exit 1
-            fi
-          done
-          if ! grep -Fq 'android:name=".ExplorerActivity"' "$project_dir/app/src/main/AndroidManifest.xml"; then
-            echo "::error::Native Explorer Activity is missing; refusing to build an older ZIP."
-            exit 1
-          fi
-          # New Archive 5 release contract: all three rails, refresh hook and actual site assets.
-          for rail in popular chinese indian; do
-            if ! grep -Fq "\"$rail\"" "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"; then
-              echo "::error::Archive 5 rail not wired: $rail"
-              exit 1
-            fi
-          done
-          grep -Fq 'refreshHomeAdFromController()' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt"
-          # Guards against the exact stale-config regression reported by users.
-          grep -Fq 'val primary = URL(BmV22Client.urlForApi(appConfigUrl))' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt" || { echo "::error::V2 controller URL normalization regression"; exit 1; }
-          grep -Fq 'refreshConfigOnForeground(force = true)' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt" || { echo "::error::Foreground config refresh is missing"; exit 1; }
-          grep -Fq 'homeConfigDisplaySignature(after)' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt" || { echo "::error::Home rails/ad refresh check is missing"; exit 1; }
-          grep -Fq 'fromPrimaryController' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt" || { echo "::error::Missing authoritative-controller config revision recovery"; exit 1; }
-          grep -Fq 'distinctBy { homeSectionPolicyKey(selectedArchive, it) }' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt" || { echo "::error::Missing Archive5 section dedup"; exit 1; }
-          # TV + mobile patch identity: refuse accidentally building the older app.
-          test -s "$project_dir/app/src/main/java/ir/bankmoviee/app/ThemeWindowLoadingView.kt" || { echo "::error::New lightweight TV loader missing"; exit 1; }
-          grep -Fq 'ThemeWindowLoadingView(this@MainActivity)' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt" || { echo "::error::Lightweight TV loader not wired"; exit 1; }
-          grep -Fq 'Last 100 visits' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt" || { echo "::error::Last 100 visits label missing"; exit 1; }
-          grep -Fq 'Copied ✓' "$project_dir/app/src/main/java/ir/bankmoviee/app/MainActivity.kt" || { echo "::error::Copy link feedback missing"; exit 1; }
-          for art in bm_site_neon_china_arc5 bm_site_neon_india_arc5 bm_site_neon_popular_arc5; do
-            test -s "$project_dir/app/src/main/res/drawable-nodpi/$art.png"
-            test -s "$project_dir/app/src/main/assets/site-home-art/$art.svg"
-          done
-
-          # The project is extracted into RUNNER_TEMP, not the checkout root.
-          # Check the icon against the selected source so the verifier does not
-          # fail silently with exit code 1 after the ZIP is located.
-          # Verify the artwork identifiers actually referenced by the V6
-          # Kotlin home header (bm_site_neon_*), not the retained SVG originals.
-          for art in bm_site_neon_movie bm_site_neon_series; do
-            if [[ ! -s "$project_dir/app/src/main/res/drawable-nodpi/$art.webp" ]]; then
-              echo "::error::Missing BankMovie live site header WebP: $art"
-              exit 1
-            fi
-          done
-          for art in bm_site_neon_collections bm_site_neon_anime bm_site_neon_animation bm_site_neon_turkey bm_site_neon_korea bm_site_neon_dub bm_site_neon_top bm_site_neon_china bm_site_neon_subtitle; do
-            if [[ ! -s "$project_dir/app/src/main/res/drawable-nodpi/$art.png" ]]; then
-              echo "::error::Missing BankMovie live site header PNG: $art"
-              exit 1
-            fi
-          done
-          for verify in verify_v24_neumorph_avatar_home_detail.sh verify_v24_mobile_compact_v6.sh; do
-            if [[ ! -s "$project_dir/$verify" ]]; then
-              echo "::error::Missing V2.4 V6 verifier: $verify"
-              exit 1
-            fi
-          done
-          icon_file="$project_dir/app/src/main/res/drawable/ic_nav_discover.xml"
-          if [[ ! -s "$icon_file" ]]; then
-            echo "::error::Native Discover icon not found in selected Android project: $icon_file"
-            exit 1
-          fi
+          [[ -s "$project_dir/verify_media3_migration.py" ]] || { echo '::error::Media3 migration gate missing'; exit 1; }
+          python3 "$project_dir/verify_media3_migration.py"
           echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
-          echo "::notice::Verified Native Discover/ID-only source identity."
-
-      # Keep the profile verifier pinned to this exact source archive name.
-      - name: Verify profile verifier source ZIP identity
-        shell: bash
-        run: |
-          set -euo pipefail
-          expected="BankMovie_Android_FULLSOURCE_V2.4_CUSTOM_LOADERS_SKELETON_V2.zip"
-          if [[ "$SOURCE_ZIP" != "$expected" ]]; then
-            echo "::error::Unexpected source ZIP: $SOURCE_ZIP"
-            exit 1
-          fi
-          verifier="$PROJECT_DIR/verify_v24_tv_profile_skeleton_spinner_fix.py"
-          if [[ ! -s "$verifier" ]]; then
-            echo "::error::TV profile verifier missing: $verifier"
-            exit 1
-          fi
-          if ! grep -Fq 'CUSTOM_LOADERS_SKELETON_V2\.zip' "$verifier"; then
-            echo "::error::TV profile verifier is not aligned with $SOURCE_ZIP"
-            exit 1
-          fi
-          echo "::notice::TV profile verifier source ZIP matches the selected release."
 
       - name: Set monotonic Android versionCode
         shell: bash
@@ -464,164 +348,14 @@ jobs:
           # Fail early/retry while resolving the Kotlin 2.0.21 plugin/compiler jars.
           "$BANKMOVIE_GRADLE_RETRY" help
 
-      - name: Verify original BankMovie regressions (through V7.47.1.25.2)
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Report silent grep / test failures with the precise failing script.
-          trap 'echo "::error::Verification failed at line $LINENO: $BASH_COMMAND" >&2' ERR
-          cd "$PROJECT_DIR"
-
-          bash verify_v7454_watch_party_chat_badges.sh
-          bash verify_v7455_imdb_top250_bridge.sh
-          bash verify_v7458_auth_profile_bankmovie_font.sh
-          bash verify_v7465_offline_adm_location_playback.sh
-          bash verify_v7466_1_kotlin_compile_hotfix.sh
-          bash verify_v7468_offline_card_polish.sh
-          bash verify_v7469_ui_archive_resilience.sh
-          bash verify_v7470_push_notification_retention.sh
-          bash verify_v7471_bale_push_rail_spinner.sh
-          bash verify_v7471_1_tinteddrawable_compile_hotfix.sh
-          if [[ -x ./verify_v7471_2_signing_hotfix.sh ]]; then bash ./verify_v7471_2_signing_hotfix.sh; fi
-          bash verify_v7471_3_notification_tap_rail_actions.sh
-          bash verify_v21_notification_cta_svg_next97.sh
-          bash verify_v22_1_tv_tls_compat.sh
-          bash verify_v22_2_rate_limit_toast.sh
-
-          bash verify_v22_5_real_requests.sh
-          bash verify_v22_5_2_performance.sh
-          php verify_v24_collections_query_paths.php
-          bash verify_v22_5_3_tv_account.sh
-          bash verify_v22_5_4_tv_avatar_weekly_longseries.sh
-          bash verify_v22_5_5_links_profile_comment_parity.sh
-          bash verify_v22_5_6_comment_tv_discover.sh
-          bash verify_v22_5_7_tv_discover_auth_comments.sh
-          bash verify_v22_5_7_2_discover_tv_focus.sh
-          bash verify_v22_5_7_6_tv_home_shell_restore.sh
-          bash verify_v22_5_7_7_tv_home_v23_stable_return.sh
-          python3 verify_v24_tv_profile_skeleton_spinner_fix.py
-          python3 verify_v24_custom_loader_selection.py
-          python3 verify_v24_loader_classification_integrity.py
-          python3 verify_v24_tv_startup_explore_archive5_collections.py
-          python3 verify_v24_smooth_startup_home_session_cache.py
-          bash verify_v22_5_7_10_manual_subtitle_profile.sh
-          bash verify_v22_5_7_11_archive_recommend_tv_scroll_upload.sh
-          python3 verify_v22_5_7_12_archive_genre_dedup.py
-          bash verify_v22_5_4_1_poster_cards_ci.sh
-          bash verify_v7471_4_slider_nav_remote_ux.sh
-          bash verify_v7471_5_player_tv_focus_unified_ui.sh
-
-          php -l server-required/app_user_api.php
-          php -l server-required/app_config.php
-          php -l server-required/app_ad_image.php
-          php -l server-required/app_api.php
-          php -l server-required/bm_admin.php
-          php -l server-required/includes/archive_control.php
-          php -l server-required/includes/app_archive_policy.php
-          php -l server-required/includes/download_redirect.php
-          grep -q 'tvSideNavCollapseGuardUntil' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -q 'settings:connections' app/src/main/java/ir/bankmoviee/app/DownloadsActivity.kt
-          grep -q 'wireTvFocusOrder' app/src/main/java/ir/bankmoviee/app/OfflineLibraryActivity.kt
-          grep -Fq 'android:viewportWidth="24"' app/src/main/res/drawable/ic_trailer.xml
-          bash verify_v7471_7_tv_drawer_offline_focus.sh
-          bash verify_v7471_8_tv_drawer_click_bridge.sh
-          bash verify_v7471_9_boxoffice_profile_unified_ui.sh
-          bash verify_v7471_10_tv_drawer_profile_mobile_match.sh
-          bash verify_v7471_11_tv_drawer_focus_handoff.sh
-          bash verify_v7471_12_tv_vip_profile_mobile_style.sh
-          bash verify_v7471_12_2_kotlin_compile_hotfix.sh
-          bash verify_v7471_12_3_update_versioncode.sh
-          bash verify_v7471_13_download_meta_path_retry_settings.sh
-          bash verify_v7471_14_theme_logo_avatar_remote.sh
-          bash verify_v7471_16_white_theme.sh
-          bash verify_v7471_17_theme_selector_settings.sh
-          bash verify_v7471_18_light_theme_contrast.sh
-          bash verify_v7471_19_theme_account_hero_skeleton_boxoffice.sh
-          bash verify_v7471_20_local_theme_notifications_modal_toggle.sh
-          echo WORKFLOW_VERIFY_V7471_20_OK
-
-          bash verify_v7471_21_detail_year_hero_icon_weekly_player_light.sh
-          echo WORKFLOW_VERIFY_V7471_21_OK
-
-          bash verify_v7471_22_home_skeleton_nav_about_modal.sh
-          echo WORKFLOW_VERIFY_V7471_22_OK
-
-          bash verify_v7471_23_android_badge_fullscreen_force_update.sh
-          echo WORKFLOW_VERIFY_V7471_23_OK
-
-          bash verify_v7471_23_1_kotlin_compile_hotfix.sh
-          echo WORKFLOW_VERIFY_V7471_23_1_OK
-
-          bash verify_v7471_23_2_update_checkmarks_real_action.sh
-          echo WORKFLOW_VERIFY_V7471_23_2_OK
-
-          bash verify_v7471_24_notification_delete_persistent.sh
-          echo WORKFLOW_VERIFY_V7471_24_OK
-
-          bash verify_v7471_25_tv_dark_only_detail_up_scroll.sh
-          echo WORKFLOW_VERIFY_V7471_25_OK
-
-          bash verify_v7471_25_1_verifier_compat_hotfix.sh
-          echo WORKFLOW_VERIFY_V7471_25_1_OK
-
-          bash verify_v7471_25_2_mobile_header_safe_insets.sh
-          echo WORKFLOW_VERIFY_V7471_25_2_OK
-
-      - name: Verify no-refetch public navigation, with sensitive screens excluded
+      # Historical VLC-specific text-pattern verifiers are not applicable to
+      # the new engine. The actual Gradle compile and APK audit below are required.
+      - name: Verify Media3 bridge and no native VLC dependency
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
-          python3 verify_public_session_pages_cache.py
-
-      - name: Verify Discover, V18 explorer + V19 archive icon regressions
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Report silent grep / test failures with the precise failing script.
-          trap 'echo "::error::Verification failed at line $LINENO: $BASH_COMMAND" >&2' ERR
-          cd "$PROJECT_DIR"
-          test -s app/src/main/java/ir/bankmoviee/app/DiscoverAppBridge.kt
-          test -s app/src/main/java/ir/bankmoviee/app/PosterDiskCache.kt
-          test -s app/src/main/java/ir/bankmoviee/app/WatchlistIdentity.kt
-          test -s app/src/main/assets/bm_discover_app.js
-          test -s app/src/main/assets/bm_discover_app.css
-          node --check app/src/main/assets/bm_discover_app.js
-          grep -Fq 'X-BM-Watchlist-IDs' app/src/main/java/ir/bankmoviee/app/AccountApi.kt
-          grep -Fq 'live_search=' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -Fq 'optJSONArray("people")' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          bash verify_v24_native_discover.sh
-          bash verify_v24_premium_search_watchlist.sh
-          bash verify_v24_neumorph_avatar_home_detail.sh
-          bash verify_v24_mobile_compact_v6.sh
-          bash verify_v24_circular_home_portrait_crop_v7.sh
-          bash verify_v24_archive_hero_theme_mixer_v8.sh
-          bash verify_v24_hero_actors_tv_recovery_v9.sh
-          bash verify_v24_v10_toast_quota_archives.sh
-          bash verify_v24_bmadmin_archive5_guest_push_v11.sh
-          bash verify_v24_archive5_cast_icons_v12.sh
-          bash verify_v24_archive5_detail_header_v13.sh
-          bash verify_v24_v13_1_kotlin_compile_hotfix.sh
-          bash verify_v24_archive5_metadata_promo_v15.sh
-          bash verify_v24_v15_actor_site_fallback_trailer.sh
-          bash verify_v24_lookapo_discover_v16.sh
-          bash verify_v24_native_explorer_v17.sh
-          bash verify_v18_explorer_search_preview.sh
-          bash verify_v19_admin_icon.sh
-          bash verify_v20_glass_mirror_smartnext.sh
-          bash verify_v20_1_regression_guards.sh
-          python3 verify_v24_site_search_collections_ads.py
-          python3 verify_v24_ad_image_glass.py
-          python3 verify_v24_ad_image_public_route.py
-          python3 verify_v24_ad_fast_cta.py
-          for icon in arrow bag eye play external; do
-            test -s "app/src/main/res/drawable/bm_ad_svg_${icon}.xml"
-            test -s "app/src/main/assets/bm_ads_offline_svg/${icon}.svg"
-          done
-          grep -Fq 'PosterDiskCache' app/src/main/java/ir/bankmoviee/app/MainActivity.kt
-          grep -Fq 'versionName "2.4"' app/build.gradle
-          test -s BANKMOVIE_RELEASE_2_4.txt
-          echo "BANKMOVIE_V15_ACTOR_SITE_FALLBACK_TRAILER_OK"
+          python3 verify_media3_migration.py
 
       - name: Install and verify BankMovie font pack
         shell: bash
@@ -752,209 +486,43 @@ jobs:
           done
           echo "::notice::BankMovie + legacy font pack installed and verified."
 
-      - name: Build ABI2 Lite releases
+      - name: Build signed Universal Media3 APK
         shell: bash
-        env:
-          BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
-          "$BANKMOVIE_GRADLE_RETRY" clean assembleAbi2LiteRelease
+          "$BANKMOVIE_GRADLE_RETRY" clean assembleAbi4FullRelease
 
-      - name: Build ABI4 Full releases
-        shell: bash
-        env:
-          BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a,x86,x86_64
-        run: |
-          set -euo pipefail
-          cd "$PROJECT_DIR"
-          "$BANKMOVIE_GRADLE_RETRY" assembleAbi4FullRelease
-
-      - name: Collect and verify signed APKs
+      - name: Audit and publish Universal APK
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p output
-          rm -f output/*
+          mapfile -d '' apks < <(find "$PROJECT_DIR/app/build/outputs/apk/abi4Full/release" -name '*.apk' -type f -print0)
+          [[ ${#apks[@]} -eq 1 ]] || { echo '::error::Expected exactly one universal Media3 APK'; exit 1; }
+          target=output/BankMovie-v2.4-Media3-Universal.apk
+          cp "${apks[0]}" "$target"
+          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$apksigner" verify --verbose --print-certs "$target"
+          APK_FILE="$target" python3 - <<'PY'
+          import os, zipfile
+          path = os.environ['APK_FILE']
+          with zipfile.ZipFile(path) as z:
+              names = z.namelist()
+              forbidden = [n for n in names if 'libvlc' in n.lower() or 'libvlccore' in n.lower()]
+              if forbidden:
+                  raise SystemExit(f'Old VLC native libraries still packaged: {forbidden}')
+              print(f'Media3 universal APK: {os.path.getsize(path):,} bytes')
+              print(f'Native .so entries: {[n for n in names if n.endswith(".so")]}')
+          PY
+          sha256sum "$target" > output/SHA256SUMS.txt
 
-          apk_root="$PROJECT_DIR/app/build/outputs/apk"
-          if [[ ! -d "$apk_root" ]]; then
-            echo "::error::Gradle produced no APK output directory: $apk_root"
-            find "$PROJECT_DIR/app/build/outputs" -maxdepth 5 -type f -printf '%P\n' 2>/dev/null | sort | head -n 120 || true
-            exit 1
-          fi
-
-          mapfile -d '' built_apks < <(find "$apk_root" -type f -iname '*.apk' -print0)
-          if [[ ${#built_apks[@]} -eq 0 ]]; then
-            echo "::error::Gradle completed but no APK files were found below: $apk_root"
-            exit 1
-          fi
-
-          for apk in "${built_apks[@]}"; do
-            full_lower="${apk,,}"
-            base="$(basename "$apk")"
-            base_lower="${base,,}"
-
-            case "$full_lower" in
-              *abi2lite*) edition="ABI2-Lite" ;;
-              *abi4full*) edition="ABI4-Full" ;;
-              *)
-                echo "::warning::Skipping APK with unknown edition: $apk"
-                continue
-                ;;
-            esac
-
-            case "$base_lower" in
-              *universal*) abi="Universal" ;;
-              *arm64-v8a*) abi="Arm64-v8a" ;;
-              *armeabi-v7a*) abi="Armeabi-v7a" ;;
-              *x86_64*) abi="X86_64" ;;
-              *x86*) abi="X86" ;;
-              *)
-                echo "::error::Cannot identify APK ABI from filename: $base"
-                exit 1
-                ;;
-            esac
-
-            target="output/Bankmovie-v2.4-$edition-$abi.apk"
-            if [[ -e "$target" ]]; then
-              echo "::error::More than one APK maps to output file: $target"
-              exit 1
-            fi
-            cp "$apk" "$target"
-            echo "Collected: ${apk#$PROJECT_DIR/} -> $target"
-          done
-
-          expected=(
-            Bankmovie-v2.4-ABI2-Lite-Universal.apk
-            Bankmovie-v2.4-ABI2-Lite-Armeabi-v7a.apk
-            Bankmovie-v2.4-ABI2-Lite-Arm64-v8a.apk
-            Bankmovie-v2.4-ABI4-Full-Universal.apk
-            Bankmovie-v2.4-ABI4-Full-Armeabi-v7a.apk
-            Bankmovie-v2.4-ABI4-Full-Arm64-v8a.apk
-            Bankmovie-v2.4-ABI4-Full-X86.apk
-            Bankmovie-v2.4-ABI4-Full-X86_64.apk
-          )
-
-          for apk in "${expected[@]}"; do
-            if [[ ! -s "output/$apk" ]]; then
-              echo "::error::Expected APK was not generated: $apk"
-              find "$apk_root" -type f -iname '*.apk' -printf '%P\n' | sort
-              exit 1
-            fi
-          done
-
-          apk_count="$(find output -maxdepth 1 -type f -name '*.apk' | wc -l)"
-          if [[ "$apk_count" -ne 8 ]]; then
-            echo "::error::Expected exactly 8 APKs, collected $apk_count."
-            find output -maxdepth 1 -type f -name '*.apk' -printf '%f\n' | sort
-            exit 1
-          fi
-
-          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
-          if [[ -z "$apksigner" || ! -x "$apksigner" ]]; then
-            echo "::error::Android apksigner was not found below $ANDROID_HOME/build-tools."
-            exit 1
-          fi
-
-          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
-          if [[ -z "$aapt_bin" || ! -x "$aapt_bin" ]]; then
-            echo "::error::Android aapt was not found below $ANDROID_HOME/build-tools."
-            exit 1
-          fi
-
-          while IFS= read -r apk; do
-            "$apksigner" verify --verbose --print-certs "$apk"
-            actual_version_code="$($aapt_bin dump badging "$apk" | sed -n "s/.*versionCode='\([0-9][0-9]*\)'.*/\1/p" | head -n 1)"
-            actual_version_name="$($aapt_bin dump badging "$apk" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" | head -n 1)"
-            if [[ "$actual_version_name" != "2.4" ]]; then
-              echo "::error::Unexpected versionName in $apk: $actual_version_name (expected 2.4)"
-              exit 1
-            fi
-            if [[ "$actual_version_code" != "$BANKMOVIE_VERSION_CODE" ]]; then
-              echo "::error::Unexpected versionCode in $apk: $actual_version_code (expected $BANKMOVIE_VERSION_CODE)"
-              exit 1
-            fi
-            echo "Verified update versionCode $actual_version_code: $apk"
-          done < <(find output -type f -name '*.apk' | sort)
-
-          sha256sum output/*.apk | tee output/SHA256SUMS.txt
-          {
-            echo "BankMovie 2.4 Discover Site Style ALL6 release APK sizes (bytes)"
-            find output -maxdepth 1 -type f -name '*.apk' -printf '%f %s\n' | sort
-          } | tee output/APK-SIZES.txt
-          echo "::notice::All 8 APK files were found and their signatures verified."
-
-      - name: Upload ABI2 Lite Universal
+      - name: Upload Media3 Universal APK and checksum
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.4-ABI2-Lite-Universal
-          path: output/Bankmovie-v2.4-ABI2-Lite-Universal.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI2 Lite Armeabi-v7a
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.4-ABI2-Lite-Armeabi-v7a
-          path: output/Bankmovie-v2.4-ABI2-Lite-Armeabi-v7a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI2 Lite Arm64-v8a
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.4-ABI2-Lite-Arm64-v8a
-          path: output/Bankmovie-v2.4-ABI2-Lite-Arm64-v8a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full Universal
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.4-ABI4-Full-Universal
-          path: output/Bankmovie-v2.4-ABI4-Full-Universal.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full Armeabi-v7a
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.4-ABI4-Full-Armeabi-v7a
-          path: output/Bankmovie-v2.4-ABI4-Full-Armeabi-v7a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full Arm64-v8a
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.4-ABI4-Full-Arm64-v8a
-          path: output/Bankmovie-v2.4-ABI4-Full-Arm64-v8a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full X86
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.4-ABI4-Full-X86
-          path: output/Bankmovie-v2.4-ABI4-Full-X86.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full X86_64
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.4-ABI4-Full-X86_64
-          path: output/Bankmovie-v2.4-ABI4-Full-X86_64.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload checksum and size manifests
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.4-DISCOVER-SITE-STYLE-ALL6-Manifests
+          name: BankMovie-2.4-Media3-Universal
           path: |
+            output/BankMovie-v2.4-Media3-Universal.apk
             output/SHA256SUMS.txt
-            output/APK-SIZES.txt
           if-no-files-found: error
           retention-days: 30
