@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_MEDIA3_ABI8_UI_POLISH_V2.4.zip
+  SOURCE_ZIP: BankMovie_Android_MEDIA3_ABI8_UI_POLISH_CI_FIX_V2.4.zip
 
 jobs:
   build:
@@ -365,6 +365,7 @@ jobs:
           cd "$PROJECT_DIR"
           python3 verify_media3_migration.py
           python3 verify_media3_playback_fixes.py
+          python3 verify_media3_ui_polish.py
 
       - name: Install and verify BankMovie font pack
         shell: bash
