@@ -1,6 +1,6 @@
-name: BankMovie 2.5 - Profile Home Search - 8 APKs
+name: BankMovie 2.5 - Stable UI Rollback + Storage & Help - 8 APKs
 
-# Build ONLY the pinned BankMovie 2.5 mobile profile/home/search ZIP. No stale-source fallback.
+# Build ONLY the pinned BankMovie 2.5 offline-genre & TV-resize ZIP. No stale-source fallback.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
 
 on:
@@ -13,11 +13,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-v25-profile-home-search-${{ github.ref }}
+  group: bankmovie-v25-stable-rollback-storage-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_MEDIA3_PROFILE_HOME_SEARCH_V2.5.zip
+  SOURCE_ZIP: BankMovie_Android_MEDIA3_V25_STABLE_ROLLBACK_STORAGE_HELP_ICONS.zip
 
 jobs:
   build:
@@ -42,7 +42,7 @@ jobs:
             echo "::error::Required source ZIP missing: $SOURCE_ZIP. Upload this exact ZIP to the repository root."
             exit 1
           }
-          echo "a286fad54a51933d61eb625d90f2317c3d16f7bc97b0c4b90c4fb6284bf83ce0  $source_zip" | sha256sum --check --status || {
+          echo "699548dbf74f05481deb53a30261354567d244143edd1bb2d3fa6d61ca0050f0  $source_zip" | sha256sum --check --status || {
             echo '::error::Source ZIP checksum differs from the required BankMovie 2.5 release.'
             sha256sum "$source_zip"
             exit 1
@@ -62,11 +62,12 @@ jobs:
           root = Path(os.environ['SRC_ROOT'])
           src = root / 'app/src/main/java/ir/bankmoviee/app'
           expected = {
-              'MainActivity.kt': 'c91ae10aa8fca7f31e15c326a1e093b247167c020c3a794f4478f2ac7093f728',
+              'MainActivity.kt': '2f903494fc28b25ce48ae1b3086adbd25496c971920455678d564ddc946f51a6',
               'BankmovieSmoothScrollView.kt': 'ad83ec7fed0b9600eb96f10f92c1a747c16ebc961e08ffc0d315abf55b54c8f1',
               'PlayerActivity.kt': 'dace0c40e4f779cb82926b4934e8e2fa04affe98d9b2f5b3d49527d6dc55a056',
               'Media3PlaybackBridge.kt': '6700b23e532f27bb5a2c227654f37ae9b85fd274c7b40a3d7bdd77a884cd43c8',
               'PosterDiskCache.kt': '54f80b558e73f57bd381ebbc816bee2255e8c9de7b9ebb5e38f0231702df817a',
+              'BmDeviceStorage.kt': '2947c6f3da30d855d24f03bc2a6e17de46ef0e0b8d58d2e300e37e8d624a22a3',
               'app/build.gradle': '73f7b722cac602b2bfadf0724c78d690d6f9c98e6d50e3ab9e9dc48eebad3436',
           }
           for name, expected_hash in expected.items():
@@ -110,20 +111,10 @@ jobs:
               raise SystemExit('TV_REMOTE_SETTINGS_MODE_MISSING')
           if '1.10.1' not in gradle or 'ffmpeg-decoder' in gradle.lower():
               raise SystemExit('MEDIA3_CHANGED_UNEXPECTEDLY')
-          if not all(check in main for check in [
-              'addMobileHomeContinueWatching(homeBody)',
-              'private fun mobileSearchRecentlyOpened(): View?',
-              'storeItems("history").take(20)',
-              'minOf(arr.length(), 100)',
-              'private fun refreshMobileSearchRecent()',
-              'vip -> accountVipStatusText(user, compact = false)',
-          ]):
-              raise SystemExit('PROFILE_HOME_SEARCH_CHANGES_MISSING')
           print('REQUIRED_BM25_USER_ORIGINAL_GENRES_TV_SOURCE_VERIFIED',len(keys),'keys / 25 original images')
-          print('PROFILE_HOME_SEARCH_SOURCE_VERIFIED')
           PYSOURCE
 
-          for verifier in verify_media3_migration.py verify_media3_playback_fixes.py verify_media3_ui_polish.py verify_bm25_ui.py verify_bm25_offline_genres_tv.py verify_bm25_unified_error_tv_genre.py verify_tv_smooth_cache_ui.py verify_bm25_profile_navigation.py; do
+          for verifier in verify_media3_migration.py verify_media3_playback_fixes.py verify_media3_ui_polish.py verify_bm25_ui.py verify_bm25_offline_genres_tv.py verify_bm25_unified_error_tv_genre.py verify_tv_smooth_cache_ui.py verify_bm25_storage_help_icons.py; do
             [[ -s "$project_dir/$verifier" ]] || { echo "::error::Missing required source verifier $verifier"; exit 1; }
             python3 "$project_dir/$verifier"
           done
@@ -131,7 +122,7 @@ jobs:
           # Embed a verifiable source stamp into every generated APK (asset is not obfuscated by R8).
           mkdir -p "$project_dir/app/src/main/assets" "$GITHUB_WORKSPACE/output"
           {
-            echo 'BANKMOVIE_25_PROFILE_HOME_SEARCH_MOBILE_20261117'
+            echo 'BANKMOVIE_25_STABLE_ROLLBACK_REAL_STORAGE_HELP_20261117'
             echo "source_zip=$SOURCE_ZIP"
             echo 'app_label=Bankmovie'
             echo 'version_name=2.5'
@@ -139,21 +130,20 @@ jobs:
             echo 'genres_origin=user_genres_zip'
             echo 'genres_unique_files=25'
             echo 'watchlist_tabs=movie_series'
-            echo 'home_error_card=single_shared_card_five_steps_two_actions'
+            echo 'home_error_card=single_shared_card_six_steps_two_actions'
             echo 'tv_genre_navigation=index_based_dpad_up_down'
             echo 'tv_home_cache=tv_rebuild_safe_mobile_cache_preserved'
             echo 'tv_poster_rails=platform_native_focus_reveal'
             echo 'tv_focus_controls=content_sized_no_scale'
             echo 'tv_dpad_guard=removed_custom_focus_intercept'
+            echo 'device_storage_used=total_minus_available'
+            echo 'help_step_4=clear_data_with_warning'
+            echo 'detail_more_info=restored_full_width'
+            echo 'view_all_icon=user_svg_left_arrow'
+            echo 'app_update_icon=user_svg_download'
             echo 'error_buttons=inline_icons_clipped_no_second_art'
             echo 'tv_display_modes=fit_crop_stretch_measured'
-            echo 'profile_mobile=guest_avatar_stats_actions_vip_at_bottom'
-            echo 'home_mobile_continue=existing_saved_progress'
-            echo 'search_mobile_recent=last_20_opened_titles'
-            echo 'history_storage=existing_100_latest_oldest_evicted'
-            echo 'search_more=original_inline_spinner'
-            echo 'tv_navigation=unchanged_stable_dpad'
-            echo 'zip_sha256=a286fad54a51933d61eb625d90f2317c3d16f7bc97b0c4b90c4fb6284bf83ce0'
+            echo 'zip_sha256=699548dbf74f05481deb53a30261354567d244143edd1bb2d3fa6d61ca0050f0'
             echo "build_commit=$GITHUB_SHA"
             echo "build_run=$GITHUB_RUN_ID"
           } > "$project_dir/app/src/main/assets/bankmovie_source_proof.txt"
@@ -829,7 +819,7 @@ jobs:
       - name: Upload checksum and size manifests
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.5-Profile-Home-Search-Source-Proof
+          name: Bankmovie-2.5-Unified-Error-TV-Focus-Source-Proof
           path: |
             output/SHA256SUMS.txt
             output/APK-SIZES.txt
