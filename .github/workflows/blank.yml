@@ -1,4 +1,4 @@
-name: BankMovie 2.5 - Optimized HD Mosaics + Auth + Static 4K TV - 8 APKs
+name: BankMovie 2.5 - Real User Posters / Stable Login Background - 8 APKs
 
 # Build ONLY the pinned BankMovie 2.5 offline-genre & TV-resize ZIP. No stale-source fallback.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -13,11 +13,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-v25-hd-mosaic-optimized-${{ github.ref }}
+  group: bankmovie-v25-real-posters-auth-stable-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_MEDIA3_V25_HD_MOSAICS_SIZE_OPTIMIZED.zip
+  SOURCE_ZIP: BankMovie_Android_MEDIA3_V25_REAL_POSTERS_AUTH_STABLE.zip
 
 jobs:
   build:
@@ -42,7 +42,7 @@ jobs:
             echo "::error::Required source ZIP missing: $SOURCE_ZIP. Upload this exact ZIP to the repository root."
             exit 1
           }
-          echo "89c8b8b7a970b3d7334eb5d49b19a1630284895268cf0f1c036ca8f61722bb33  $source_zip" | sha256sum --check --status || {
+          echo "fae4e5ca875057e1039a80d0b4045ef1da0185a3050e9d537fb472ab2d5ccb0e  $source_zip" | sha256sum --check --status || {
             echo '::error::Source ZIP checksum differs from the required BankMovie 2.5 release.'
             sha256sum "$source_zip"
             exit 1
@@ -80,13 +80,21 @@ jobs:
           # Exact approved poster-wall compositions as phone and 4K TV assets.
           # Their independent aspect ratios prevent portrait crop on television.
           asset = root/'app/src/main/res/drawable-nodpi/bm_splash_wall_phone.webp'
-          if hashlib.sha256(asset.read_bytes()).hexdigest() != 'd29bf8e917dd8f960dff8d21a9fac6fc1da680b5bb171bc9c43c6943312bf312':
+          if hashlib.sha256(asset.read_bytes()).hexdigest() != 'fa933dab138ad1ffb2d857218dd4c6eb7e0a3e3f993548cf349ac645338c5380':
               raise SystemExit('SPLASH_ASSET_HASH_MISMATCH: app/src/main/res/drawable-nodpi/bm_splash_wall_phone.webp')
           asset = root/'app/src/main/res/drawable-nodpi/bm_splash_wall_tv.webp'
-          if hashlib.sha256(asset.read_bytes()).hexdigest() != '307da5a440015fe67c4805452754e2b974449ba4bf5eb0c0c88f9bdcd983e7d9':
+          if hashlib.sha256(asset.read_bytes()).hexdigest() != 'ed165794af2d8f8b2db3b016a00352e543262125f9b942bd78e1e4e03e7a5b71':
               raise SystemExit('SPLASH_ASSET_HASH_MISMATCH: app/src/main/res/drawable-nodpi/bm_splash_wall_tv.webp')
+          real_images = {
+              'hero-wall.jpg': '71bb4b8bf5c2ac104d45be305dce1c5041a7d3780b25360513332662580919b9',
+              'hero-5.webp': '39b4ff828bf1d047308a03dd9c3010789cd291c8b3b823cbe9bf99a6d07dde5e',
+          }
+          real_root = root / 'design-resources/real-poster-inputs'
+          for filename, expected_digest in real_images.items():
+              if hashlib.sha256((real_root/filename).read_bytes()).hexdigest() != expected_digest:
+                  raise SystemExit('REAL_USER_POSTER_SOURCE_MISMATCH: '+filename)
           auth_source = src / 'AuthActivity.kt'
-          if hashlib.sha256(auth_source.read_bytes()).hexdigest() != '88b74278ebeb83569514bdd896f1c5a8a03cd26dfe0103e100d8d0e3510ca9d5':
+          if hashlib.sha256(auth_source.read_bytes()).hexdigest() != '9ac02294e6cba8d61e7bbcfdb4d5ad9aa78d5ba320c4bf8b4734d1ee834b7606':
               raise SystemExit('AUTH_BACKGROUND_SOURCE_HASH_MISMATCH')
           # The two redundant approval PNGs were omitted to keep the source
           # release lean. Runtime 4K/phone WebP images above are SHA-pinned.
@@ -128,7 +136,7 @@ jobs:
           print('REQUIRED_BM25_USER_ORIGINAL_GENRES_TV_SOURCE_VERIFIED',len(keys),'keys / 25 original images')
           PYSOURCE
 
-          for verifier in verify_media3_migration.py verify_media3_playback_fixes.py verify_media3_ui_polish.py verify_bm25_ui.py verify_bm25_offline_genres_tv.py verify_bm25_unified_error_tv_genre.py verify_tv_smooth_cache_ui.py verify_bm25_storage_help_icons.py verify_bm25_archive_splash_skeleton_ui.py verify_bm25_splash_poster_motion.py verify_bm25_hd_splash_archive_watchlist.py; do
+          for verifier in verify_media3_migration.py verify_media3_playback_fixes.py verify_media3_ui_polish.py verify_bm25_ui.py verify_bm25_offline_genres_tv.py verify_bm25_unified_error_tv_genre.py verify_tv_smooth_cache_ui.py verify_bm25_storage_help_icons.py verify_bm25_archive_splash_skeleton_ui.py verify_bm25_splash_poster_motion.py verify_bm25_hd_splash_archive_watchlist.py verify_bm25_real_mosaic_auth.py; do
             [[ -s "$project_dir/$verifier" ]] || { echo "::error::Missing required source verifier $verifier"; exit 1; }
             python3 "$project_dir/$verifier"
           done
@@ -136,7 +144,7 @@ jobs:
           # Embed a verifiable source stamp into every generated APK (asset is not obfuscated by R8).
           mkdir -p "$project_dir/app/src/main/assets" "$GITHUB_WORKSPACE/output"
           {
-            echo 'BANKMOVIE_25_HD_MOSAICS_OPTIMIZED_20261118'
+            echo 'BANKMOVIE_25_REAL_POSTERS_AUTH_STABLE_20261118'
             echo "source_zip=$SOURCE_ZIP"
             echo 'app_label=Bankmovie'
             echo 'version_name=2.5'
@@ -156,13 +164,13 @@ jobs:
             echo 'detail_skeleton=real_play_size_imdb_likes_monochrome_tint'
             echo 'startup=bankmovie_font_no_tagline'
             echo 'startup_poster_motion=mobile_only_drift_tv_static'
-            echo 'startup_poster_mobile_asset=1600x3450_original_three_band_collage'
-            echo 'startup_poster_tv_asset=3200x1800_static_three_band_collage'
-            echo 'startup_poster_source=user_images_upper_middle_lower'
+            echo 'startup_poster_mobile_asset=1600x2844_real_three_band_collage'
+            echo 'startup_poster_tv_asset=3840x2160_static_three_band_collage'
+            echo 'startup_poster_source=real_user_photo_top_original_app_middle_real_user_photo_bottom'
             echo 'startup_poster_separators=no_black_bands'
             echo 'startup_tv_mode=static_landscape_backdrop'
             echo 'startup_logo_scale=about_16_percent_smaller'
-            echo 'startup_poster_wall=three_distinct_real_user_supplied_source_collages'
+            echo 'startup_poster_wall=real_user_sources_no_ai_legacy_auth_remote_disabled'
             echo 'archive3_4_home=exclude_animation_and_subtitled_rails_keep_anime'
             echo 'watchlist_tabs=movie_series_download_vector_icons'
             echo 'skeleton_imdb_likes=neutral_glass_monochrome'
@@ -171,7 +179,7 @@ jobs:
             echo 'app_update_icon=user_svg_download'
             echo 'error_buttons=inline_icons_clipped_no_second_art'
             echo 'tv_display_modes=fit_crop_stretch_measured'
-            echo 'zip_sha256=89c8b8b7a970b3d7334eb5d49b19a1630284895268cf0f1c036ca8f61722bb33'
+            echo 'zip_sha256=fae4e5ca875057e1039a80d0b4045ef1da0185a3050e9d537fb472ab2d5ccb0e'
             echo "build_commit=$GITHUB_SHA"
             echo "build_run=$GITHUB_RUN_ID"
           } > "$project_dir/app/src/main/assets/bankmovie_source_proof.txt"
