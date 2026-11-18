@@ -1,4 +1,4 @@
-name: BankMovie 2.5 - TV Static Splash / Refined Posters / Smaller Logo - 8 APKs
+name: BankMovie 2.5 - TV Static Splash / CI Verifier Fix - 8 APKs
 
 # Build ONLY the pinned BankMovie 2.5 offline-genre & TV-resize ZIP. No stale-source fallback.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -13,11 +13,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-v25-tv-static-hd-splash-refined-${{ github.ref }}
+  group: bankmovie-v25-tv-static-hd-splash-ci-verifier-fix-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_MEDIA3_V25_TV_STATIC_HD_SPLASH_REFINED.zip
+  SOURCE_ZIP: BankMovie_Android_MEDIA3_V25_TV_STATIC_HD_SPLASH_CI_VERIFIER_FIX.zip
 
 jobs:
   build:
@@ -42,7 +42,7 @@ jobs:
             echo "::error::Required source ZIP missing: $SOURCE_ZIP. Upload this exact ZIP to the repository root."
             exit 1
           }
-          echo "0fda3e1b5528f5d39d3dd382540325914653e82d348e1134a63aa90c0330d69c  $source_zip" | sha256sum --check --status || {
+          echo "3ecd68be3397aae56a9216174ed949a75414209e0385726ed5cdd9112122a2a2  $source_zip" | sha256sum --check --status || {
             echo '::error::Source ZIP checksum differs from the required BankMovie 2.5 release.'
             sha256sum "$source_zip"
             exit 1
@@ -125,7 +125,7 @@ jobs:
           # Embed a verifiable source stamp into every generated APK (asset is not obfuscated by R8).
           mkdir -p "$project_dir/app/src/main/assets" "$GITHUB_WORKSPACE/output"
           {
-            echo 'BANKMOVIE_25_TV_STATIC_HD_SPLASH_REFINED_20261118'
+            echo 'BANKMOVIE_25_TV_STATIC_HD_SPLASH_CI_VERIFIER_FIX_20261118'
             echo "source_zip=$SOURCE_ZIP"
             echo 'app_label=Bankmovie'
             echo 'version_name=2.5'
@@ -157,7 +157,7 @@ jobs:
             echo 'app_update_icon=user_svg_download'
             echo 'error_buttons=inline_icons_clipped_no_second_art'
             echo 'tv_display_modes=fit_crop_stretch_measured'
-            echo 'zip_sha256=0fda3e1b5528f5d39d3dd382540325914653e82d348e1134a63aa90c0330d69c'
+            echo 'zip_sha256=3ecd68be3397aae56a9216174ed949a75414209e0385726ed5cdd9112122a2a2'
             echo "build_commit=$GITHUB_SHA"
             echo "build_run=$GITHUB_RUN_ID"
           } > "$project_dir/app/src/main/assets/bankmovie_source_proof.txt"
