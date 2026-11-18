@@ -1,4 +1,4 @@
-name: BankMovie 2.5 - Moving Poster Splash - 8 APKs
+name: BankMovie 2.5 - HD Poster Splash / Clean Archives / Watchlist Icons - 8 APKs
 
 # Build ONLY the pinned BankMovie 2.5 offline-genre & TV-resize ZIP. No stale-source fallback.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -13,11 +13,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-v25-moving-posters-splash-${{ github.ref }}
+  group: bankmovie-v25-hd-splash-arch34-watchlist-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_Android_MEDIA3_V25_SPLASH_MOVING_POSTERS.zip
+  SOURCE_ZIP: BankMovie_Android_MEDIA3_V25_HD_SPLASH_ARCH34_WATCHLIST.zip
 
 jobs:
   build:
@@ -42,7 +42,7 @@ jobs:
             echo "::error::Required source ZIP missing: $SOURCE_ZIP. Upload this exact ZIP to the repository root."
             exit 1
           }
-          echo "7fc7bee77067d84b51daaf1e84da25086fdca355055de04ec0a268ed0c8ca135  $source_zip" | sha256sum --check --status || {
+          echo "1565b3eafc981ba76f210d2a7b605eed8efec0dd1ed6051b455ab9db811a1ff7  $source_zip" | sha256sum --check --status || {
             echo '::error::Source ZIP checksum differs from the required BankMovie 2.5 release.'
             sha256sum "$source_zip"
             exit 1
@@ -62,7 +62,7 @@ jobs:
           root = Path(os.environ['SRC_ROOT'])
           src = root / 'app/src/main/java/ir/bankmoviee/app'
           expected = {
-              'MainActivity.kt': '3a207b655b13307fcfb9684f305e01fdb39344c234248a0e7eef40c4b5ccc551',
+              'MainActivity.kt': '5707963ef2f62e69871883aecc1511a52052665b3740dedb6d714e2747a5c4b4',
               'BankmovieSmoothScrollView.kt': 'ad83ec7fed0b9600eb96f10f92c1a747c16ebc961e08ffc0d315abf55b54c8f1',
               'PlayerActivity.kt': 'dace0c40e4f779cb82926b4934e8e2fa04affe98d9b2f5b3d49527d6dc55a056',
               'Media3PlaybackBridge.kt': '6700b23e532f27bb5a2c227654f37ae9b85fd274c7b40a3d7bdd77a884cd43c8',
@@ -76,6 +76,9 @@ jobs:
               if actual != expected_hash:
                   raise SystemExit(f'SOURCE_MISMATCH {name}: {actual} != {expected_hash}')
               print('PASS_SOURCE_SHA256',name,actual[:20])
+          hd_wall = root/'app/src/main/res/drawable-nodpi/bm_loading_auth_bg_portrait.webp'
+          if hashlib.sha256(hd_wall.read_bytes()).hexdigest() != '426b2149e871e285af4787f7378fdf05fe1f99e365a50b35182bc4cf26ffd4fa':
+              raise SystemExit('HD_SPLASH_POSTER_IMAGE_SHA_MISMATCH')
           main = (src / 'MainActivity.kt').read_text()
           bridge = (src / 'Media3PlaybackBridge.kt').read_text()
           player = (src / 'PlayerActivity.kt').read_text()
@@ -114,7 +117,7 @@ jobs:
           print('REQUIRED_BM25_USER_ORIGINAL_GENRES_TV_SOURCE_VERIFIED',len(keys),'keys / 25 original images')
           PYSOURCE
 
-          for verifier in verify_media3_migration.py verify_media3_playback_fixes.py verify_media3_ui_polish.py verify_bm25_ui.py verify_bm25_offline_genres_tv.py verify_bm25_unified_error_tv_genre.py verify_tv_smooth_cache_ui.py verify_bm25_storage_help_icons.py verify_bm25_archive_splash_skeleton_ui.py verify_bm25_splash_poster_motion.py; do
+          for verifier in verify_media3_migration.py verify_media3_playback_fixes.py verify_media3_ui_polish.py verify_bm25_ui.py verify_bm25_offline_genres_tv.py verify_bm25_unified_error_tv_genre.py verify_tv_smooth_cache_ui.py verify_bm25_storage_help_icons.py verify_bm25_archive_splash_skeleton_ui.py verify_bm25_splash_poster_motion.py verify_bm25_hd_splash_archive_watchlist.py; do
             [[ -s "$project_dir/$verifier" ]] || { echo "::error::Missing required source verifier $verifier"; exit 1; }
             python3 "$project_dir/$verifier"
           done
@@ -122,7 +125,7 @@ jobs:
           # Embed a verifiable source stamp into every generated APK (asset is not obfuscated by R8).
           mkdir -p "$project_dir/app/src/main/assets" "$GITHUB_WORKSPACE/output"
           {
-            echo 'BANKMOVIE_25_SPLASH_MOVING_POSTERS_20261118'
+            echo 'BANKMOVIE_25_HD_SPLASH_ARCH34_WATCHLIST_20261118'
             echo "source_zip=$SOURCE_ZIP"
             echo 'app_label=Bankmovie'
             echo 'version_name=2.5'
@@ -141,13 +144,17 @@ jobs:
             echo 'archive_tabs=singleline_auto_size_mobile'
             echo 'detail_skeleton=real_play_size_imdb_likes_monochrome_tint'
             echo 'startup=bankmovie_font_no_tagline'
-            echo 'startup_poster_motion=local_wall_slow_drift_no_gif_logo_static'
+            echo 'startup_poster_motion=original_art_hd_portrait_collage_reuse_drift'
+            echo 'startup_poster_hd_resolution=1600x3450'
+            echo 'archive3_4_home=exclude_animation_and_subtitled_rails_keep_anime'
+            echo 'watchlist_tabs=movie_series_download_vector_icons'
+            echo 'skeleton_imdb_likes=neutral_glass_monochrome'
             echo 'detail_more_info=restored_full_width'
             echo 'view_all_icon=user_svg_locale_aware_left_fa_right_en_theme_tint'
             echo 'app_update_icon=user_svg_download'
             echo 'error_buttons=inline_icons_clipped_no_second_art'
             echo 'tv_display_modes=fit_crop_stretch_measured'
-            echo 'zip_sha256=7fc7bee77067d84b51daaf1e84da25086fdca355055de04ec0a268ed0c8ca135'
+            echo 'zip_sha256=1565b3eafc981ba76f210d2a7b605eed8efec0dd1ed6051b455ab9db811a1ff7'
             echo "build_commit=$GITHUB_SHA"
             echo "build_run=$GITHUB_RUN_ID"
           } > "$project_dir/app/src/main/assets/bankmovie_source_proof.txt"
