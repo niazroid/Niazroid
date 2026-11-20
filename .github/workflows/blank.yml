@@ -186,6 +186,31 @@ jobs:
           print('REQUIRED_BM25_USER_ORIGINAL_GENRES_TV_SOURCE_VERIFIED',len(keys),'keys / 25 original images')
           PYSOURCE
 
+          # Legacy source verifier still asserts the old Update icon name.
+          # The app now correctly uses the user-supplied bm_ic_update_alt_user SVG.
+          # Fix the extracted CI verifier only; preserve all checks and app source.
+          python3 - "$project_dir/verify_bm25_storage_help_icons.py" <<'PYUPDATEICON'
+          from pathlib import Path
+          import sys
+          import xml.etree.ElementTree as ET
+          verifier = Path(sys.argv[1])
+          original = verifier.read_text(encoding='utf-8')
+          old = "assert 'R.drawable.bm_ic_update_download_user' in main"
+          new = "assert 'R.drawable.bm_ic_update_alt_user' in main  # User SVG About/Update icon"
+          old_icons = "for n in ['bm_ic_update_download_user','bm_ic_view_all_left_user','bm_ic_view_all_right_user']:"
+          new_icons = "for n in ['bm_ic_update_download_user','bm_ic_update_alt_user','bm_ic_diagnostics_bug','bm_ic_view_all_left_user','bm_ic_view_all_right_user']:"
+          if original.count(old) != 1 or original.count(old_icons) != 1:
+              raise SystemExit('LEGACY_UPDATE_ICON_VERIFIER_UNEXPECTED: refusing unchecked modifications')
+          pkg = verifier.parent/'app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
+          main = pkg.read_text(encoding='utf-8')
+          if 'R.drawable.bm_ic_update_alt_user' not in main or 'R.drawable.bm_ic_diagnostics_bug' not in main:
+              raise SystemExit('ABOUT_SVG_ICONS_NOT_ACTIVE')
+          for resource in ('bm_ic_update_alt_user.xml', 'bm_ic_diagnostics_bug.xml'):
+              ET.parse(verifier.parent/'app/src/main/res/drawable'/resource)
+          verifier.write_text(original.replace(old,new).replace(old_icons,new_icons), encoding='utf-8')
+          print('PASS_LEGACY_UPDATE_ICON_VERIFIER_COMPAT: both supplied SVGs and original checks kept')
+          PYUPDATEICON
+
           for verifier in verify_media3_migration.py verify_media3_playback_fixes.py verify_media3_ui_polish.py verify_bm25_ui.py verify_bm25_offline_genres_tv.py verify_bm25_unified_error_tv_genre.py verify_tv_smooth_cache_ui.py verify_bm25_storage_help_icons.py verify_bm25_archive_splash_skeleton_ui.py verify_bm25_splash_poster_motion.py verify_bm25_hd_splash_archive_watchlist.py verify_bm25_real_mosaic_auth.py verify_bm25_tv_splash_readability.py verify_bm25_tls_compat.py; do
             [[ -s "$project_dir/$verifier" ]] || { echo "::error::Missing required source verifier $verifier"; exit 1; }
             python3 "$project_dir/$verifier"
