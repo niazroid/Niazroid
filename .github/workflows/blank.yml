@@ -1,4 +1,4 @@
-name: BankMovie 2.5 - Diagnostics / TV Splash - 8 APKs
+name: BankMovie 2.5 - TLS + Responsive Mobile Home - 8 APKs
 
 # Build ONLY the pinned BankMovie 2.5 offline-genre & TV-resize ZIP. No stale-source fallback.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -13,11 +13,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-v25-tv-splash-readability-${{ github.ref }}
+  group: bankmovie-v25-tls-responsive-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_V25_Diagnostics_TLS_COMPAT_REVIEWED_SOURCE.zip
+  SOURCE_ZIP: BankMovie_V25_TLS_NAV_HOME_RESPONSIVE_SOURCE.zip
 
 jobs:
   build:
@@ -42,7 +42,7 @@ jobs:
             echo "::error::Required source ZIP missing: $SOURCE_ZIP. Upload this exact ZIP to the repository root."
             exit 1
           }
-          echo "bff842de39e586a156358b8583385e4995942de4e105bbafeae0f944af99be9a  $source_zip" | sha256sum --check --status || {
+          echo "5143c161eda566aeb46816a50ade2d27dcb0943bf4417fc986d83d5be2390524  $source_zip" | sha256sum --check --status || {
             echo '::error::Source ZIP checksum differs from the required BankMovie 2.5 release.'
             sha256sum "$source_zip"
             exit 1
@@ -62,7 +62,7 @@ jobs:
           root = Path(os.environ['SRC_ROOT'])
           src = root / 'app/src/main/java/ir/bankmoviee/app'
           expected = {
-              'MainActivity.kt': '807c9cf72154a7e9d3516ea5592c9b37517068463d6f821148f87f7cfbfe8e31',
+              'MainActivity.kt': '96159cc9b90236cde104d339bb91edcfe3de616266c688ecd901fddd62dbb91d',
               'BankmovieSmoothScrollView.kt': 'ad83ec7fed0b9600eb96f10f92c1a747c16ebc961e08ffc0d315abf55b54c8f1',
               'PlayerActivity.kt': 'dace0c40e4f779cb82926b4934e8e2fa04affe98d9b2f5b3d49527d6dc55a056',
               'Media3PlaybackBridge.kt': '6700b23e532f27bb5a2c227654f37ae9b85fd274c7b40a3d7bdd77a884cd43c8',
@@ -133,6 +133,26 @@ jobs:
           app = (src/'BankmovieApplication.kt').read_text()
           if not all(s in main for s in ['showDiagnosticReportDialog()', 'BmDiagnostics.record(', 'bm_v71_about_row_5']):
               raise SystemExit('DIAGNOSTIC_ABOUT_PAGE_OR_ERROR_HOOKS_MISSING')
+          if not all(s in main for s in [
+              'private fun installMobileNavigationBarInsets()',
+              'mobileBottomNavBaseMarginDp = bottom',
+              'WindowInsetsCompat.Type.navigationBars()',
+              'if (!tv) installMobileNavigationBarInsets()',
+          ]):
+              raise SystemExit('ANDROID15_MOBILE_NAV_SAFE_INSETS_MISSING')
+          # Font choice is untouched; only cramped mobile layouts adapt.
+          if not all(s in main for s in [
+              'val needsScroll = !isTvLike()',
+              'UiPreferences.appFontMode(this@MainActivity)',
+              'private fun sectionHeader(',
+              'val compactMobileHeader = !tvCompactHeader',
+              'val compactMobileActions = !tv',
+              'track.findViewWithTag<View>("bm_archive_segment_$selectedArchive")',
+          ]):
+              raise SystemExit('MOBILE_HOME_FONT_SAFE_RESPONSIVE_LAYOUT_MISSING')
+          fonts = (src/'BankmovieFonts.kt').read_text()
+          if 'UiPreferences.appFontMode(context)' not in fonts or 'fun applyToTree(' not in fonts:
+              raise SystemExit('USER_FONT_SELECTION_OR_CUSTOM_TYPEFACES_MISSING')
           if not all(s in diag for s in ['fun send(', 'fun record(', 'statusProbe()', '/v2/api/diagnostics.php']):
               raise SystemExit('DIAGNOSTIC_COLLECTOR_MISSING')
           if 'uncaught_crash' not in app:
@@ -182,7 +202,8 @@ jobs:
             echo 'tv_dpad_guard=removed_custom_focus_intercept'
             echo 'device_storage_used=total_minus_available'
             echo 'help_step_4=vpn_and_step_5=clear_data_no_warning'
-            echo 'archive_tabs=singleline_auto_size_mobile'
+            echo 'archive_tabs=one_line_font_measured_horizontal_scroll_when_cramped'
+            echo 'mobile_home=responsive_headers_and_error_actions_preserve_selected_font'
             echo 'detail_skeleton=real_play_size_imdb_likes_monochrome_tint'
             echo 'startup=bankmovie_font_no_tagline'
             echo 'startup_poster_motion=mobile_only_drift_tv_static'
@@ -201,7 +222,7 @@ jobs:
             echo 'app_update_icon=user_svg_download'
             echo 'error_buttons=inline_icons_clipped_no_second_art'
             echo 'tv_display_modes=fit_crop_stretch_measured'
-            echo 'zip_sha256=bff842de39e586a156358b8583385e4995942de4e105bbafeae0f944af99be9a'
+            echo 'zip_sha256=5143c161eda566aeb46816a50ade2d27dcb0943bf4417fc986d83d5be2390524'
             echo "build_commit=$GITHUB_SHA"
             echo "build_run=$GITHUB_RUN_ID"
           } > "$project_dir/app/src/main/assets/bankmovie_source_proof.txt"
