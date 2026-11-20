@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie-V25-Diagnostics-Android-SOURCE.zip
+  SOURCE_ZIP: BankMovie_V25_Diagnostics_TLS_COMPAT_REVIEWED_SOURCE.zip
 
 jobs:
   build:
@@ -42,7 +42,7 @@ jobs:
             echo "::error::Required source ZIP missing: $SOURCE_ZIP. Upload this exact ZIP to the repository root."
             exit 1
           }
-          echo "3334251a43fe2e51375cf47104136e72f1d2e8cd0b0e2f661ca2d5f9640048f6  $source_zip" | sha256sum --check --status || {
+          echo "bff842de39e586a156358b8583385e4995942de4e105bbafeae0f944af99be9a  $source_zip" | sha256sum --check --status || {
             echo '::error::Source ZIP checksum differs from the required BankMovie 2.5 release.'
             sha256sum "$source_zip"
             exit 1
@@ -68,11 +68,13 @@ jobs:
               'Media3PlaybackBridge.kt': '6700b23e532f27bb5a2c227654f37ae9b85fd274c7b40a3d7bdd77a884cd43c8',
               'PosterDiskCache.kt': '54f80b558e73f57bd381ebbc816bee2255e8c9de7b9ebb5e38f0231702df817a',
               'BmDeviceStorage.kt': '2947c6f3da30d855d24f03bc2a6e17de46ef0e0b8d58d2e300e37e8d624a22a3',
-              'app/build.gradle': '73f7b722cac602b2bfadf0724c78d690d6f9c98e6d50e3ab9e9dc48eebad3436',
+              'app/build.gradle': 'ce3be61ea479eac38e3c64109b9526367705d4b86d41dd34bad0105178ca58cb',
               'BmDiagnostics.kt': 'b2a351d94da313e62b94bd2e903bab284730483ca2d3b29a1991faaa779153fc',
-              'BankmovieApplication.kt': 'b7892cd40a8e50b214ef95a4fe7eeea37480c2031742e41751e331b0c78dd872',
+              'BankmovieApplication.kt': 'e69beb87d519c9fceaf3ba239322ffb01033b3e171a8443acbb037ea1de4c23c',
               'BmV22Client.kt': '82d20e801fc906b5d33849942879f3e82e0d7030f91aad9bcca811ae1b91efd5',
               'AccountApi.kt': '7e64a81ecee0e35dc0dd588179f4ce93db1539b55061eb879f394c377b1b4dd6',
+              'app/src/main/res/xml/network_security_config.xml': 'b4f26926e1fc336fa361d75032d92b0b0358f43865f4de5e5c3dc11cc7dd1a13',
+              'app/src/main/res/raw/isrg_root_yr.pem': 'd8a34bfb5df6b4a0592b0a9cd6b3b9a9335bd431cb2ac32243ab298cba24cbf2',
           }
           for name, expected_hash in expected.items():
               data = (src / name).read_bytes() if not name.startswith('app/') else (root / name).read_bytes()
@@ -148,7 +150,7 @@ jobs:
           print('REQUIRED_BM25_USER_ORIGINAL_GENRES_TV_SOURCE_VERIFIED',len(keys),'keys / 25 original images')
           PYSOURCE
 
-          for verifier in verify_media3_migration.py verify_media3_playback_fixes.py verify_media3_ui_polish.py verify_bm25_ui.py verify_bm25_offline_genres_tv.py verify_bm25_unified_error_tv_genre.py verify_tv_smooth_cache_ui.py verify_bm25_storage_help_icons.py verify_bm25_archive_splash_skeleton_ui.py verify_bm25_splash_poster_motion.py verify_bm25_hd_splash_archive_watchlist.py verify_bm25_real_mosaic_auth.py verify_bm25_tv_splash_readability.py; do
+          for verifier in verify_media3_migration.py verify_media3_playback_fixes.py verify_media3_ui_polish.py verify_bm25_ui.py verify_bm25_offline_genres_tv.py verify_bm25_unified_error_tv_genre.py verify_tv_smooth_cache_ui.py verify_bm25_storage_help_icons.py verify_bm25_archive_splash_skeleton_ui.py verify_bm25_splash_poster_motion.py verify_bm25_hd_splash_archive_watchlist.py verify_bm25_real_mosaic_auth.py verify_bm25_tv_splash_readability.py verify_bm25_tls_compat.py; do
             [[ -s "$project_dir/$verifier" ]] || { echo "::error::Missing required source verifier $verifier"; exit 1; }
             python3 "$project_dir/$verifier"
           done
@@ -156,11 +158,14 @@ jobs:
           # Embed a verifiable source stamp into every generated APK (asset is not obfuscated by R8).
           mkdir -p "$project_dir/app/src/main/assets" "$GITHUB_WORKSPACE/output"
           {
-            echo 'BANKMOVIE_25_DIAGNOSTICS_TV_SPLASH_20261119'
+            echo 'BANKMOVIE_25_DIAGNOSTICS_TLS_YR1_20261120'
             echo "source_zip=$SOURCE_ZIP"
             echo 'app_label=Bankmovie'
             echo 'diagnostics=profile_about_report_and_crash_capture'
             echo 'diagnostics_endpoint=/v2/api/diagnostics.php'
+            echo 'tls_provider=conscrypt_2.8.0_android_lt29'
+            echo 'tls_trust=system_isrg_root_x1_isrg_root_yr'
+            echo 'tls_y_root_sha256=e57b7e6f150c419102e8d5c055729ff967b9d1a829bf00cec89ca604ebf4a86f'
             echo 'version_name=2.5'
             echo 'genres_offline=27'
             echo 'genres_origin=user_genres_zip'
@@ -196,7 +201,7 @@ jobs:
             echo 'app_update_icon=user_svg_download'
             echo 'error_buttons=inline_icons_clipped_no_second_art'
             echo 'tv_display_modes=fit_crop_stretch_measured'
-            echo 'zip_sha256=3334251a43fe2e51375cf47104136e72f1d2e8cd0b0e2f661ca2d5f9640048f6'
+            echo 'zip_sha256=bff842de39e586a156358b8583385e4995942de4e105bbafeae0f944af99be9a'
             echo "build_commit=$GITHUB_SHA"
             echo "build_run=$GITHUB_RUN_ID"
           } > "$project_dir/app/src/main/assets/bankmovie_source_proof.txt"
