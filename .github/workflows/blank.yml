@@ -1,4 +1,4 @@
-name: BankMovie 2.5 - TV Home Focus + Auth Spinner + TV PIN + Archive 2 - 8 Signed APKs
+name: BankMovie 2.5 - Smooth TV Home + Exact Poster + Clean Auth Loading - 8 Signed APKs
 
 # Build ONLY the verified Android TV home-cache source ZIP; no stale-source fallback.
 # Preserve all BankMovie 2.5 features, stable signing identity and 8 APK outputs.
@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_V25_TV_HOME_FOCUS_VERTICAL_AUTH_SPINNER_SOURCE.zip
+  SOURCE_ZIP: BankMovie_V25_TV_SMOOTH_HOME_EXACT_POSTER_CLEAN_AUTH_SOURCE.zip
 
 jobs:
   build:
@@ -46,7 +46,7 @@ jobs:
             echo "::error::Required source ZIP missing: $SOURCE_ZIP. Upload this exact ZIP to the repository root."
             exit 1
           }
-          echo "85042217e54df84414c998ee6af940293dc116b008d8d6b70d6cc699eb5c18ed  $source_zip" | sha256sum --check --status || {
+          echo "2ab96243c629f0c07813032ab64c8436a4798ebd580a39cb6bf08504ea78b6cc  $source_zip" | sha256sum --check --status || {
             echo '::error::Source ZIP checksum differs from the required BankMovie 2.5 release.'
             sha256sum "$source_zip"
             exit 1
@@ -66,7 +66,8 @@ jobs:
           root = Path(os.environ['SRC_ROOT'])
           src = root / 'app/src/main/java/ir/bankmoviee/app'
           expected = {
-              'MainActivity.kt': 'a516659190d5ecda9d437f556a54cc578de533b76c2848d871425de536225870',
+              'MainActivity.kt': '12e1b4f3961f5cb46d130c9d82fcbb301e3f43768e6d639317b94375660d609c',
+              'ThemeWindowLoadingView.kt': '475814340ce5e91c3af1666d4f9a859cd2c4939a648b7901fe0bf078e3dc7336',
               'BankmovieSmoothScrollView.kt': 'ad83ec7fed0b9600eb96f10f92c1a747c16ebc961e08ffc0d315abf55b54c8f1',
               'PlayerActivity.kt': '2e7d49f589a9047fc6ea9c9ad06f8d10c07336d82fa9bf6fdb856e6d0efdf781',
               'Media3PlaybackBridge.kt': '6700b23e532f27bb5a2c227654f37ae9b85fd274c7b40a3d7bdd77a884cd43c8',
@@ -107,7 +108,7 @@ jobs:
               'private fun rememberHomeForSession()',
               'private fun tryRestoreHomeSession()',
               'resetHomeTvRailViewportsToNewest()',
-              'requestHomeTvFocus(target)',
+              'snapshot.homeRailOffsets.forEach',
           )
           if any(item not in main for item in cache_requirements):
               raise SystemExit('ANDROID_TV_HOME_CACHE_FIX_MISSING')
@@ -125,6 +126,17 @@ jobs:
               'private fun setBusy(button: TextView, value: Boolean)',
           )):
               raise SystemExit('AUTH_LOGIN_REGISTER_LOADING_ARC_MISSING')
+          if not all(token in main for token in (
+              'tvHomeActivatedPoster?.takeIf',
+              'snapshot.homeRailOffsets.forEach',
+              'content.animate().alpha(1f).setDuration(170L)',
+          )):
+              raise SystemExit('TV_EXACT_POSTER_SOFT_RETURN_MISSING')
+          if not all(token in auth for token in (
+              'setIndicatorColor(palette.onPrimary)',
+              'tag = "bm_auth_submit_spinner"',
+          )):
+              raise SystemExit('AUTH_MINIMAL_LOADING_MISSING')
           print('TV_HOME_VERTICAL_FOCUS_AND_SHARED_AUTH_LOADING_OK')
           print('TV_NUMERIC_JOIN_AND_ARCHIVE2_SEARCH_STATIC_OK')
           print('WATCH_PARTY_KICK_UNDO_AND_HTTP_DIAGNOSTICS_STATIC_OK')
@@ -146,7 +158,7 @@ jobs:
               if hashlib.sha256((real_root/filename).read_bytes()).hexdigest() != expected_digest:
                   raise SystemExit('REAL_USER_POSTER_SOURCE_MISMATCH: '+filename)
           auth_source = src / 'AuthActivity.kt'
-          if hashlib.sha256(auth_source.read_bytes()).hexdigest() != '8c8e5dfc2eaf1fe572159a45b17c111454f37e3e3da3c8c349181b65244f02dd':
+          if hashlib.sha256(auth_source.read_bytes()).hexdigest() != '68e21240cf75342b52db5c4ffffd99f55b6851a4a1e0f0d80b3125722c3daf1b':
               raise SystemExit('AUTH_BACKGROUND_SOURCE_HASH_MISMATCH')
           # The two redundant approval PNGs were omitted to keep the source
           # release lean. Runtime 4K/phone WebP images above are SHA-pinned.
@@ -234,7 +246,7 @@ jobs:
 
           # Keep the complete BankMovie 2.5 gates and add the second AI's
           # Android TV Home session/cache regression verifiers.
-          for verifier in verify_media3_migration.py verify_media3_playback_fixes.py verify_media3_ui_polish.py verify_bm25_ui.py verify_bm25_offline_genres_tv.py verify_bm25_unified_error_tv_genre.py verify_tv_smooth_cache_ui.py verify_v24_smooth_startup_home_session_cache.py verify_bm25_storage_help_icons.py verify_bm25_archive_splash_skeleton_ui.py verify_bm25_splash_poster_motion.py verify_bm25_hd_splash_archive_watchlist.py verify_bm25_real_mosaic_auth.py verify_bm25_tv_splash_readability.py verify_bm25_tls_compat.py; do
+          for verifier in verify_media3_migration.py verify_media3_playback_fixes.py verify_media3_ui_polish.py verify_bm25_ui.py verify_bm25_offline_genres_tv.py verify_bm25_unified_error_tv_genre.py verify_bm25_tv_exact_poster_smooth_return.py verify_tv_smooth_cache_ui.py verify_v24_smooth_startup_home_session_cache.py verify_bm25_storage_help_icons.py verify_bm25_archive_splash_skeleton_ui.py verify_bm25_splash_poster_motion.py verify_bm25_hd_splash_archive_watchlist.py verify_bm25_real_mosaic_auth.py verify_bm25_tv_splash_readability.py verify_bm25_tls_compat.py; do
             [[ -s "$project_dir/$verifier" ]] || { echo "::error::Missing required source verifier $verifier"; exit 1; }
             ( cd "$project_dir" && python3 "$verifier" )
           done
@@ -261,10 +273,10 @@ jobs:
             echo 'watchlist_tabs=movie_series'
             echo 'home_error_card=single_shared_card_six_steps_two_actions'
             echo 'tv_genre_navigation=index_based_dpad_up_down'
-            echo 'tv_home_cache=retained_tv_session_reset_rails_restore_focus'
-            echo 'tv_home_vertical_focus=two_axis_boundary_pre_reveal_post_reconcile'
+            echo 'tv_home_cache=retained_tv_exact_rail_offsets_restore_clicked_focus_soft_fade'
+            echo 'tv_home_vertical_focus=two_axis_boundary_exact_poster_smooth_return'
             echo 'auth_submit_loading=shared_theme_loading_arc'
-            echo 'tv_poster_rails=platform_native_focus_reveal'
+            echo 'tv_poster_rails=retained_selected_card_and_per_rail_offsets'
             echo 'tv_splash_loading=high_contrast_white_shadow'
             echo 'tv_splash_art=unzoomed_native_3840x2160_user_mosaic'
             echo 'tv_splash_motion=static_mobile_animation_unchanged'
@@ -294,7 +306,7 @@ jobs:
             echo 'app_update_icon=user_svg_download'
             echo 'error_buttons=inline_icons_clipped_no_second_art'
             echo 'tv_display_modes=fit_crop_stretch_measured'
-            echo 'zip_sha256=85042217e54df84414c998ee6af940293dc116b008d8d6b70d6cc699eb5c18ed'
+            echo 'zip_sha256=2ab96243c629f0c07813032ab64c8436a4798ebd580a39cb6bf08504ea78b6cc'
             echo "build_commit=$GITHUB_SHA"
             echo "build_run=$GITHUB_RUN_ID"
           } > "$project_dir/app/src/main/assets/bankmovie_source_proof.txt"
