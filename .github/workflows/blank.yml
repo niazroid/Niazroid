@@ -1,6 +1,7 @@
-name: BankMovie 2.5 - TV PIN Join + Archive 2 Site Precision - 8 APKs
+name: BankMovie 2.5 - TV Home Cache + TV PIN + Archive 2 - 8 Signed APKs
 
-# Build ONLY the pinned BankMovie 2.5 offline-genre & TV-resize ZIP. No stale-source fallback.
+# Build ONLY the verified Android TV home-cache source ZIP; no stale-source fallback.
+# Preserve all BankMovie 2.5 features, stable signing identity and 8 APK outputs.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
 
 on:
@@ -13,11 +14,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: bankmovie-v25-tv-pin-search2-${{ github.ref }}
+  group: bankmovie-v25-tv-cache-pin-search2-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_V25_TV_CODE_ARCHIVE2_PRECISION_SOURCE.zip
+  SOURCE_ZIP: BankMovie_V25_AndroidTV_HomeCache_FIXED_SOURCE.zip
 
 jobs:
   build:
@@ -42,7 +43,7 @@ jobs:
             echo "::error::Required source ZIP missing: $SOURCE_ZIP. Upload this exact ZIP to the repository root."
             exit 1
           }
-          echo "5e1886042e71b9ed9888b1dde2326d4511a5026c0208485908b2f79cf546db0b  $source_zip" | sha256sum --check --status || {
+          echo "2d2adfa4bca088965acf044a76a14710075eefeec30c8c4957cd9cbfd1cb2c71  $source_zip" | sha256sum --check --status || {
             echo '::error::Source ZIP checksum differs from the required BankMovie 2.5 release.'
             sha256sum "$source_zip"
             exit 1
@@ -50,7 +51,7 @@ jobs:
           unzip -tq "$source_zip"
           extract_dir="$RUNNER_TEMP/bankmovie-media3-src"
           mkdir -p "$extract_dir"
-          unzip -q "$source_zip" -d "$extract_dir"
+          unzip -qo "$source_zip" -d "$extract_dir"
           mapfile -t matches < <(find "$extract_dir" -maxdepth 7 -path '*/app/build.gradle' -type f | sort)
           [[ ${#matches[@]} -eq 1 ]] || { echo "::error::Expected one app/build.gradle in media3 ZIP"; exit 1; }
           project_dir="$(dirname "$(dirname "${matches[0]}")")"
@@ -62,13 +63,13 @@ jobs:
           root = Path(os.environ['SRC_ROOT'])
           src = root / 'app/src/main/java/ir/bankmoviee/app'
           expected = {
-              'MainActivity.kt': 'c130adbef9dccccb3ce141ff1aef8034c72fdbc10e810a58a72407ca6965bb97',
+              'MainActivity.kt': 'e360f69ca757156de3de184e2130d29d36cd459bb90cca3055e56adb50d5c4cf',
               'BankmovieSmoothScrollView.kt': 'ad83ec7fed0b9600eb96f10f92c1a747c16ebc961e08ffc0d315abf55b54c8f1',
               'PlayerActivity.kt': '2e7d49f589a9047fc6ea9c9ad06f8d10c07336d82fa9bf6fdb856e6d0efdf781',
               'Media3PlaybackBridge.kt': '6700b23e532f27bb5a2c227654f37ae9b85fd274c7b40a3d7bdd77a884cd43c8',
               'PosterDiskCache.kt': '54f80b558e73f57bd381ebbc816bee2255e8c9de7b9ebb5e38f0231702df817a',
               'BmDeviceStorage.kt': '2947c6f3da30d855d24f03bc2a6e17de46ef0e0b8d58d2e300e37e8d624a22a3',
-              'app/build.gradle': 'ce3be61ea479eac38e3c64109b9526367705d4b86d41dd34bad0105178ca58cb',
+              'app/build.gradle': '4fb5bf49d6608da5ca40e19d742ac5133a8a64d2e0487764fcb2534045d4663d',
               'BmDiagnostics.kt': 'b2a351d94da313e62b94bd2e903bab284730483ca2d3b29a1991faaa779153fc',
               'BankmovieApplication.kt': 'e69beb87d519c9fceaf3ba239322ffb01033b3e171a8443acbb037ea1de4c23c',
               'BmV22Client.kt': '82d20e801fc906b5d33849942879f3e82e0d7030f91aad9bcca811ae1b91efd5',
@@ -99,6 +100,14 @@ jobs:
               raise SystemExit('TV_NUMERIC_JOIN_DIALOG_MISSING')
           if 'archive != 1 && archive != 2' not in main:
               raise SystemExit('ARCHIVE2_LEGACY_FALLBACK_NOT_REMOVED')
+          cache_requirements = (
+              'private fun rememberHomeForSession()',
+              'private fun tryRestoreHomeSession()',
+              'resetHomeTvRailViewportsToNewest()',
+              'requestHomeTvFocus(target)',
+          )
+          if any(item not in main for item in cache_requirements):
+              raise SystemExit('ANDROID_TV_HOME_CACHE_FIX_MISSING')
           print('TV_NUMERIC_JOIN_AND_ARCHIVE2_SEARCH_STATIC_OK')
           print('WATCH_PARTY_KICK_UNDO_AND_HTTP_DIAGNOSTICS_STATIC_OK')
 
@@ -205,15 +214,21 @@ jobs:
           print('REQUIRED_BM25_USER_ORIGINAL_GENRES_TV_SOURCE_VERIFIED',len(keys),'keys / 25 original images')
           PYSOURCE
 
-          for verifier in verify_media3_migration.py verify_media3_playback_fixes.py verify_media3_ui_polish.py verify_bm25_ui.py verify_bm25_offline_genres_tv.py verify_bm25_unified_error_tv_genre.py verify_tv_smooth_cache_ui.py verify_bm25_storage_help_icons.py verify_bm25_archive_splash_skeleton_ui.py verify_bm25_splash_poster_motion.py verify_bm25_hd_splash_archive_watchlist.py verify_bm25_real_mosaic_auth.py verify_bm25_tv_splash_readability.py verify_bm25_tls_compat.py; do
+          # Keep the complete BankMovie 2.5 gates and add the second AI's
+          # Android TV Home session/cache regression verifiers.
+          for verifier in verify_media3_migration.py verify_media3_playback_fixes.py verify_media3_ui_polish.py verify_bm25_ui.py verify_bm25_offline_genres_tv.py verify_bm25_unified_error_tv_genre.py verify_tv_smooth_cache_ui.py verify_v24_smooth_startup_home_session_cache.py verify_bm25_storage_help_icons.py verify_bm25_archive_splash_skeleton_ui.py verify_bm25_splash_poster_motion.py verify_bm25_hd_splash_archive_watchlist.py verify_bm25_real_mosaic_auth.py verify_bm25_tv_splash_readability.py verify_bm25_tls_compat.py; do
             [[ -s "$project_dir/$verifier" ]] || { echo "::error::Missing required source verifier $verifier"; exit 1; }
-            python3 "$project_dir/$verifier"
+            ( cd "$project_dir" && python3 "$verifier" )
           done
+          [[ -s "$project_dir/verify_v22_5_7_7_tv_home_v23_stable_return.sh" ]] || {
+            echo '::error::TV Home stable-return verifier missing'; exit 1;
+          }
+          ( cd "$project_dir" && bash verify_v22_5_7_7_tv_home_v23_stable_return.sh )
 
           # Embed a verifiable source stamp into every generated APK (asset is not obfuscated by R8).
           mkdir -p "$project_dir/app/src/main/assets" "$GITHUB_WORKSPACE/output"
           {
-            echo 'BANKMOVIE_25_DIAGNOSTICS_TLS_YR1_20261120'
+            echo 'BANKMOVIE_25_TV_HOME_CACHE_SOURCE_20261121'
             echo "source_zip=$SOURCE_ZIP"
             echo 'app_label=Bankmovie'
             echo 'diagnostics=profile_about_report_and_crash_capture'
@@ -228,7 +243,7 @@ jobs:
             echo 'watchlist_tabs=movie_series'
             echo 'home_error_card=single_shared_card_six_steps_two_actions'
             echo 'tv_genre_navigation=index_based_dpad_up_down'
-            echo 'tv_home_cache=tv_rebuild_safe_mobile_cache_preserved'
+            echo 'tv_home_cache=retained_tv_session_reset_rails_restore_focus'
             echo 'tv_poster_rails=platform_native_focus_reveal'
             echo 'tv_splash_loading=high_contrast_white_shadow'
             echo 'tv_splash_art=unzoomed_native_3840x2160_user_mosaic'
@@ -259,7 +274,7 @@ jobs:
             echo 'app_update_icon=user_svg_download'
             echo 'error_buttons=inline_icons_clipped_no_second_art'
             echo 'tv_display_modes=fit_crop_stretch_measured'
-            echo 'zip_sha256=5e1886042e71b9ed9888b1dde2326d4511a5026c0208485908b2f79cf546db0b'
+            echo 'zip_sha256=2d2adfa4bca088965acf044a76a14710075eefeec30c8c4957cd9cbfd1cb2c71'
             echo "build_commit=$GITHUB_SHA"
             echo "build_run=$GITHUB_RUN_ID"
           } > "$project_dir/app/src/main/assets/bankmovie_source_proof.txt"
@@ -285,6 +300,9 @@ jobs:
         shell: bash
         env:
           BANKMOVIE_KEYSTORE_B64: ${{ secrets.BANKMOVIE_KEYSTORE_B64 }}
+          BANKMOVIE_SIGNING_STORE_PASSWORD: ${{ secrets.BANKMOVIE_SIGNING_STORE_PASSWORD }}
+          BANKMOVIE_SIGNING_KEY_ALIAS: ${{ secrets.BANKMOVIE_SIGNING_KEY_ALIAS }}
+          BANKMOVIE_SIGNING_KEY_PASSWORD: ${{ secrets.BANKMOVIE_SIGNING_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           umask 077
@@ -425,8 +443,15 @@ jobs:
             exit 1
           fi
 
+          : "${BANKMOVIE_SIGNING_STORE_PASSWORD:?Add GitHub secret BANKMOVIE_SIGNING_STORE_PASSWORD}"
+          : "${BANKMOVIE_SIGNING_KEY_ALIAS:?Add GitHub secret BANKMOVIE_SIGNING_KEY_ALIAS}"
+          : "${BANKMOVIE_SIGNING_KEY_PASSWORD:?Add GitHub secret BANKMOVIE_SIGNING_KEY_PASSWORD}"
+          keytool -list -keystore "$target" -storepass "$BANKMOVIE_SIGNING_STORE_PASSWORD"             -alias "$BANKMOVIE_SIGNING_KEY_ALIAS" > /dev/null 2>&1 || {
+              echo '::error::Stable keystore password or alias is invalid.'
+              exit 1
+            }
           chmod 600 "$target"
-          echo "::notice::BankMovie stable signing key SHA-256 verified."
+          echo "::notice::BankMovie stable signing key SHA-256 + alias verified."
 
       - name: Configure Firebase Cloud Messaging (optional)
         shell: bash
@@ -724,18 +749,26 @@ jobs:
         shell: bash
         env:
           BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a
+          BANKMOVIE_SIGNING_STORE_PASSWORD: ${{ secrets.BANKMOVIE_SIGNING_STORE_PASSWORD }}
+          BANKMOVIE_SIGNING_KEY_ALIAS: ${{ secrets.BANKMOVIE_SIGNING_KEY_ALIAS }}
+          BANKMOVIE_SIGNING_KEY_PASSWORD: ${{ secrets.BANKMOVIE_SIGNING_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
+          export BANKMOVIE_SIGNING_STORE_FILE="$PROJECT_DIR/bankmovie_update.jks"
           "$BANKMOVIE_GRADLE_RETRY" clean assembleAbi2LiteRelease
 
       - name: Build ABI4 Full releases
         shell: bash
         env:
           BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a,x86,x86_64
+          BANKMOVIE_SIGNING_STORE_PASSWORD: ${{ secrets.BANKMOVIE_SIGNING_STORE_PASSWORD }}
+          BANKMOVIE_SIGNING_KEY_ALIAS: ${{ secrets.BANKMOVIE_SIGNING_KEY_ALIAS }}
+          BANKMOVIE_SIGNING_KEY_PASSWORD: ${{ secrets.BANKMOVIE_SIGNING_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
+          export BANKMOVIE_SIGNING_STORE_FILE="$PROJECT_DIR/bankmovie_update.jks"
           "$BANKMOVIE_GRADLE_RETRY" assembleAbi4FullRelease
 
       - name: Collect exactly 8 APKs with original filenames
