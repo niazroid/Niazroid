@@ -2,6 +2,9 @@ name: BankMovie 2.5 - TV Home Cache + TV PIN + Archive 2 - 8 Signed APKs
 
 # Build ONLY the verified Android TV home-cache source ZIP; no stale-source fallback.
 # Preserve all BankMovie 2.5 features, stable signing identity and 8 APK outputs.
+# SIGNING FIX: prefer Actions Secrets; for older BankMovie repos, safely recover
+# historical signing settings from the same SHA-verified FULLSOURCE ZIP as the keystore.
+# Never print/store passwords in repository, source ZIP, or build artifacts.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
 
 on:
@@ -318,6 +321,54 @@ jobs:
             [[ "$actual" == "$expected_sha" ]]
           }
 
+          # Migration-only fallback for the historical BankMovie keystore.
+          # GitHub Secrets remain preferred. The legacy source may contain the
+          # matching release signing configuration; do not print its values.
+          recover_legacy_signing_from_zip() {
+            local candidate="$1"
+            local -a legacy=()
+
+            # Do not override any explicitly configured GitHub Secret.
+            if [[ -n "${BANKMOVIE_SIGNING_STORE_PASSWORD:-}" &&
+                  -n "${BANKMOVIE_SIGNING_KEY_ALIAS:-}" &&
+                  -n "${BANKMOVIE_SIGNING_KEY_PASSWORD:-}" ]]; then
+              return 0
+            fi
+
+            mapfile -d '' -t legacy < <(python3 - "$candidate" <<'PYLEGACY'
+          import re, sys, zipfile
+          try:
+              with zipfile.ZipFile(sys.argv[1]) as z:
+                  paths = [p for p in z.namelist() if p == 'app/build.gradle' or p.endswith('/app/build.gradle')]
+                  if len(paths) != 1:
+                      sys.exit(0)
+                  gradle = z.read(paths[0]).decode('utf-8', errors='replace')
+              # Only literal historical Gradle signing settings; never evaluate code.
+              keys = ('storePassword', 'keyAlias', 'keyPassword')
+              values = []
+              for key in keys:
+                  match = re.search(r'(?m)^\s*' + key + r'\s*(?:=|\s)\s*[\"\']([^\"\'\r\n]+)[\"\']', gradle)
+                  if not match:
+                      sys.exit(0)
+                  values.append(match.group(1))
+              if all(0 < len(value) <= 200 for value in values):
+                  sys.stdout.buffer.write(('\0'.join(values) + '\0').encode('utf-8'))
+          except (OSError, KeyError, zipfile.BadZipFile):
+              pass
+          PYLEGACY
+            )
+            [[ ${#legacy[@]} -eq 3 ]] || return 1
+            [[ -n "${legacy[0]}" && -n "${legacy[1]}" && -n "${legacy[2]}" ]] || return 1
+
+            BANKMOVIE_SIGNING_STORE_PASSWORD="${BANKMOVIE_SIGNING_STORE_PASSWORD:-${legacy[0]}}"
+            BANKMOVIE_SIGNING_KEY_ALIAS="${BANKMOVIE_SIGNING_KEY_ALIAS:-${legacy[1]}}"
+            BANKMOVIE_SIGNING_KEY_PASSWORD="${BANKMOVIE_SIGNING_KEY_PASSWORD:-${legacy[2]}}"
+            echo "::add-mask::$BANKMOVIE_SIGNING_STORE_PASSWORD"
+            echo "::add-mask::$BANKMOVIE_SIGNING_KEY_ALIAS"
+            echo "::add-mask::$BANKMOVIE_SIGNING_KEY_PASSWORD"
+            echo "::notice::Legacy signing settings recovered from the archive holding the SHA-verified update keystore. Move them to GitHub Secrets for future builds."
+          }
+
           recover_key_from_zip() {
             local candidate="$1"
             local label="$2"
@@ -331,6 +382,7 @@ jobs:
             if unzip -p "$candidate" "$entry" > "$tmp" 2>/dev/null && verify_key "$tmp"; then
               mv "$tmp" "$target"
               echo "::notice::Recovered stable signing key from $label."
+              recover_legacy_signing_from_zip "$candidate" || true
               return 0
             fi
             rm -f "$tmp"
@@ -443,15 +495,44 @@ jobs:
             exit 1
           fi
 
-          : "${BANKMOVIE_SIGNING_STORE_PASSWORD:?Add GitHub secret BANKMOVIE_SIGNING_STORE_PASSWORD}"
-          : "${BANKMOVIE_SIGNING_KEY_ALIAS:?Add GitHub secret BANKMOVIE_SIGNING_KEY_ALIAS}"
-          : "${BANKMOVIE_SIGNING_KEY_PASSWORD:?Add GitHub secret BANKMOVIE_SIGNING_KEY_PASSWORD}"
-          keytool -list -keystore "$target" -storepass "$BANKMOVIE_SIGNING_STORE_PASSWORD"             -alias "$BANKMOVIE_SIGNING_KEY_ALIAS" > /dev/null 2>&1 || {
-              echo '::error::Stable keystore password or alias is invalid.'
-              exit 1
-            }
+          # If the keystore came from a Secret/current file rather than a ZIP,
+          # credentials must be explicitly supplied via GitHub Secrets.
+          missing=()
+          [[ -n "${BANKMOVIE_SIGNING_STORE_PASSWORD:-}" ]] || missing+=(BANKMOVIE_SIGNING_STORE_PASSWORD)
+          [[ -n "${BANKMOVIE_SIGNING_KEY_ALIAS:-}" ]] || missing+=(BANKMOVIE_SIGNING_KEY_ALIAS)
+          [[ -n "${BANKMOVIE_SIGNING_KEY_PASSWORD:-}" ]] || missing+=(BANKMOVIE_SIGNING_KEY_PASSWORD)
+          if (( ${#missing[@]} )); then
+            echo "::error::The update keystore was found, but these signing settings are missing: ${missing[*]}"
+            echo "::error::GitHub repository > Settings > Secrets and variables > Actions > New repository secret."
+            echo "::error::Legacy fallback is available only if the SHA-matching FULLSOURCE archive also contains literal historical signing settings."
+            exit 1
+          fi
+
+          keytool -list -keystore "$target" -storepass "$BANKMOVIE_SIGNING_STORE_PASSWORD" \
+            -alias "$BANKMOVIE_SIGNING_KEY_ALIAS" > /dev/null 2>&1 || {
+            echo '::error::Stable keystore password or alias is invalid; do not generate a new key.'
+            exit 1
+          }
+          # Verify private-key password too; keytool -list checks only store password.
+          csr="$(mktemp "$RUNNER_TEMP/bankmovie-signing.XXXXXX.csr")"
+          if ! keytool -certreq -keystore "$target" -storepass "$BANKMOVIE_SIGNING_STORE_PASSWORD" \
+            -alias "$BANKMOVIE_SIGNING_KEY_ALIAS" -keypass "$BANKMOVIE_SIGNING_KEY_PASSWORD" \
+            -file "$csr" -noprompt > /dev/null 2>&1; then
+            rm -f "$csr"
+            echo '::error::Stable signing key password is incorrect; do not generate a new key.'
+            exit 1
+          fi
+          rm -f "$csr"
+
+          # GITHUB_ENV makes recovered legacy settings available to LATER steps.
+          # Do not print credentials or embed them in the YAML/source APK.
+          {
+            printf 'BANKMOVIE_SIGNING_STORE_PASSWORD=%s\n' "$BANKMOVIE_SIGNING_STORE_PASSWORD"
+            printf 'BANKMOVIE_SIGNING_KEY_ALIAS=%s\n' "$BANKMOVIE_SIGNING_KEY_ALIAS"
+            printf 'BANKMOVIE_SIGNING_KEY_PASSWORD=%s\n' "$BANKMOVIE_SIGNING_KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
           chmod 600 "$target"
-          echo "::notice::BankMovie stable signing key SHA-256 + alias verified."
+          echo "::notice::BankMovie stable signing key SHA-256, alias, and private-key password verified."
 
       - name: Configure Firebase Cloud Messaging (optional)
         shell: bash
@@ -749,9 +830,6 @@ jobs:
         shell: bash
         env:
           BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a
-          BANKMOVIE_SIGNING_STORE_PASSWORD: ${{ secrets.BANKMOVIE_SIGNING_STORE_PASSWORD }}
-          BANKMOVIE_SIGNING_KEY_ALIAS: ${{ secrets.BANKMOVIE_SIGNING_KEY_ALIAS }}
-          BANKMOVIE_SIGNING_KEY_PASSWORD: ${{ secrets.BANKMOVIE_SIGNING_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
@@ -762,9 +840,6 @@ jobs:
         shell: bash
         env:
           BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a,x86,x86_64
-          BANKMOVIE_SIGNING_STORE_PASSWORD: ${{ secrets.BANKMOVIE_SIGNING_STORE_PASSWORD }}
-          BANKMOVIE_SIGNING_KEY_ALIAS: ${{ secrets.BANKMOVIE_SIGNING_KEY_ALIAS }}
-          BANKMOVIE_SIGNING_KEY_PASSWORD: ${{ secrets.BANKMOVIE_SIGNING_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
