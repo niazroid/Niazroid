@@ -285,6 +285,31 @@ jobs:
           echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
           echo '::notice::Pinned ZIP and Kotlin source verified; APK stamp injected.'
 
+      - name: Fix TV Home vertical rail bounds without changing media features
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYRAIL'
+          from pathlib import Path
+          import os
+          path = Path(os.environ['PROJECT_DIR']) / 'app/src/main/java/ir/bankmoviee/app/MainActivity.kt'
+          s = path.read_text(encoding='utf-8')
+          before = '        val homeBody = if (tv) LinearLayout(this).apply {\n            orientation = LinearLayout.VERTICAL\n            setPadding(0, 0, tvHomeRailContentInset(), 0)\n            clipToPadding = false\n        } else page\n        if (tv) page.addView(homeBody, LinearLayout.LayoutParams(-1, -2))'
+          after = '        val homeBody = if (tv) LinearLayout(this).apply {\n            orientation = LinearLayout.VERTICAL\n            // TV HARD BOUNDARY: padding + clipToPadding=false let poster rails paint\n            // into the fixed right-side navigation when moving vertically.\n            // Reserve the rail OUTSIDE this view via a physical right margin below.\n            // Its child scrollers are now clipped to the safe content viewport.\n            clipChildren = true\n            clipToPadding = true\n        } else page\n        if (tv) page.addView(homeBody, LinearLayout.LayoutParams(-1, -2).apply {\n            // Physical RIGHT edge, independent of Persian/RTL layout direction.\n            rightMargin = tvHomeRailContentInset()\n        })'
+          if s.count(before) != 1: raise SystemExit('TV_RAIL_FIX_SOURCE_MISMATCH')
+          s = s.replace(before, after, 1)
+          before = '        tvLastContentFocus = view\n        revealHomeTvTarget(view)\n        return true\n    }\n\n    private fun homeTvFirstVisualPoster(): View? {'
+          after = '        tvLastContentFocus = view\n        revealHomeTvTarget(view)\n\n        // On a cross-rail DOWN/UP the vendor focus engine may reveal an old\n        // horizontal offset *after* requestFocus(), pushing first/newest card\n        // beneath the side navigation. Pin only the first poster, only while\n        // it still owns focus; ordinary left/right browsing remains untouched.\n        if (isTvLike() && currentScreen == "home") {\n            val generation = tvHomeBuildGeneration\n            val firstCardRail = tvHomeRailRegistry.firstOrNull { registration ->\n                registration.generation == generation &&\n                    registration.box.visibility == View.VISIBLE &&\n                    registeredHomeTvCards(registration).firstOrNull() === view\n            }\n            firstCardRail?.let { registration ->\n                registration.scroller.postOnAnimation {\n                    if (currentScreen == "home" && generation == tvHomeBuildGeneration &&\n                        view.isAttachedToWindow && view.hasFocus() &&\n                        registration.scroller.width > 0 && registration.row.childCount > 0) {\n                        val first = registration.row.getChildAt(0)\n                        val rightAlignedX = (first.right - registration.scroller.width +\n                            registration.scroller.paddingRight).coerceAtLeast(0)\n                        registration.scroller.scrollTo(rightAlignedX, 0)\n                    }\n                }\n            }\n        }\n        return true\n    }\n\n    private fun homeTvFirstVisualPoster(): View? {'
+          if s.count(before) != 1: raise SystemExit('TV_RAIL_FIX_SOURCE_MISMATCH')
+          s = s.replace(before, after, 1)
+          path.write_text(s, encoding='utf-8')
+          assert 'rightMargin = tvHomeRailContentInset()' in s
+          assert 'clipChildren = true\n            clipToPadding = true' in s
+          assert 'val firstCardRail = tvHomeRailRegistry.firstOrNull' in s
+          assert 'BankmovieSmoothScrollView(this)' in s
+          print('TV_HOME_VERTICAL_RAIL_SAFE_VIEWPORT_AND_FIRST_CARD_FOCUS_OK')
+          PYRAIL
+
       - name: Set monotonic Android versionCode
         shell: bash
         run: |
