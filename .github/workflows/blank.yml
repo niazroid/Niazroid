@@ -1,4 +1,4 @@
-name: BankMovie 2.5 - TV DPAD No Stutter + Exact Poster + Clean Auth - 8 Signed APKs
+name: BankMovie 2.5 - TV Focus Unlock + Exact Poster + Clean Auth - 8 Signed APKs
 
 # Build ONLY the verified Android TV home-cache source ZIP; no stale-source fallback.
 # Preserve all BankMovie 2.5 features, stable signing identity and 8 APK outputs.
@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_V25_TV_DPAD_NOSTUTTER_EXACT_FOCUS_SOURCE.zip
+  SOURCE_ZIP: BankMovie_V25_TV_FOCUS_UNLOCK_SAFE_RECOVERY_SOURCE.zip
 
 jobs:
   build:
@@ -46,7 +46,7 @@ jobs:
             echo "::error::Required source ZIP missing: $SOURCE_ZIP. Upload this exact ZIP to the repository root."
             exit 1
           }
-          echo "8637f3a488204e1a7ce1ed25bc84ea8c6b21338a0f7f39139d7280a1e321e483  $source_zip" | sha256sum --check --status || {
+          echo "9aa497b2633bf73161c0efad5111d81455c9b05c87e17cb294a1d81848385c52  $source_zip" | sha256sum --check --status || {
             echo '::error::Source ZIP checksum differs from the required BankMovie 2.5 release.'
             sha256sum "$source_zip"
             exit 1
@@ -66,7 +66,7 @@ jobs:
           root = Path(os.environ['SRC_ROOT'])
           src = root / 'app/src/main/java/ir/bankmoviee/app'
           expected = {
-              'MainActivity.kt': '55a48f9567fff9a432e6b60864a6797c6650c41c2e718876ed5b22a193fa1dda',
+              'MainActivity.kt': '243580b3dd42497abbe0f2ef04c25006ae0d8dd7d8e7b299402f81b1ac0aeb90',
               'ThemeWindowLoadingView.kt': '475814340ce5e91c3af1666d4f9a859cd2c4939a648b7901fe0bf078e3dc7336',
               'BankmovieSmoothScrollView.kt': 'ad83ec7fed0b9600eb96f10f92c1a747c16ebc961e08ffc0d315abf55b54c8f1',
               'PlayerActivity.kt': '2e7d49f589a9047fc6ea9c9ad06f8d10c07336d82fa9bf6fdb856e6d0efdf781',
@@ -130,7 +130,7 @@ jobs:
               'tvHomeActivatedPoster?.takeIf',
               'snapshot.homeRailOffsets.forEach',
               'content.alpha = 1f',
-              'requestHomeTvFocusWithoutAutoScroll(target)',
+              'target.requestFocus()',
           )):
               raise SystemExit('TV_EXACT_POSTER_FAST_RETURN_MISSING')
           if not all(token in auth for token in (
@@ -247,7 +247,7 @@ jobs:
 
           # Keep the complete BankMovie 2.5 gates and add the second AI's
           # Android TV Home session/cache regression verifiers.
-          for verifier in verify_media3_migration.py verify_media3_playback_fixes.py verify_media3_ui_polish.py verify_bm25_ui.py verify_bm25_offline_genres_tv.py verify_bm25_unified_error_tv_genre.py verify_bm25_tv_exact_poster_smooth_return.py verify_bm25_tv_dpad_nostutter.py verify_tv_smooth_cache_ui.py verify_v24_smooth_startup_home_session_cache.py verify_bm25_storage_help_icons.py verify_bm25_archive_splash_skeleton_ui.py verify_bm25_splash_poster_motion.py verify_bm25_hd_splash_archive_watchlist.py verify_bm25_real_mosaic_auth.py verify_bm25_tv_splash_readability.py verify_bm25_tls_compat.py; do
+          for verifier in verify_media3_migration.py verify_media3_playback_fixes.py verify_media3_ui_polish.py verify_bm25_ui.py verify_bm25_offline_genres_tv.py verify_bm25_unified_error_tv_genre.py verify_bm25_tv_exact_poster_smooth_return.py verify_bm25_tv_focus_lock_recovery.py verify_tv_smooth_cache_ui.py verify_v24_smooth_startup_home_session_cache.py verify_bm25_storage_help_icons.py verify_bm25_archive_splash_skeleton_ui.py verify_bm25_splash_poster_motion.py verify_bm25_hd_splash_archive_watchlist.py verify_bm25_real_mosaic_auth.py verify_bm25_tv_splash_readability.py verify_bm25_tls_compat.py; do
             [[ -s "$project_dir/$verifier" ]] || { echo "::error::Missing required source verifier $verifier"; exit 1; }
             ( cd "$project_dir" && python3 "$verifier" )
           done
@@ -259,7 +259,7 @@ jobs:
           # Embed a verifiable source stamp into every generated APK (asset is not obfuscated by R8).
           mkdir -p "$project_dir/app/src/main/assets" "$GITHUB_WORKSPACE/output"
           {
-            echo 'BANKMOVIE_25_TV_DPAD_NOSTUTTER_EXACT_POSTER_20261122'
+            echo 'BANKMOVIE_25_TV_FOCUS_UNLOCK_NATIVE_EXACT_POSTER_20261122'
             echo "source_zip=$SOURCE_ZIP"
             echo 'app_label=Bankmovie'
             echo 'diagnostics=profile_about_report_and_crash_capture'
@@ -274,10 +274,10 @@ jobs:
             echo 'watchlist_tabs=movie_series'
             echo 'home_error_card=single_shared_card_six_steps_two_actions'
             echo 'tv_genre_navigation=index_based_dpad_up_down'
-            echo 'tv_home_cache=retained_exact_rail_offsets_clicked_poster_single_frame_reveal'
-            echo 'tv_home_vertical_focus=single_owner_135ms_vertical_120ms_horizontal_no_full_tree_scan'
+            echo 'tv_home_cache=retained_exact_rail_offsets_clicked_poster_native_focus_restore'
+            echo 'tv_home_vertical_focus=native_focus_request_explicit_rail_reveal'
             echo 'auth_submit_loading=shared_theme_loading_arc'
-            echo 'tv_dpad_jank_prevention=ancestor_only_focus_guards_cancel_stale_scrolls'
+            echo 'tv_dpad_jank_prevention=dead_index_scan_removed_no_manual_scroll_guard_animation'
             echo 'tv_poster_rails=retained_selected_card_and_per_rail_offsets'
             echo 'tv_splash_loading=high_contrast_white_shadow'
             echo 'tv_splash_art=unzoomed_native_3840x2160_user_mosaic'
@@ -308,7 +308,7 @@ jobs:
             echo 'app_update_icon=user_svg_download'
             echo 'error_buttons=inline_icons_clipped_no_second_art'
             echo 'tv_display_modes=fit_crop_stretch_measured'
-            echo 'zip_sha256=8637f3a488204e1a7ce1ed25bc84ea8c6b21338a0f7f39139d7280a1e321e483'
+            echo 'zip_sha256=9aa497b2633bf73161c0efad5111d81455c9b05c87e17cb294a1d81848385c52'
             echo "build_commit=$GITHUB_SHA"
             echo "build_run=$GITHUB_RUN_ID"
           } > "$project_dir/app/src/main/assets/bankmovie_source_proof.txt"
