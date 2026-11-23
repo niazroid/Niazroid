@@ -1,4 +1,4 @@
-name: BankMovie 2.5 - Original-Link-First Player + Download + TV Quality UI - 8 APKs
+name: BankMovie 2.5 - Next Episode Cinematic Poster + TV Focus + 98% - 8 APKs
 
 # Build ONLY the pinned BankMovie 2.5 offline-genre & TV-resize ZIP. No stale-source fallback.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_V25_ORIGINAL_LINK_FIRST_MEDIA_FIX_SOURCE.zip
+  SOURCE_ZIP: BankMovie_V25_NEXT_EPISODE_CINEMATIC_POSTER_FOCUS_SOURCE.zip
 
 jobs:
   build:
@@ -42,7 +42,7 @@ jobs:
             echo "::error::Required source ZIP missing: $SOURCE_ZIP. Upload this exact ZIP to the repository root."
             exit 1
           }
-          echo "1b685bcee0380511d0ecf2c2e0feb85ae9ca634c69869c51e7573d97f55035da  $source_zip" | sha256sum --check --status || {
+          echo "5516f3a477a982a585b3435fcb28fc648bb9d9d3f69cb7bcfc8cf0abf14f221e  $source_zip" | sha256sum --check --status || {
             echo '::error::Source ZIP checksum differs from the required BankMovie 2.5 release.'
             sha256sum "$source_zip"
             exit 1
@@ -62,9 +62,9 @@ jobs:
           root = Path(os.environ['SRC_ROOT'])
           src = root / 'app/src/main/java/ir/bankmoviee/app'
           expected = {
-              'MainActivity.kt': '15f62c9faa09588621425f8d64666b8f55d51e76a5fcd55445abf0543abf3a41',
+              'MainActivity.kt': '7df07c13157e70ab9785c19a203a2ca4ac0b80742172789f222d9616b0209c87',
               'BankmovieSmoothScrollView.kt': 'ad83ec7fed0b9600eb96f10f92c1a747c16ebc961e08ffc0d315abf55b54c8f1',
-              'PlayerActivity.kt': '95f9aeb03b124a683828acaecde5ecc66c8ecfbf37897cf6f6e05b1e32ad2f6c',
+              'PlayerActivity.kt': '2103030aff00a6725b29a19d13a75ce96f8d361218be166a8d9d5828becfbb68',
               'Media3PlaybackBridge.kt': 'db9e05f5dc2a23cca874274abfcbfe5ee136142729dfe3262ee897bc89f2e4f2',
               'PosterDiskCache.kt': '54f80b558e73f57bd381ebbc816bee2255e8c9de7b9ebb5e38f0231702df817a',
               'BmDeviceStorage.kt': '2947c6f3da30d855d24f03bc2a6e17de46ef0e0b8d58d2e300e37e8d624a22a3',
@@ -287,7 +287,7 @@ jobs:
             echo 'app_update_icon=user_svg_download'
             echo 'error_buttons=inline_icons_clipped_no_second_art'
             echo 'tv_display_modes=fit_crop_stretch_measured'
-            echo 'zip_sha256=1b685bcee0380511d0ecf2c2e0feb85ae9ca634c69869c51e7573d97f55035da'
+            echo 'zip_sha256=5516f3a477a982a585b3435fcb28fc648bb9d9d3f69cb7bcfc8cf0abf14f221e'
             echo "build_commit=$GITHUB_SHA"
             echo "build_run=$GITHUB_RUN_ID"
           } > "$project_dir/app/src/main/assets/bankmovie_source_proof.txt"
@@ -705,6 +705,7 @@ jobs:
           python3 verify_media3_migration.py
           python3 verify_media3_playback_fixes.py
           python3 verify_media3_ui_polish.py
+          python3 verify_next_episode_glass.py
 
       - name: Install and verify BankMovie font pack
         shell: bash
