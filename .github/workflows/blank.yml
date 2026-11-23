@@ -1,4 +1,4 @@
-name: BankMovie 2.5 - Next Episode Cinematic Poster + TV Focus + 98% - 8 APKs
+name: BankMovie 2.5 - Next Episode 97.5% + All Archives + Mobile Size + Light Theme Watch Party - 8 APKs
 
 # Build ONLY the pinned BankMovie 2.5 offline-genre & TV-resize ZIP. No stale-source fallback.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_V25_NEXT_EPISODE_CINEMATIC_POSTER_FOCUS_SOURCE.zip
+  SOURCE_ZIP: BankMovie_V25_NEXT_975_ALL_ARCHIVES_SIZE_WATCHPARTY_FIX_SOURCE.zip
 
 jobs:
   build:
@@ -42,7 +42,7 @@ jobs:
             echo "::error::Required source ZIP missing: $SOURCE_ZIP. Upload this exact ZIP to the repository root."
             exit 1
           }
-          echo "5516f3a477a982a585b3435fcb28fc648bb9d9d3f69cb7bcfc8cf0abf14f221e  $source_zip" | sha256sum --check --status || {
+          echo "f2349193223fd23ff22831a3cfd864ccce13d86115668feb65cfbdb464b269bc  $source_zip" | sha256sum --check --status || {
             echo '::error::Source ZIP checksum differs from the required BankMovie 2.5 release.'
             sha256sum "$source_zip"
             exit 1
@@ -62,9 +62,9 @@ jobs:
           root = Path(os.environ['SRC_ROOT'])
           src = root / 'app/src/main/java/ir/bankmoviee/app'
           expected = {
-              'MainActivity.kt': '7df07c13157e70ab9785c19a203a2ca4ac0b80742172789f222d9616b0209c87',
+              'MainActivity.kt': '37ad15261bfcc3530b6bf6c2df856a9515eeb44c423f1962199cf21576daf9bb',
               'BankmovieSmoothScrollView.kt': 'ad83ec7fed0b9600eb96f10f92c1a747c16ebc961e08ffc0d315abf55b54c8f1',
-              'PlayerActivity.kt': '2103030aff00a6725b29a19d13a75ce96f8d361218be166a8d9d5828becfbb68',
+              'PlayerActivity.kt': '62fcd72e911485bcf7d939676cb5e4317c2f5d56cc15655d33ad65851a282b3f',
               'Media3PlaybackBridge.kt': 'db9e05f5dc2a23cca874274abfcbfe5ee136142729dfe3262ee897bc89f2e4f2',
               'PosterDiskCache.kt': '54f80b558e73f57bd381ebbc816bee2255e8c9de7b9ebb5e38f0231702df817a',
               'BmDeviceStorage.kt': '2947c6f3da30d855d24f03bc2a6e17de46ef0e0b8d58d2e300e37e8d624a22a3',
@@ -227,7 +227,7 @@ jobs:
           print('REQUIRED_BM25_USER_ORIGINAL_GENRES_TV_SOURCE_VERIFIED',len(keys),'keys / 25 original images')
           PYSOURCE
 
-          for verifier in verify_media3_migration.py verify_media3_playback_fixes.py verify_media3_ui_polish.py verify_bm25_ui.py verify_bm25_offline_genres_tv.py verify_bm25_unified_error_tv_genre.py verify_tv_smooth_cache_ui.py verify_bm25_preclaude_tv_rollback_clean_auth.py verify_bm25_tv_inapp_updater.py verify_bm25_technical_release_badges.py verify_bm25_tv_update_fix.py verify_bm25_storage_help_icons.py verify_bm25_archive_splash_skeleton_ui.py verify_bm25_splash_poster_motion.py verify_bm25_hd_splash_archive_watchlist.py verify_bm25_real_mosaic_auth.py verify_bm25_tv_splash_readability.py verify_bm25_tls_compat.py verify_bm_media_https_first_ui.py; do
+          for verifier in verify_media3_migration.py verify_media3_playback_fixes.py verify_media3_ui_polish.py verify_bm25_ui.py verify_bm25_offline_genres_tv.py verify_bm25_unified_error_tv_genre.py verify_tv_smooth_cache_ui.py verify_bm25_preclaude_tv_rollback_clean_auth.py verify_bm25_tv_inapp_updater.py verify_bm25_technical_release_badges.py verify_bm_next_all_archives_mobile_contrast.py verify_bm25_tv_update_fix.py verify_bm25_storage_help_icons.py verify_bm25_archive_splash_skeleton_ui.py verify_bm25_splash_poster_motion.py verify_bm25_hd_splash_archive_watchlist.py verify_bm25_real_mosaic_auth.py verify_bm25_tv_splash_readability.py verify_bm25_tls_compat.py verify_bm_media_https_first_ui.py; do
             [[ -s "$project_dir/$verifier" ]] || { echo "::error::Missing required source verifier $verifier"; exit 1; }
             python3 "$project_dir/$verifier"
           done
@@ -287,7 +287,7 @@ jobs:
             echo 'app_update_icon=user_svg_download'
             echo 'error_buttons=inline_icons_clipped_no_second_art'
             echo 'tv_display_modes=fit_crop_stretch_measured'
-            echo 'zip_sha256=5516f3a477a982a585b3435fcb28fc648bb9d9d3f69cb7bcfc8cf0abf14f221e'
+            echo 'zip_sha256=f2349193223fd23ff22831a3cfd864ccce13d86115668feb65cfbdb464b269bc'
             echo "build_commit=$GITHUB_SHA"
             echo "build_run=$GITHUB_RUN_ID"
           } > "$project_dir/app/src/main/assets/bankmovie_source_proof.txt"
