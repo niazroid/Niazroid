@@ -1,4 +1,4 @@
-name: BankMovie 2.5 - HTTPS-first Media Player + Download + TV Quality UI - 8 APKs
+name: BankMovie 2.5 - Original-Link-First Player + Download + TV Quality UI - 8 APKs
 
 # Build ONLY the pinned BankMovie 2.5 offline-genre & TV-resize ZIP. No stale-source fallback.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_V25_HTTPS_FIRST_PLAYER_DOWNLOAD_TV_SIZE_FIX_SOURCE.zip
+  SOURCE_ZIP: BankMovie_V25_ORIGINAL_LINK_FIRST_MEDIA_FIX_SOURCE.zip
 
 jobs:
   build:
@@ -42,7 +42,7 @@ jobs:
             echo "::error::Required source ZIP missing: $SOURCE_ZIP. Upload this exact ZIP to the repository root."
             exit 1
           }
-          echo "a032b0534fd8123d806a06fd2ea89f11acace6e4a99d188b7493c20af4b7580b  $source_zip" | sha256sum --check --status || {
+          echo "1b685bcee0380511d0ecf2c2e0feb85ae9ca634c69869c51e7573d97f55035da  $source_zip" | sha256sum --check --status || {
             echo '::error::Source ZIP checksum differs from the required BankMovie 2.5 release.'
             sha256sum "$source_zip"
             exit 1
@@ -64,7 +64,7 @@ jobs:
           expected = {
               'MainActivity.kt': '15f62c9faa09588621425f8d64666b8f55d51e76a5fcd55445abf0543abf3a41',
               'BankmovieSmoothScrollView.kt': 'ad83ec7fed0b9600eb96f10f92c1a747c16ebc961e08ffc0d315abf55b54c8f1',
-              'PlayerActivity.kt': 'fb3ff51db01a17e9eefd3465acec0dbbf0d3b355f961fbb174a7daa1282facf6',
+              'PlayerActivity.kt': '95f9aeb03b124a683828acaecde5ecc66c8ecfbf37897cf6f6e05b1e32ad2f6c',
               'Media3PlaybackBridge.kt': 'db9e05f5dc2a23cca874274abfcbfe5ee136142729dfe3262ee897bc89f2e4f2',
               'PosterDiskCache.kt': '54f80b558e73f57bd381ebbc816bee2255e8c9de7b9ebb5e38f0231702df817a',
               'BmDeviceStorage.kt': '2947c6f3da30d855d24f03bc2a6e17de46ef0e0b8d58d2e300e37e8d624a22a3',
@@ -76,8 +76,8 @@ jobs:
               'BmV22Client.kt': '82d20e801fc906b5d33849942879f3e82e0d7030f91aad9bcca811ae1b91efd5',
               'AccountApi.kt': 'a43f8d6fca147ea404dd46422e8266139cde105513a79f8dffe0d2564d28c02d',
               'app/src/main/res/xml/network_security_config.xml': 'ffab87f6be99368663e9f614d86b205e8d76096aded4c96350dcd2394a4c49f3',
-              'app/src/main/java/ir/bankmoviee/app/MediaOnlyTransportPolicy.kt': '6dd5daf3ecf51fec07faf80a4f865ef94ffed895b94c441984abbdc8bbb1028f',
-              'app/src/main/java/ir/bankmoviee/app/InternalDownloadService.kt': '40be0619d691a0376fe73364632af2c5a29f3a57a72a5a51a8623b3c346bb51d',
+              'app/src/main/java/ir/bankmoviee/app/MediaOnlyTransportPolicy.kt': '5fd0413842b07c99189b5c90f67597a2ca63c26c82d41fd725be2efb55c899c0',
+              'app/src/main/java/ir/bankmoviee/app/InternalDownloadService.kt': 'ac0315206bd73c5170c017b45f215f39c2587ab912e618a1331a12ff226fa8f8',
               'app/src/main/AndroidManifest.xml': '6cd77b32df90ee34e4d14da00a190f4488717a0170ebd0900485b2b231ab5f79',
               'app/src/main/res/raw/isrg_root_yr.pem': 'd8a34bfb5df6b4a0592b0a9cd6b3b9a9335bd431cb2ac32243ab298cba24cbf2',
           }
@@ -254,6 +254,8 @@ jobs:
             echo 'tv_poster_rails=platform_native_focus_reveal'
             echo 'tv_focus_rollback=pre_claude_home_methods_unchanged'
             echo 'tv_native_apk_update=real_bytes_https_sha256_signed_apk_installer'
+            echo 'player_transport=original_url_first_one_safe_alternative_no_retry_toast'
+            echo 'downloader_transport=original_url_first_https_certificate_validation_retained'
             echo 'mobile_update_links=website_telegram_native_svg'
             echo 'auth_submit_loading=clean_arc_no_halo'
             echo 'tv_splash_loading=high_contrast_white_shadow'
@@ -285,7 +287,7 @@ jobs:
             echo 'app_update_icon=user_svg_download'
             echo 'error_buttons=inline_icons_clipped_no_second_art'
             echo 'tv_display_modes=fit_crop_stretch_measured'
-            echo 'zip_sha256=a032b0534fd8123d806a06fd2ea89f11acace6e4a99d188b7493c20af4b7580b'
+            echo 'zip_sha256=1b685bcee0380511d0ecf2c2e0feb85ae9ca634c69869c51e7573d97f55035da'
             echo "build_commit=$GITHUB_SHA"
             echo "build_run=$GITHUB_RUN_ID"
           } > "$project_dir/app/src/main/assets/bankmovie_source_proof.txt"
