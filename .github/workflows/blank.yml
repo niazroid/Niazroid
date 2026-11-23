@@ -1,4 +1,4 @@
-name: BankMovie 2.5 - Android TV Native In-App Update + Mobile Web Telegram - 8 Signed APKs
+name: BankMovie 2.5 - HTTPS-first Media Player + Download + TV Quality UI - 8 APKs
 
 # Build ONLY the pinned BankMovie 2.5 offline-genre & TV-resize ZIP. No stale-source fallback.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_V25_ARCHIVE2_REAL_QUALITY_COUNT_FIX_SOURCE.zip
+  SOURCE_ZIP: BankMovie_V25_HTTPS_FIRST_PLAYER_DOWNLOAD_TV_SIZE_FIX_SOURCE.zip
 
 jobs:
   build:
@@ -42,7 +42,7 @@ jobs:
             echo "::error::Required source ZIP missing: $SOURCE_ZIP. Upload this exact ZIP to the repository root."
             exit 1
           }
-          echo "414a18a3cdbbceb6b09958f466c72f9ed4341b02a76f13283ceed77c41fb1cb8  $source_zip" | sha256sum --check --status || {
+          echo "a032b0534fd8123d806a06fd2ea89f11acace6e4a99d188b7493c20af4b7580b  $source_zip" | sha256sum --check --status || {
             echo '::error::Source ZIP checksum differs from the required BankMovie 2.5 release.'
             sha256sum "$source_zip"
             exit 1
@@ -62,10 +62,10 @@ jobs:
           root = Path(os.environ['SRC_ROOT'])
           src = root / 'app/src/main/java/ir/bankmoviee/app'
           expected = {
-              'MainActivity.kt': 'a20bdddb017738d3251f83d5009ce1e64e846c72229dbb729e93a2bb3903202f',
+              'MainActivity.kt': '15f62c9faa09588621425f8d64666b8f55d51e76a5fcd55445abf0543abf3a41',
               'BankmovieSmoothScrollView.kt': 'ad83ec7fed0b9600eb96f10f92c1a747c16ebc961e08ffc0d315abf55b54c8f1',
-              'PlayerActivity.kt': '2e7d49f589a9047fc6ea9c9ad06f8d10c07336d82fa9bf6fdb856e6d0efdf781',
-              'Media3PlaybackBridge.kt': '6700b23e532f27bb5a2c227654f37ae9b85fd274c7b40a3d7bdd77a884cd43c8',
+              'PlayerActivity.kt': 'fb3ff51db01a17e9eefd3465acec0dbbf0d3b355f961fbb174a7daa1282facf6',
+              'Media3PlaybackBridge.kt': 'db9e05f5dc2a23cca874274abfcbfe5ee136142729dfe3262ee897bc89f2e4f2',
               'PosterDiskCache.kt': '54f80b558e73f57bd381ebbc816bee2255e8c9de7b9ebb5e38f0231702df817a',
               'BmDeviceStorage.kt': '2947c6f3da30d855d24f03bc2a6e17de46ef0e0b8d58d2e300e37e8d624a22a3',
               'app/build.gradle': '4fb5bf49d6608da5ca40e19d742ac5133a8a64d2e0487764fcb2534045d4663d',
@@ -75,7 +75,10 @@ jobs:
               'TvAppUpdateActivity.kt': '2a9f819808f4ab0b980f5b8fb988e03c96bf4b14e2096831543f39be23009edc',
               'BmV22Client.kt': '82d20e801fc906b5d33849942879f3e82e0d7030f91aad9bcca811ae1b91efd5',
               'AccountApi.kt': 'a43f8d6fca147ea404dd46422e8266139cde105513a79f8dffe0d2564d28c02d',
-              'app/src/main/res/xml/network_security_config.xml': 'b4f26926e1fc336fa361d75032d92b0b0358f43865f4de5e5c3dc11cc7dd1a13',
+              'app/src/main/res/xml/network_security_config.xml': 'ffab87f6be99368663e9f614d86b205e8d76096aded4c96350dcd2394a4c49f3',
+              'app/src/main/java/ir/bankmoviee/app/MediaOnlyTransportPolicy.kt': '6dd5daf3ecf51fec07faf80a4f865ef94ffed895b94c441984abbdc8bbb1028f',
+              'app/src/main/java/ir/bankmoviee/app/InternalDownloadService.kt': '40be0619d691a0376fe73364632af2c5a29f3a57a72a5a51a8623b3c346bb51d',
+              'app/src/main/AndroidManifest.xml': '6cd77b32df90ee34e4d14da00a190f4488717a0170ebd0900485b2b231ab5f79',
               'app/src/main/res/raw/isrg_root_yr.pem': 'd8a34bfb5df6b4a0592b0a9cd6b3b9a9335bd431cb2ac32243ab298cba24cbf2',
           }
           for name, expected_hash in expected.items():
@@ -224,7 +227,7 @@ jobs:
           print('REQUIRED_BM25_USER_ORIGINAL_GENRES_TV_SOURCE_VERIFIED',len(keys),'keys / 25 original images')
           PYSOURCE
 
-          for verifier in verify_media3_migration.py verify_media3_playback_fixes.py verify_media3_ui_polish.py verify_bm25_ui.py verify_bm25_offline_genres_tv.py verify_bm25_unified_error_tv_genre.py verify_tv_smooth_cache_ui.py verify_bm25_preclaude_tv_rollback_clean_auth.py verify_bm25_tv_inapp_updater.py verify_bm25_technical_release_badges.py verify_bm25_tv_update_fix.py verify_bm25_storage_help_icons.py verify_bm25_archive_splash_skeleton_ui.py verify_bm25_splash_poster_motion.py verify_bm25_hd_splash_archive_watchlist.py verify_bm25_real_mosaic_auth.py verify_bm25_tv_splash_readability.py verify_bm25_tls_compat.py; do
+          for verifier in verify_media3_migration.py verify_media3_playback_fixes.py verify_media3_ui_polish.py verify_bm25_ui.py verify_bm25_offline_genres_tv.py verify_bm25_unified_error_tv_genre.py verify_tv_smooth_cache_ui.py verify_bm25_preclaude_tv_rollback_clean_auth.py verify_bm25_tv_inapp_updater.py verify_bm25_technical_release_badges.py verify_bm25_tv_update_fix.py verify_bm25_storage_help_icons.py verify_bm25_archive_splash_skeleton_ui.py verify_bm25_splash_poster_motion.py verify_bm25_hd_splash_archive_watchlist.py verify_bm25_real_mosaic_auth.py verify_bm25_tv_splash_readability.py verify_bm25_tls_compat.py verify_bm_media_https_first_ui.py; do
             [[ -s "$project_dir/$verifier" ]] || { echo "::error::Missing required source verifier $verifier"; exit 1; }
             python3 "$project_dir/$verifier"
           done
@@ -282,7 +285,7 @@ jobs:
             echo 'app_update_icon=user_svg_download'
             echo 'error_buttons=inline_icons_clipped_no_second_art'
             echo 'tv_display_modes=fit_crop_stretch_measured'
-            echo 'zip_sha256=414a18a3cdbbceb6b09958f466c72f9ed4341b02a76f13283ceed77c41fb1cb8'
+            echo 'zip_sha256=a032b0534fd8123d806a06fd2ea89f11acace6e4a99d188b7493c20af4b7580b'
             echo "build_commit=$GITHUB_SHA"
             echo "build_run=$GITHUB_RUN_ID"
           } > "$project_dir/app/src/main/assets/bankmovie_source_proof.txt"
