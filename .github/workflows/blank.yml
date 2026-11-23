@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_V25_TV_UPDATE_UI_EXIT_DOWNLOAD_FIX_SOURCE.zip
+  SOURCE_ZIP: BankMovie_V25_TV_UPDATE_LATEST_CHANGELOG_ANIM_SOURCE.zip
 
 jobs:
   build:
@@ -42,7 +42,7 @@ jobs:
             echo "::error::Required source ZIP missing: $SOURCE_ZIP. Upload this exact ZIP to the repository root."
             exit 1
           }
-          echo "932d3b9a7f14f8c78af75dee37d6bf9a95ea4eb0281577bb7f89b99baebefaae  $source_zip" | sha256sum --check --status || {
+          echo "966cb6d18572742e66e660f19289dd388d1138c6724ba11a716f8cd8bb12d23e  $source_zip" | sha256sum --check --status || {
             echo '::error::Source ZIP checksum differs from the required BankMovie 2.5 release.'
             sha256sum "$source_zip"
             exit 1
@@ -62,7 +62,7 @@ jobs:
           root = Path(os.environ['SRC_ROOT'])
           src = root / 'app/src/main/java/ir/bankmoviee/app'
           expected = {
-              'MainActivity.kt': '52ea4c5f17c8f5a11ea448d954916f60df077018ce89bec5f247e747165d6865',
+              'MainActivity.kt': 'dd88b21a9ee123a747fbf01e7b1f8c1557a54f750ce5175046e10036084f929b',
               'BankmovieSmoothScrollView.kt': 'ad83ec7fed0b9600eb96f10f92c1a747c16ebc961e08ffc0d315abf55b54c8f1',
               'PlayerActivity.kt': '2e7d49f589a9047fc6ea9c9ad06f8d10c07336d82fa9bf6fdb856e6d0efdf781',
               'Media3PlaybackBridge.kt': '6700b23e532f27bb5a2c227654f37ae9b85fd274c7b40a3d7bdd77a884cd43c8',
@@ -282,7 +282,7 @@ jobs:
             echo 'app_update_icon=user_svg_download'
             echo 'error_buttons=inline_icons_clipped_no_second_art'
             echo 'tv_display_modes=fit_crop_stretch_measured'
-            echo 'zip_sha256=932d3b9a7f14f8c78af75dee37d6bf9a95ea4eb0281577bb7f89b99baebefaae'
+            echo 'zip_sha256=966cb6d18572742e66e660f19289dd388d1138c6724ba11a716f8cd8bb12d23e'
             echo "build_commit=$GITHUB_SHA"
             echo "build_run=$GITHUB_RUN_ID"
           } > "$project_dir/app/src/main/assets/bankmovie_source_proof.txt"
