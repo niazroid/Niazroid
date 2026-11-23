@@ -72,7 +72,7 @@ jobs:
               'ThemeWindowLoadingView.kt': '475814340ce5e91c3af1666d4f9a859cd2c4939a648b7901fe0bf078e3dc7336',
               'BmDiagnostics.kt': 'b2a351d94da313e62b94bd2e903bab284730483ca2d3b29a1991faaa779153fc',
               'BankmovieApplication.kt': 'e69beb87d519c9fceaf3ba239322ffb01033b3e171a8443acbb037ea1de4c23c',
-              'TvAppUpdateActivity.kt': 'c304bfef74a94cf43bef3bc27671c4723b9e6dd357c33dfa46b68f6cfedcd316',
+              'TvAppUpdateActivity.kt': '2a9f819808f4ab0b980f5b8fb988e03c96bf4b14e2096831543f39be23009edc',
               'BmV22Client.kt': '82d20e801fc906b5d33849942879f3e82e0d7030f91aad9bcca811ae1b91efd5',
               'AccountApi.kt': 'a43f8d6fca147ea404dd46422e8266139cde105513a79f8dffe0d2564d28c02d',
               'app/src/main/res/xml/network_security_config.xml': 'b4f26926e1fc336fa361d75032d92b0b0358f43865f4de5e5c3dc11cc7dd1a13',
