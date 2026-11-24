@@ -1,4 +1,4 @@
-name: BankMovie 2.5 - Update Notes From Panel Full Text + All Previous Fixes - 8 APKs
+name: BankMovie 2.5 - ID-only Watchlist + Panel Changelog + All Previous Fixes - 8 APKs
 
 # Build ONLY the pinned BankMovie 2.5 offline-genre & TV-resize ZIP. No stale-source fallback.
 # Existing app APIs and previous Android app versions remain untouched by this CI job.
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_ZIP: BankMovie_V25_UPDATE_PANEL_CHANGELOG_FULL_TEXT_SOURCE.zip
+  SOURCE_ZIP: BankMovie_V25_WATCHLIST_STRICT_PROTOCOL2_SOURCE.zip
 
 jobs:
   build:
@@ -42,7 +42,7 @@ jobs:
             echo "::error::Required source ZIP missing: $SOURCE_ZIP. Upload this exact ZIP to the repository root."
             exit 1
           }
-          echo "a0720a526d5254816d14e7591c86e15e65143acc6009211f1fb46c2f5a084341  $source_zip" | sha256sum --check --status || {
+          echo "c3b309e0adaeee29c384d5d769a4f04a2225b52589e5ff5175051e9dde6f6ebf  $source_zip" | sha256sum --check --status || {
             echo '::error::Source ZIP checksum differs from the required BankMovie 2.5 release.'
             sha256sum "$source_zip"
             exit 1
@@ -62,7 +62,7 @@ jobs:
           root = Path(os.environ['SRC_ROOT'])
           src = root / 'app/src/main/java/ir/bankmoviee/app'
           expected = {
-              'MainActivity.kt': 'f03e48aa339265273805dc1a78af92837f1e042fcdf4d2d9a3e4e19ca6cef22e',
+              'MainActivity.kt': '394faa8cc511850ee3dd37f94ace27ab7a53d6cca4027d0db5527ecc0ea2bd9c',
               'BankmovieSmoothScrollView.kt': 'ad83ec7fed0b9600eb96f10f92c1a747c16ebc961e08ffc0d315abf55b54c8f1',
               'PlayerActivity.kt': '62fcd72e911485bcf7d939676cb5e4317c2f5d56cc15655d33ad65851a282b3f',
               'Media3PlaybackBridge.kt': 'db9e05f5dc2a23cca874274abfcbfe5ee136142729dfe3262ee897bc89f2e4f2',
@@ -74,7 +74,8 @@ jobs:
               'BankmovieApplication.kt': 'e69beb87d519c9fceaf3ba239322ffb01033b3e171a8443acbb037ea1de4c23c',
               'TvAppUpdateActivity.kt': '2a9f819808f4ab0b980f5b8fb988e03c96bf4b14e2096831543f39be23009edc',
               'BmV22Client.kt': '82d20e801fc906b5d33849942879f3e82e0d7030f91aad9bcca811ae1b91efd5',
-              'AccountApi.kt': 'a43f8d6fca147ea404dd46422e8266139cde105513a79f8dffe0d2564d28c02d',
+              'WatchlistIdentity.kt': 'a4e6fe24f518ffe54dd191ddb5b90940e5c4ee3c793aa0fc996d41cd6d6e8a43',
+              'AccountApi.kt': '7aef8284cd77dad22af702b0d892cf0298aab284711d2386bf70a997e8018664',
               'app/src/main/res/xml/network_security_config.xml': 'ffab87f6be99368663e9f614d86b205e8d76096aded4c96350dcd2394a4c49f3',
               'app/src/main/java/ir/bankmoviee/app/MediaOnlyTransportPolicy.kt': '5fd0413842b07c99189b5c90f67597a2ca63c26c82d41fd725be2efb55c899c0',
               'app/src/main/java/ir/bankmoviee/app/InternalDownloadService.kt': 'ac0315206bd73c5170c017b45f215f39c2587ab912e618a1331a12ff226fa8f8',
@@ -92,6 +93,13 @@ jobs:
           player = (src / 'PlayerActivity.kt').read_text()
           main = (src / 'MainActivity.kt').read_text()
           api = (src / 'AccountApi.kt').read_text()
+          wl = (src / 'WatchlistIdentity.kt').read_text()
+          if 'WatchlistIdentity.acceptsServerItems(json)' not in api or 'watchlist_protocol' not in wl:
+              raise SystemExit('WATCHLIST_PROTOCOL2_STRICT_GATE_MISSING')
+          if 'postedItems.put(WatchlistIdentity.onlyId(identity))' not in api:
+              raise SystemExit('WATCHLIST_WIRE_CONTAINS_METADATA')
+          if 'legacySerialBlog' not in wl or 'if (legacySerialBlog) archive = 4' not in wl:
+              raise SystemExit('WATCHLIST_LEGACY_ARCHIVE_MAPPING_MISSING')
           if 'fun readPanelChanges(value: Any?)' not in main or 'text = panelText // Preserve punctuation, emojis and all words.' not in main:
               raise SystemExit('PANEL_CHANGELOG_FULL_TEXT_MISSING')
           if 'releaseSections.firstOrNull {' in main:
@@ -291,7 +299,7 @@ jobs:
             echo 'app_update_icon=user_svg_download'
             echo 'error_buttons=inline_icons_clipped_no_second_art'
             echo 'tv_display_modes=fit_crop_stretch_measured'
-            echo 'zip_sha256=a0720a526d5254816d14e7591c86e15e65143acc6009211f1fb46c2f5a084341'
+            echo 'zip_sha256=c3b309e0adaeee29c384d5d769a4f04a2225b52589e5ff5175051e9dde6f6ebf'
             echo "build_commit=$GITHUB_SHA"
             echo "build_run=$GITHUB_RUN_ID"
           } > "$project_dir/app/src/main/assets/bankmovie_source_proof.txt"
