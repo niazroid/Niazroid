@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.0.0-MPV-CINEMA-WATCH-PARTY-CHAT-UI-x64-ia32.zip
+  SOURCE_ZIP: BankMovie-v1.0.0-MPV-CINEMA-WATCH-PARTY-COMMENT-PICKER-x64-ia32.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -131,6 +131,10 @@ jobs:
           node --check electron/watch-party.js
           node --check electron/watch-party-media.js
           node --check electron/watch-party-pictures.js
+          node --check src/media-picker.js
+          node --check electron/watch-party-picker.js
+          node --check electron/watch-party-picker-renderer.js
+          node tests/watch-party-picker.test.js
           node tests/watch-party-media.test.js
           node tests/watch-party.test.js
           node tests/watch-party-ui.test.js
@@ -148,6 +152,7 @@ jobs:
           node --check electron/mpv-player.js
           node --check electron/watch-party.js
           node --check electron/watch-party-media.js
+          node --check electron/watch-party-picker.js
 
       # Manual/branch artifacts may remain unsigned for internal testing only.
       # Tagged public releases require a valid Windows signing certificate.
