@@ -1,4 +1,4 @@
-name: Build BankMovie v1.0.0 MPV Cinema x64 and ia32
+name: Build BankMovie v1.0.0 MPV Embedded Cinema Lite x64 and ia32
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.0.0-MPV-CINEMA-x64-ia32.zip
+  SOURCE_ZIP: BankMovie-v1.0.0-MPV-EMBEDDED-CINEMA-LITE-x64-ia32.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -128,6 +128,7 @@ jobs:
           node tests/weekly-navigation.test.js
           node --check electron/mpv-player.js
           node tests/mpv-player.test.js
+          node tests/mpv-embedded.test.js
           node tests/mpv-windows-runtime.test.js
 
       - name: Obfuscate privileged Electron code
@@ -195,6 +196,7 @@ jobs:
         working-directory: ${{ env.DESKTOP_DIR }}
         run: |
           $installer = Get-Item "dist/BankMovie-Setup-1.0.0-${{ matrix.arch }}.exe"
+          Write-Host ("Installer size: {0:N2} MiB" -f ($installer.Length / 1MB))
           $hash = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLower()
           "$hash  $($installer.Name)" | Set-Content "dist/SHA256SUMS-${{ matrix.arch }}.txt" -Encoding ascii
 
