@@ -1,4 +1,4 @@
-name: Build BankMovie v1.0.0 Cinema Watch Party Panel x64 and ia32
+name: Build BankMovie v1.0.0 Cinema Watch Party In-Player x64 and ia32
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.0.0-MPV-CINEMA-WATCH-PARTY-PANEL-x64-ia32.zip
+  SOURCE_ZIP: BankMovie-v1.0.0-MPV-CINEMA-WATCH-PARTY-INPLAYER-x64-ia32.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -131,10 +131,6 @@ jobs:
           node --check electron/watch-party.js
           node tests/watch-party.test.js
           node tests/watch-party-ui.test.js
-          node --check electron/party-panel.js
-          node --check electron/party-panel-preload.js
-          node --check src/party-panel-ui.js
-          node tests/party-panel.test.js
           node tests/mpv-windows-runtime.test.js
 
       - name: Obfuscate privileged Electron code
@@ -148,8 +144,6 @@ jobs:
           node --check electron/runtime.generated.js
           node --check electron/mpv-player.js
           node --check electron/watch-party.js
-          node --check electron/party-panel.js
-          node --check electron/party-panel-preload.js
 
       # Manual/branch artifacts may remain unsigned for internal testing only.
       # Tagged public releases require a valid Windows signing certificate.
