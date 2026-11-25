@@ -1,4 +1,4 @@
-name: Build BankMovie v1.0.0 Cinema Watch Party x64 and ia32
+name: Build BankMovie v1.0.0 Cinema Watch Party Button Fix x64 and ia32
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.0.0-MPV-CINEMA-WATCH-PARTY-x64-ia32.zip
+  SOURCE_ZIP: BankMovie-v1.0.0-MPV-CINEMA-WATCH-PARTY-BUTTON-FIX-x64-ia32.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -130,6 +130,7 @@ jobs:
           node tests/mpv-player.test.js
           node --check electron/watch-party.js
           node tests/watch-party.test.js
+          node tests/watch-party-ui.test.js
           node tests/mpv-windows-runtime.test.js
 
       - name: Obfuscate privileged Electron code
