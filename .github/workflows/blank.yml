@@ -1,1095 +1,242 @@
-name: BankMovie 2.5 - Fast ID-only Watchlist + Panel Changelog + All Previous Fixes - 8 APKs
-
-# Build ONLY the pinned BankMovie 2.5 offline-genre & TV-resize ZIP. No stale-source fallback.
-# Existing app APIs and previous Android app versions remain untouched by this CI job.
+name: Build BankMovie v1.0.0 MPV Cinema x64 and ia32
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main, master]
+    tags: ['v*']
 
 permissions:
-  contents: read
-
-concurrency:
-  group: bankmovie-v25-tv-apk-updater-${{ github.ref }}
-  cancel-in-progress: false
+  contents: write
 
 env:
-  SOURCE_ZIP: BankMovie_V25_WATCHLIST_FAST_CARDS_SOURCE.zip
+  SOURCE_ZIP: BankMovie-v1.0.0-MPV-CINEMA-x64-ia32.zip
+  EXTRACT_DIR: _bankmovie_source
+  DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-
+  build-windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, ia32]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Extract source
+        shell: pwsh
+        run: |
+          $zip = Join-Path "${{ github.workspace }}" "${{ env.SOURCE_ZIP }}"
+          if (-not (Test-Path -LiteralPath $zip -PathType Leaf)) {
+            Write-Host "Available ZIP files in repository root:"
+            Get-ChildItem -LiteralPath "${{ github.workspace }}" -Filter '*.zip' -File | Select-Object -ExpandProperty Name | ForEach-Object { Write-Host " - $_" }
+            throw "Missing ${{ env.SOURCE_ZIP }} in repository root. Upload/commit the v1.0.0 source ZIP beside README (not the server patches)."
+          }
+          $dest = Join-Path "${{ github.workspace }}" "${{ env.EXTRACT_DIR }}"
+          if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+          New-Item -ItemType Directory -Path $dest | Out-Null
+          Expand-Archive -LiteralPath $zip -DestinationPath $dest -Force
+
+      - name: Validate source security model
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: |
+          $pkg = Get-Content package.json -Raw | ConvertFrom-Json
+          if ($pkg.version -ne '1.0.0') { throw 'Expected version 1.0.0' }
+          if ($env:GITHUB_REF -like 'refs/tags/v*' -and $env:GITHUB_REF -ne "refs/tags/v$($pkg.version)") { throw 'Release tag does not match app version' }
+          $main = Get-Content electron/main.js -Raw
+          $preload = Get-Content electron/preload.js -Raw
+          $runtime = Get-Content electron/runtime.generated.js -Raw
+          if ($main -notmatch 'bmEnsureDeviceAccess') { throw 'Device token bootstrap missing' }
+          if ($main -notmatch 'bmScheduleDeviceAccessRefresh') { throw 'Proactive token refresh missing' }
+          if ($main -notmatch 'X-BM-DPoP') { throw 'DPoP proof missing' }
+          if ($main -notmatch 'device_challenge\.php') { throw 'Challenge endpoint missing' }
+          if ($main -notmatch 'setAppUserModelId') { throw 'Windows notification identity fix missing' }
+          if ($main -match 'X-BM-App-Key|BM_WIN_V1_SECRET|DEFAULT\.appSecret') { throw 'Static API secret logic must not ship' }
+          if ($runtime -notmatch 'configPublicKey') { throw 'Pinned public key missing' }
+          if ($runtime -match 'BEGIN (RSA )?PRIVATE KEY|maintenance_secret') { throw 'Private/server secret leaked into runtime' }
+          $privateHits = Get-ChildItem -Recurse -File | Select-String -Pattern 'BEGIN (RSA )?PRIVATE KEY'
+          if ($privateHits) { throw 'Private key material must never ship in Windows package' }
+          if ($main -notmatch 'advancedSearchRequest') { throw 'Advanced search missing' }
+          if ($main -notmatch 'api6\.php') { throw 'Archive 3 API route missing' }
+          if ($preload -notmatch 'advancedSearch') { throw 'Preload bridge missing' }
+          if ($preload -notmatch 'weeklySchedule') { throw 'Weekly schedule bridge missing' }
+          if ($pkg.build.nsis.include) { throw 'Standard NSIS must not load any custom dark theme hook' }
+          if ($main -notmatch 'BMFailover') { throw 'Signed content failover missing' }
+          if ($main -notmatch 'desktop_stats\.php' -or $main -notmatch 'bmReportStatsLaunch') { throw 'Authenticated desktop launch telemetry missing' }
+          if ($main -notmatch 'weekly_schedule\.php') { throw 'Weekly schedule API integration missing' }
+
+      - name: Test version and Archive 1 fallback
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: node tests/release-v1-archive-reset.test.js
+
+      - name: Test update gate (version 1.0.0)
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: node tests/update-gate-v1.0.0.test.js
+
+      - name: Test disabled archives policy and UI version placement
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: node tests/archive-policy-disable-v1.0.0.test.js
+
+      - name: Test offline statistics persistence and retry
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: node tests/stats-offline-retry.test.js
+
+      - name: Test Home navigation
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: node tests/test-home-navigation-v149.js
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          # Required for signing-key recovery when an older FULLSOURCE zip
-          # was deleted from the current branch but still exists in Git history.
-          fetch-depth: 0
+          node-version: '22'
 
-      - name: Locate exact Media3 project
-        shell: bash
+      - name: Install dependencies
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: npm install --no-audit --no-fund
+
+      - name: Stage verified architecture-specific MPV 0.42.0
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: ./scripts/fetch-mpv.ps1 -Arch "${{ matrix.arch }}"
+
+      - name: Validate JavaScript before hardening
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
         run: |
-          set -euo pipefail
-          # No fallback to stale source in the repository. Missing ZIP is a hard failure.
-          source_zip="$GITHUB_WORKSPACE/$SOURCE_ZIP"
-          [[ -s "$source_zip" ]] || {
-            echo "::error::Required source ZIP missing: $SOURCE_ZIP. Upload this exact ZIP to the repository root."
-            exit 1
-          }
-          echo "bed99016f8257f2e66e0495e66e409a66904aa28279da5616c3d762bde13c808  $source_zip" | sha256sum --check --status || {
-            echo '::error::Source ZIP checksum differs from the required BankMovie 2.5 release.'
-            sha256sum "$source_zip"
-            exit 1
-          }
-          unzip -tq "$source_zip"
-          extract_dir="$RUNNER_TEMP/bankmovie-media3-src"
-          mkdir -p "$extract_dir"
-          unzip -q "$source_zip" -d "$extract_dir"
-          mapfile -t matches < <(find "$extract_dir" -maxdepth 7 -path '*/app/build.gradle' -type f | sort)
-          [[ ${#matches[@]} -eq 1 ]] || { echo "::error::Expected one app/build.gradle in media3 ZIP"; exit 1; }
-          project_dir="$(dirname "$(dirname "${matches[0]}")")"
+          node --check src/app.js
+          node --check src/desktop-policy.js
+          node --check src/desktop-policy-ui.js
+          node --check electron/main.js
+          node --check electron/preload.js
+          node --check electron/content-failover.js
+          node --check electron/runtime.generated.js
+          node --check scripts/afterPack.js
+          node --check scripts/obfuscate-production.js
+          node --check tests/security-smoke.js
+          node tests/security-smoke.js
+          node tests/desktop-policy.test.js
+          node tests/comment-ui.test.js
+          node tests/weekly-navigation.test.js
+          node --check electron/mpv-player.js
+          node tests/mpv-player.test.js
+          node tests/mpv-windows-runtime.test.js
 
-          # Verify direct offline drawables and TV display mode implementation.
-          SRC_ROOT="$project_dir" python3 - <<'PYSOURCE'
-          import hashlib, os, re, json
-          from pathlib import Path
-          root = Path(os.environ['SRC_ROOT'])
-          src = root / 'app/src/main/java/ir/bankmoviee/app'
-          expected = {
-              'MainActivity.kt': '906e828e055dc10cff6b1084959e30fc9481ab4c17c3ee625571eceea4273f42',
-              'BankmovieSmoothScrollView.kt': 'ad83ec7fed0b9600eb96f10f92c1a747c16ebc961e08ffc0d315abf55b54c8f1',
-              'PlayerActivity.kt': '62fcd72e911485bcf7d939676cb5e4317c2f5d56cc15655d33ad65851a282b3f',
-              'Media3PlaybackBridge.kt': 'db9e05f5dc2a23cca874274abfcbfe5ee136142729dfe3262ee897bc89f2e4f2',
-              'PosterDiskCache.kt': '54f80b558e73f57bd381ebbc816bee2255e8c9de7b9ebb5e38f0231702df817a',
-              'BmDeviceStorage.kt': '2947c6f3da30d855d24f03bc2a6e17de46ef0e0b8d58d2e300e37e8d624a22a3',
-              'app/build.gradle': '4fb5bf49d6608da5ca40e19d742ac5133a8a64d2e0487764fcb2534045d4663d',
-              'ThemeWindowLoadingView.kt': '475814340ce5e91c3af1666d4f9a859cd2c4939a648b7901fe0bf078e3dc7336',
-              'BmDiagnostics.kt': 'b2a351d94da313e62b94bd2e903bab284730483ca2d3b29a1991faaa779153fc',
-              'BankmovieApplication.kt': 'e69beb87d519c9fceaf3ba239322ffb01033b3e171a8443acbb037ea1de4c23c',
-              'TvAppUpdateActivity.kt': '2a9f819808f4ab0b980f5b8fb988e03c96bf4b14e2096831543f39be23009edc',
-              'BmV22Client.kt': '82d20e801fc906b5d33849942879f3e82e0d7030f91aad9bcca811ae1b91efd5',
-              'WatchlistIdentity.kt': '7a0ab7007ea81572f06c4bf821b66d63324389c3cb69ff4ec7bd928341e0c81f',
-              'AccountApi.kt': 'a2b3097991ad98e85232a7a2c01acbb97f5ca6f790501faef68ae3fe147002e8',
-              'app/src/main/res/xml/network_security_config.xml': 'ffab87f6be99368663e9f614d86b205e8d76096aded4c96350dcd2394a4c49f3',
-              'app/src/main/java/ir/bankmoviee/app/MediaOnlyTransportPolicy.kt': '5fd0413842b07c99189b5c90f67597a2ca63c26c82d41fd725be2efb55c899c0',
-              'app/src/main/java/ir/bankmoviee/app/InternalDownloadService.kt': 'ac0315206bd73c5170c017b45f215f39c2587ab912e618a1331a12ff226fa8f8',
-              'app/src/main/AndroidManifest.xml': '6cd77b32df90ee34e4d14da00a190f4488717a0170ebd0900485b2b231ab5f79',
-              'app/src/main/res/raw/isrg_root_yr.pem': 'd8a34bfb5df6b4a0592b0a9cd6b3b9a9335bd431cb2ac32243ab298cba24cbf2',
-          }
-          for name, expected_hash in expected.items():
-              data = (src / name).read_bytes() if not name.startswith('app/') else (root / name).read_bytes()
-              actual = hashlib.sha256(data).hexdigest()
-              if actual != expected_hash:
-                  raise SystemExit(f'SOURCE_MISMATCH {name}: {actual} != {expected_hash}')
-              print('PASS_SOURCE_SHA256',name,actual[:20])
-
-          # Safety gate for the native Watch Party host-kick controls.
-          player = (src / 'PlayerActivity.kt').read_text()
-          main = (src / 'MainActivity.kt').read_text()
-          api = (src / 'AccountApi.kt').read_text()
-          wl = (src / 'WatchlistIdentity.kt').read_text()
-          if 'WatchlistIdentity.acceptsServerItems(json)' not in api or 'watchlist_protocol' not in wl:
-              raise SystemExit('WATCHLIST_PROTOCOL2_STRICT_GATE_MISSING')
-          if 'postedItems.put(WatchlistIdentity.onlyId(identity))' not in api:
-              raise SystemExit('WATCHLIST_WIRE_CONTAINS_METADATA')
-          if 'legacySerialBlog' not in wl or 'if (legacySerialBlog) archive = 4' not in wl:
-              raise SystemExit('WATCHLIST_LEGACY_ARCHIVE_MAPPING_MISSING')
-          if 'fun readPanelChanges(value: Any?)' not in main or 'text = panelText // Preserve punctuation, emojis and all words.' not in main:
-              raise SystemExit('PANEL_CHANGELOG_FULL_TEXT_MISSING')
-          if 'releaseSections.firstOrNull {' in main:
-              raise SystemExit('OLD_VERSION_FILTER_STILL_PRESENT')
-          if 'watchPartyKickMember' not in api or 'watchPartyUndoKickMember' not in api or 'watch_party_undo_kick' not in api:
-              raise SystemExit('WATCH_PARTY_KICK_API_MISSING')
-          if 'room_member_kicked' not in player or 'watchPartyKickMember' not in player or 'partyKickedMembers' not in player:
-              raise SystemExit('WATCH_PARTY_KICK_PLAYER_MISSING')
-          if 'watch_party_non_json:' not in api or 'HTTP $code' not in api:
-              raise SystemExit('WATCH_PARTY_HTTP_DIAGNOSTICS_MISSING')
-          if 'fun watchPartyJoinNumeric' not in api or 'watch_party_join_numeric' not in api:
-              raise SystemExit('TV_NUMERIC_JOIN_API_MISSING')
-          if 'showTvWatchPartyNumericJoinDialog' not in main or 'if (isTvLike())' not in main:
-              raise SystemExit('TV_NUMERIC_JOIN_DIALOG_MISSING')
-          if 'archive != 1 && archive != 2' not in main:
-              raise SystemExit('ARCHIVE2_LEGACY_FALLBACK_NOT_REMOVED')
-          auth = (src / 'AuthActivity.kt').read_text()
-          if not all(t in auth for t in ('bm_auth_submit_spinner', 'ThemeWindowLoadingView(this@AuthActivity)', 'setIndicatorColor(palette.onPrimary)')):
-              raise SystemExit('CLEAN_AUTH_SPINNER_MISSING')
-          assert 'if (isTvLike()) {\n            retainedHomeSession = null' in main, 'Pre-Claude TV native focus must be preserved'
-          # TV updater must never alter TV Home focus/cache behavior.
-          updater = (src / 'TvAppUpdateActivity.kt').read_text()
-          if not all(x in updater for x in [
-              'private fun downloadApk()', 'private fun verifyDownloadedApk(file: File)',
-              'FileProvider.getUriForFile', 'ACTION_MANAGE_UNKNOWN_APP_SOURCES',
-              'downloaded' if False else 'received += count',
-              'From Uiverse.io by KSAplay',
-          ]): raise SystemExit('TV_INSTALLER_SOURCE_SECURITY_GATE_FAILED')
-          if 'startTvApkUpdate(apkUrl)' not in main or 'bm_ic_telegram_update' not in main:
-              raise SystemExit('TV_MOBILE_UPDATE_ENTRYPOINT_MISSING')
-          AndroidManifest = (root/'app/src/main/AndroidManifest.xml').read_text()
-          if 'REQUEST_INSTALL_PACKAGES' not in AndroidManifest or '.TvAppUpdateActivity' not in AndroidManifest:
-              raise SystemExit('TV_INSTALLER_MANIFEST_MISSING')
-          print('TV_NUMERIC_JOIN_AND_ARCHIVE2_SEARCH_STATIC_OK')
-          print('WATCH_PARTY_KICK_UNDO_AND_HTTP_DIAGNOSTICS_STATIC_OK')
-
-          # Exact approved poster-wall compositions as phone and 4K TV assets.
-          # Their independent aspect ratios prevent portrait crop on television.
-          asset = root/'app/src/main/res/drawable-nodpi/bm_splash_wall_phone.webp'
-          if hashlib.sha256(asset.read_bytes()).hexdigest() != 'fa933dab138ad1ffb2d857218dd4c6eb7e0a3e3f993548cf349ac645338c5380':
-              raise SystemExit('SPLASH_ASSET_HASH_MISMATCH: app/src/main/res/drawable-nodpi/bm_splash_wall_phone.webp')
-          asset = root/'app/src/main/res/drawable-nodpi/bm_splash_wall_tv.webp'
-          if hashlib.sha256(asset.read_bytes()).hexdigest() != '7907358e95a831b50608a2b940c56337d3eda2b55a95cd57354f276d5abdf49b':
-              raise SystemExit('SPLASH_ASSET_HASH_MISMATCH: app/src/main/res/drawable-nodpi/bm_splash_wall_tv.webp')
-          real_images = {
-              'hero-wall.jpg': '71bb4b8bf5c2ac104d45be305dce1c5041a7d3780b25360513332662580919b9',
-              'hero-5.webp': '39b4ff828bf1d047308a03dd9c3010789cd291c8b3b823cbe9bf99a6d07dde5e',
-          }
-          real_root = root / 'design-resources/real-poster-inputs'
-          for filename, expected_digest in real_images.items():
-              if hashlib.sha256((real_root/filename).read_bytes()).hexdigest() != expected_digest:
-                  raise SystemExit('REAL_USER_POSTER_SOURCE_MISMATCH: '+filename)
-          auth_source = src / 'AuthActivity.kt'
-          if hashlib.sha256(auth_source.read_bytes()).hexdigest() != '68e21240cf75342b52db5c4ffffd99f55b6851a4a1e0f0d80b3125722c3daf1b':
-              raise SystemExit('AUTH_BACKGROUND_SOURCE_HASH_MISMATCH')
-          # The two redundant approval PNGs were omitted to keep the source
-          # release lean. Runtime 4K/phone WebP images above are SHA-pinned.
-          main = (src / 'MainActivity.kt').read_text()
-          bridge = (src / 'Media3PlaybackBridge.kt').read_text()
-          player = (src / 'PlayerActivity.kt').read_text()
-          gradle = (root / 'app/build.gradle').read_text()
-          keys = ('action', 'adventure', 'animation', 'anime', 'biography', 'comedy', 'crime', 'documentary', 'drama', 'family', 'fantasy', 'history', 'horror', 'music', 'musical', 'mystery', 'noir', 'romance', 'school', 'sci_fi', 'science', 'short', 'sport', 'supernatural', 'thriller', 'war', 'western')
-          manifest = json.loads((root/'GENRE_ORIGINAL_ASSET_MAP.json').read_text())
-          if manifest.get('aliases') != {'musical': 'music', 'noir': 'crime'}:
-              raise SystemExit('USER_GENRE_SOURCE_MAP_MISSING')
-          for key in keys:
-              if f'"{key}" -> R.drawable.bm_genre_{key}' not in main:
-                  raise SystemExit('GENRE_RESOURCE_REFERENCE_MISSING: '+key)
-              asset = root / f'app/src/main/res/drawable-nodpi/bm_genre_{key}.webp'
-              if not asset.is_file() or asset.stat().st_size < 10000:
-                  raise SystemExit('OFFLINE_ORIGINAL_GENRE_FILE_MISSING: '+key)
-              if hashlib.sha256(asset.read_bytes()).hexdigest() != manifest['genre_assets'][key]['sha256']:
-                  raise SystemExit('USER_ORIGINAL_GENRE_IMAGE_SHA_MISMATCH: '+key)
-          required = [
-              'setImageResource(genreImageResource(category.key))',
-              'watchlistTabs(allItems)',
-              'private fun watchlistIsSeries(',
-              'private fun unifiedNetworkFailureCard(',
-              'private fun handleHomeSharedErrorDirectionalFocus(',
-              'private fun handleV74CategoryDirectionalFocus(',
-          ]
-          if not all(s in main for s in required): raise SystemExit('GENRE_OR_WATCHLIST_SOURCE_NOT_ACTIVE')
-          diag = (src/'BmDiagnostics.kt').read_text()
-          app = (src/'BankmovieApplication.kt').read_text()
-          if not all(s in main for s in ['showDiagnosticReportDialog()', 'BmDiagnostics.record(', 'bm_v71_about_row_5']):
-              raise SystemExit('DIAGNOSTIC_ABOUT_PAGE_OR_ERROR_HOOKS_MISSING')
-          if not all(s in main for s in [
-              'private fun installMobileNavigationBarInsets()',
-              'mobileBottomNavBaseMarginDp = bottom',
-              'WindowInsetsCompat.Type.navigationBars()',
-              'if (!tv) installMobileNavigationBarInsets()',
-          ]):
-              raise SystemExit('ANDROID15_MOBILE_NAV_SAFE_INSETS_MISSING')
-          # Font choice is untouched; only cramped mobile layouts adapt.
-          if not all(s in main for s in [
-              'val needsScroll = !isTvLike()',
-              'UiPreferences.appFontMode(this@MainActivity)',
-              'private fun sectionHeader(',
-              'val compactMobileHeader = !tvCompactHeader',
-              'val compactMobileActions = !tv',
-              'track.findViewWithTag<View>("bm_archive_segment_$selectedArchive")',
-          ]):
-              raise SystemExit('MOBILE_HOME_FONT_SAFE_RESPONSIVE_LAYOUT_MISSING')
-          fonts = (src/'BankmovieFonts.kt').read_text()
-          if 'UiPreferences.appFontMode(context)' not in fonts or 'fun applyToTree(' not in fonts:
-              raise SystemExit('USER_FONT_SELECTION_OR_CUSTOM_TYPEFACES_MISSING')
-          # Two user SVG vectors and contained, scrollable Avatar/Diagnostic modals.
-          for resource in ('bm_ic_diagnostics_bug.xml', 'bm_ic_update_alt_user.xml'):
-              asset = root/'app/src/main/res/drawable'/resource
-              if not asset.is_file() or b'pathData' not in asset.read_bytes():
-                  raise SystemExit('USER_SUPPLIED_ABOUT_SVG_MISSING: '+resource)
-          if not all(s in main for s in [
-              'R.drawable.bm_ic_update_alt_user',
-              'R.drawable.bm_ic_diagnostics_bug',
-              'galleryScroll.post { galleryScroll.scrollTo(0, 0) }',
-              'val avatarGalleryHeightDp = if (isTvLike()) 460 else',
-              'clipToOutline = true',
-              'private fun showDiagnosticReportDialog()',
-              'BmDiagnostics.send(this@MainActivity',
-              'BmDiagnostics.snapshot(this@MainActivity',
-          ]):
-              raise SystemExit('AVATAR_BOUNDED_SCROLL_OR_DIAGNOSTIC_SHEET_MISSING')
-          if not all(s in diag for s in ['fun send(', 'fun record(', 'statusProbe()', '/v2/api/diagnostics.php']):
-              raise SystemExit('DIAGNOSTIC_COLLECTOR_MISSING')
-          if 'uncaught_crash' not in app:
-              raise SystemExit('DIAGNOSTIC_CRASH_HOOK_MISSING')
-          if not all(s in bridge for s in [
-              'private var requestedDisplayMode = "FIT"', 'applyRequestedDisplayMode()',
-              'private fun applyVideoSizing()', 'videoView.layoutParams = FrameLayout.LayoutParams(',
-              'videoView.videoSurfaceView?.requestLayout()', '"CROP" -> 1.18f', '"STRETCH" -> 1.14f'
-          ]):
-              raise SystemExit('TV_MEASURED_RESIZE_SOURCE_NOT_ACTIVE')
-          if 'box.addView(settingButton("حالت تصویر"' not in player:
-              raise SystemExit('TV_REMOTE_SETTINGS_MODE_MISSING')
-          if '1.10.1' not in gradle or 'ffmpeg-decoder' in gradle.lower():
-              raise SystemExit('MEDIA3_CHANGED_UNEXPECTEDLY')
-          print('REQUIRED_BM25_USER_ORIGINAL_GENRES_TV_SOURCE_VERIFIED',len(keys),'keys / 25 original images')
-          PYSOURCE
-
-          for verifier in verify_media3_migration.py verify_media3_playback_fixes.py verify_media3_ui_polish.py verify_bm25_ui.py verify_bm25_offline_genres_tv.py verify_bm25_unified_error_tv_genre.py verify_tv_smooth_cache_ui.py verify_bm25_preclaude_tv_rollback_clean_auth.py verify_bm25_tv_inapp_updater.py verify_bm25_technical_release_badges.py verify_bm_next_all_archives_mobile_contrast.py verify_bm25_tv_update_fix.py verify_update_notes_panel.py verify_bm25_storage_help_icons.py verify_bm25_archive_splash_skeleton_ui.py verify_bm25_splash_poster_motion.py verify_bm25_hd_splash_archive_watchlist.py verify_bm25_real_mosaic_auth.py verify_bm25_tv_splash_readability.py verify_bm25_tls_compat.py verify_bm_media_https_first_ui.py verify_bm_watchlist_fast_cards.py; do
-            [[ -s "$project_dir/$verifier" ]] || { echo "::error::Missing required source verifier $verifier"; exit 1; }
-            python3 "$project_dir/$verifier"
-          done
-
-          # Embed a verifiable source stamp into every generated APK (asset is not obfuscated by R8).
-          mkdir -p "$project_dir/app/src/main/assets" "$GITHUB_WORKSPACE/output"
-          {
-            echo 'BANKMOVIE_25_TV_NATIVE_APK_UPDATER_AND_MOBILE_CHANNELS_20261122'
-            echo "source_zip=$SOURCE_ZIP"
-            echo 'app_label=Bankmovie'
-            echo 'diagnostics=profile_about_report_and_crash_capture'
-            echo 'diagnostics_endpoint=/v2/api/diagnostics.php'
-            echo 'tls_provider=conscrypt_2.8.0_android_lt29'
-            echo 'tls_trust=system_isrg_root_x1_isrg_root_yr'
-            echo 'tls_y_root_sha256=e57b7e6f150c419102e8d5c055729ff967b9d1a829bf00cec89ca604ebf4a86f'
-            echo 'version_name=2.5'
-            echo 'genres_offline=27'
-            echo 'genres_origin=user_genres_zip'
-            echo 'genres_unique_files=25'
-            echo 'watchlist_tabs=movie_series'
-            echo 'home_error_card=single_shared_card_six_steps_two_actions'
-            echo 'tv_genre_navigation=index_based_dpad_up_down'
-            echo 'tv_home_cache=tv_rebuild_safe_mobile_cache_preserved'
-            echo 'tv_poster_rails=platform_native_focus_reveal'
-            echo 'tv_focus_rollback=pre_claude_home_methods_unchanged'
-            echo 'tv_native_apk_update=real_bytes_https_sha256_signed_apk_installer'
-            echo 'player_transport=original_url_first_one_safe_alternative_no_retry_toast'
-            echo 'downloader_transport=original_url_first_https_certificate_validation_retained'
-            echo 'mobile_update_links=website_telegram_native_svg'
-            echo 'auth_submit_loading=clean_arc_no_halo'
-            echo 'tv_splash_loading=high_contrast_white_shadow'
-            echo 'tv_splash_art=unzoomed_native_3840x2160_user_mosaic'
-            echo 'tv_splash_motion=static_mobile_animation_unchanged'
-            echo 'tv_focus_controls=content_sized_no_scale'
-            echo 'tv_dpad_guard=removed_custom_focus_intercept'
-            echo 'device_storage_used=total_minus_available'
-            echo 'help_step_4=vpn_and_step_5=clear_data_no_warning'
-            echo 'archive_tabs=one_line_font_measured_horizontal_scroll_when_cramped'
-            echo 'mobile_home=responsive_headers_and_error_actions_preserve_selected_font'
-            echo 'avatar_picker=bounded_scroll_clipped_gallery_persistent_pager'
-            echo 'about_dialog=themed_diagnostics_report_and_user_svg_icons'
-            echo 'detail_skeleton=real_play_size_imdb_likes_monochrome_tint'
-            echo 'startup=bankmovie_font_no_tagline'
-            echo 'startup_poster_motion=mobile_only_drift_tv_static'
-            echo 'startup_poster_mobile_asset=1600x2844_real_three_band_collage'
-            echo 'startup_poster_tv_asset=3840x2160_static_three_band_collage'
-            echo 'startup_poster_source=real_user_photo_top_original_app_middle_real_user_photo_bottom'
-            echo 'startup_poster_separators=no_black_bands'
-            echo 'startup_tv_mode=static_landscape_backdrop'
-            echo 'startup_logo_scale=about_16_percent_smaller'
-            echo 'startup_poster_wall=real_user_sources_no_ai_legacy_auth_remote_disabled'
-            echo 'archive3_4_home=exclude_animation_and_subtitled_rails_keep_anime'
-            echo 'watchlist_tabs=movie_series_download_vector_icons'
-            echo 'skeleton_imdb_likes=neutral_glass_monochrome'
-            echo 'detail_more_info=restored_full_width'
-            echo 'view_all_icon=user_svg_locale_aware_left_fa_right_en_theme_tint'
-            echo 'app_update_icon=user_svg_download'
-            echo 'error_buttons=inline_icons_clipped_no_second_art'
-            echo 'tv_display_modes=fit_crop_stretch_measured'
-            echo 'zip_sha256=bed99016f8257f2e66e0495e66e409a66904aa28279da5616c3d762bde13c808'
-            echo "build_commit=$GITHUB_SHA"
-            echo "build_run=$GITHUB_RUN_ID"
-          } > "$project_dir/app/src/main/assets/bankmovie_source_proof.txt"
-          cp "$project_dir/app/src/main/assets/bankmovie_source_proof.txt" "$GITHUB_WORKSPACE/output/BANKMOVIE-SOURCE-PROOF.txt"
-          echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
-          echo '::notice::Pinned ZIP and Kotlin source verified; APK stamp injected.'
-
-      - name: Set monotonic Android versionCode
-        shell: bash
+      - name: Obfuscate privileged Electron code
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
         run: |
-          set -euo pipefail
-          # Unix epoch seconds are monotonic across workflow renames/replacements
-          # and remain below Android's 2,100,000,000 versionCode ceiling today.
-          version_code="$(date -u +%s)"
-          if (( version_code <= 5400000 || version_code > 2100000000 )); then
-            echo "::error::Generated Android versionCode is outside the safe range: $version_code"
-            exit 1
-          fi
-          echo "BANKMOVIE_VERSION_CODE=$version_code" >> "$GITHUB_ENV"
-          echo "::notice::Android versionCode locked for this release: $version_code"
+          node scripts/obfuscate-production.js
+          node --check electron/main.js
+          node --check electron/preload.js
+          node --check electron/content-failover.js
+          node --check electron/runtime.generated.js
+          node --check electron/mpv-player.js
 
-      - name: Restore and verify stable signing keystore
-        shell: bash
+      # Manual/branch artifacts may remain unsigned for internal testing only.
+      # Tagged public releases require a valid Windows signing certificate.
+      - name: Require release signing certificate
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
         env:
-          BANKMOVIE_KEYSTORE_B64: ${{ secrets.BANKMOVIE_KEYSTORE_B64 }}
-          BANKMOVIE_SIGNING_STORE_PASSWORD: ${{ secrets.BANKMOVIE_SIGNING_STORE_PASSWORD }}
-          BANKMOVIE_SIGNING_KEY_ALIAS: ${{ secrets.BANKMOVIE_SIGNING_KEY_ALIAS }}
-          BANKMOVIE_SIGNING_KEY_PASSWORD: ${{ secrets.BANKMOVIE_SIGNING_KEY_PASSWORD }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         run: |
-          set -euo pipefail
-          umask 077
-
-          target="$PROJECT_DIR/bankmovie_update.jks"
-          expected_sha="b73994bc2228e91763fde6d049fa792e44bcfce4f1359bef8d0bd6cd6d2f7b39"
-
-          verify_key() {
-            local f="$1"
-            [[ -s "$f" ]] || return 1
-            local actual
-            actual="$(sha256sum "$f" | awk '{print $1}')"
-            [[ "$actual" == "$expected_sha" ]]
+          if ([string]::IsNullOrWhiteSpace($env:WIN_CSC_LINK) -or [string]::IsNullOrWhiteSpace($env:WIN_CSC_KEY_PASSWORD)) {
+            throw 'Public release requires WIN_CSC_LINK and WIN_CSC_KEY_PASSWORD secrets.'
           }
 
-          # Migration-only fallback for the historical BankMovie keystore.
-          # GitHub Secrets remain preferred. The legacy source may contain the
-          # matching release signing configuration; do not print its values.
-          recover_legacy_signing_from_zip() {
-            local candidate="$1"
-            local -a legacy=()
-
-            # Do not override any explicitly configured GitHub Secret.
-            if [[ -n "${BANKMOVIE_SIGNING_STORE_PASSWORD:-}" &&
-                  -n "${BANKMOVIE_SIGNING_KEY_ALIAS:-}" &&
-                  -n "${BANKMOVIE_SIGNING_KEY_PASSWORD:-}" ]]; then
-              return 0
-            fi
-
-            mapfile -d '' -t legacy < <(python3 - "$candidate" <<'PYLEGACY'
-          import re, sys, zipfile
-          try:
-              with zipfile.ZipFile(sys.argv[1]) as z:
-                  paths = [p for p in z.namelist() if p == 'app/build.gradle' or p.endswith('/app/build.gradle')]
-                  if len(paths) != 1:
-                      sys.exit(0)
-                  gradle = z.read(paths[0]).decode('utf-8', errors='replace')
-              # Only literal historical Gradle signing settings; never evaluate code.
-              keys = ('storePassword', 'keyAlias', 'keyPassword')
-              values = []
-              for key in keys:
-                  match = re.search(r'(?m)^\s*' + key + r'\s*(?:=|\s)\s*[\"\']([^\"\'\r\n]+)[\"\']', gradle)
-                  if not match:
-                      sys.exit(0)
-                  values.append(match.group(1))
-              if all(0 < len(value) <= 200 for value in values):
-                  sys.stdout.buffer.write(('\0'.join(values) + '\0').encode('utf-8'))
-          except (OSError, KeyError, zipfile.BadZipFile):
-              pass
-          PYLEGACY
-            )
-            [[ ${#legacy[@]} -eq 3 ]] || return 1
-            [[ -n "${legacy[0]}" && -n "${legacy[1]}" && -n "${legacy[2]}" ]] || return 1
-
-            BANKMOVIE_SIGNING_STORE_PASSWORD="${BANKMOVIE_SIGNING_STORE_PASSWORD:-${legacy[0]}}"
-            BANKMOVIE_SIGNING_KEY_ALIAS="${BANKMOVIE_SIGNING_KEY_ALIAS:-${legacy[1]}}"
-            BANKMOVIE_SIGNING_KEY_PASSWORD="${BANKMOVIE_SIGNING_KEY_PASSWORD:-${legacy[2]}}"
-            echo "::add-mask::$BANKMOVIE_SIGNING_STORE_PASSWORD"
-            echo "::add-mask::$BANKMOVIE_SIGNING_KEY_ALIAS"
-            echo "::add-mask::$BANKMOVIE_SIGNING_KEY_PASSWORD"
-            echo "::notice::Legacy signing settings recovered from the archive holding the SHA-verified update keystore. Move them to GitHub Secrets for future builds."
-          }
-
-          recover_key_from_zip() {
-            local candidate="$1"
-            local label="$2"
-            local entry tmp
-
-            unzip -tq "$candidate" >/dev/null 2>&1 || return 1
-            entry="$(unzip -Z1 "$candidate" 2>/dev/null | grep -Ei '(^|/)bankmovie_update\.jks$' | head -n 1 || true)"
-            [[ -n "$entry" ]] || return 1
-
-            tmp="$(mktemp "$RUNNER_TEMP/bankmovie-update-key.XXXXXX")"
-            if unzip -p "$candidate" "$entry" > "$tmp" 2>/dev/null && verify_key "$tmp"; then
-              mv "$tmp" "$target"
-              echo "::notice::Recovered stable signing key from $label."
-              recover_legacy_signing_from_zip "$candidate" || true
-              return 0
-            fi
-            rm -f "$tmp"
-            return 1
-          }
-
-          materialize_lfs_blob_if_needed() {
-            local candidate="$1"
-            local out="$2"
-            local lfs_oid cached
-
-            if ! grep -q '^version https://git-lfs.github.com/spec/v1' "$candidate" 2>/dev/null; then
-              cp "$candidate" "$out"
-              return 0
-            fi
-
-            lfs_oid="$(sed -n 's/^oid sha256://p' "$candidate" | head -n 1)"
-            [[ "$lfs_oid" =~ ^[0-9a-fA-F]{64}$ ]] || return 1
-
-            if ! git lfs version >/dev/null 2>&1; then
-              return 1
-            fi
-
-            # Fetch only the historical LFS object we need, not every old artifact.
-            git lfs fetch --object-id origin "$lfs_oid" >/dev/null 2>&1 || true
-            cached="$(find "$GITHUB_WORKSPACE/.git/lfs/objects/${lfs_oid:0:2}/${lfs_oid:2:2}" \
-              -type f -name "$lfs_oid" -print -quit 2>/dev/null || true)"
-            [[ -s "$cached" ]] || return 1
-            cp "$cached" "$out"
-          }
-
-          # 1) Prefer the stable key already bundled with the current source.
-          if verify_key "$target"; then
-            echo "::notice::Stable BankMovie signing keystore is already present in the source."
-          else
-            rm -f "$target"
-
-            # 2) Preferred CI path: encrypted GitHub Actions secret.
-            if [[ -n "${BANKMOVIE_KEYSTORE_B64:-}" ]]; then
-              printf '%s' "$BANKMOVIE_KEYSTORE_B64" | base64 --decode > "$target"
-              if ! verify_key "$target"; then
-                rm -f "$target"
-                echo "::error::BANKMOVIE_KEYSTORE_B64 decoded successfully but it is not the stable BankMovie update keystore."
-                exit 1
-              fi
-              echo "::notice::Stable signing keystore restored from GitHub Actions secret."
-            fi
-
-            # 3) Private-repository convenience: a root-level keystore file.
-            if [[ ! -s "$target" && -s "$GITHUB_WORKSPACE/bankmovie_update.jks" ]]; then
-              cp "$GITHUB_WORKSPACE/bankmovie_update.jks" "$target"
-              if ! verify_key "$target"; then
-                rm -f "$target"
-                echo "::error::Repository bankmovie_update.jks does not match the stable BankMovie update key."
-                exit 1
-              fi
-              echo "::notice::Stable signing keystore copied from repository root."
-            fi
-
-            # 4) Search every FULLSOURCE zip still present in the current checkout.
-            #    This is recursive so archived files in subdirectories are not missed.
-            if [[ ! -s "$target" ]]; then
-              while IFS= read -r -d '' candidate; do
-                if recover_key_from_zip "$candidate" "current repository: ${candidate#$GITHUB_WORKSPACE/}"; then
-                  break
-                fi
-              done < <(find "$GITHUB_WORKSPACE" -type f -iname '*FULLSOURCE*.zip' -print0)
-            fi
-
-            # 5) Recovery for deleted older FULLSOURCE zips. Because checkout uses
-            #    fetch-depth: 0, their blobs are still reachable from Git history.
-            if [[ ! -s "$target" && -d "$GITHUB_WORKSPACE/.git" ]]; then
-              echo "::notice::Stable key not found in the current tree; scanning deleted FULLSOURCE zips in Git history."
-              cd "$GITHUB_WORKSPACE"
-              declare -A seen_history_blobs=()
-
-              while IFS=' ' read -r object path; do
-                [[ -n "${object:-}" && -n "${path:-}" ]] || continue
-                lower_path="${path,,}"
-                [[ "$lower_path" == *fullsource*.zip ]] || continue
-                [[ -z "${seen_history_blobs[$object]:-}" ]] || continue
-                seen_history_blobs["$object"]=1
-                [[ "$(git cat-file -t "$object" 2>/dev/null || true)" == "blob" ]] || continue
-
-                raw="$(mktemp "$RUNNER_TEMP/bankmovie-history-raw.XXXXXX")"
-                candidate="$(mktemp "$RUNNER_TEMP/bankmovie-history-zip.XXXXXX")"
-                if ! git cat-file blob "$object" > "$raw" 2>/dev/null; then
-                  rm -f "$raw" "$candidate"
-                  continue
-                fi
-
-                if ! materialize_lfs_blob_if_needed "$raw" "$candidate"; then
-                  rm -f "$raw" "$candidate"
-                  continue
-                fi
-                rm -f "$raw"
-
-                if recover_key_from_zip "$candidate" "Git history: $path"; then
-                  rm -f "$candidate"
-                  break
-                fi
-                rm -f "$candidate"
-              done < <(git rev-list --objects --all)
-            fi
-          fi
-
-          if ! verify_key "$target"; then
-            echo "::error::Stable signing keystore was not found in the current source, repository secret, current repository files, or reachable Git history."
-            echo "::error::If the old FULLSOURCE commit was force-purged from Git history, restore bankmovie_update.jks or set BANKMOVIE_KEYSTORE_B64."
-            exit 1
-          fi
-
-          # If the keystore came from a Secret/current file rather than a ZIP,
-          # credentials must be explicitly supplied via GitHub Secrets.
-          missing=()
-          [[ -n "${BANKMOVIE_SIGNING_STORE_PASSWORD:-}" ]] || missing+=(BANKMOVIE_SIGNING_STORE_PASSWORD)
-          [[ -n "${BANKMOVIE_SIGNING_KEY_ALIAS:-}" ]] || missing+=(BANKMOVIE_SIGNING_KEY_ALIAS)
-          [[ -n "${BANKMOVIE_SIGNING_KEY_PASSWORD:-}" ]] || missing+=(BANKMOVIE_SIGNING_KEY_PASSWORD)
-          if (( ${#missing[@]} )); then
-            echo "::error::The update keystore was found, but these signing settings are missing: ${missing[*]}"
-            echo "::error::GitHub repository > Settings > Secrets and variables > Actions > New repository secret."
-            echo "::error::Legacy fallback is available only if the SHA-matching FULLSOURCE archive also contains literal historical signing settings."
-            exit 1
-          fi
-
-          keytool -list -keystore "$target" -storepass "$BANKMOVIE_SIGNING_STORE_PASSWORD" \
-            -alias "$BANKMOVIE_SIGNING_KEY_ALIAS" > /dev/null 2>&1 || {
-            echo '::error::Stable keystore password or alias is invalid; do not generate a new key.'
-            exit 1
-          }
-          # Verify private-key password too; keytool -list checks only store password.
-          csr="$(mktemp "$RUNNER_TEMP/bankmovie-signing.XXXXXX.csr")"
-          if ! keytool -certreq -keystore "$target" -storepass "$BANKMOVIE_SIGNING_STORE_PASSWORD" \
-            -alias "$BANKMOVIE_SIGNING_KEY_ALIAS" -keypass "$BANKMOVIE_SIGNING_KEY_PASSWORD" \
-            -file "$csr" -noprompt > /dev/null 2>&1; then
-            rm -f "$csr"
-            echo '::error::Stable signing key password is incorrect; do not generate a new key.'
-            exit 1
-          fi
-          rm -f "$csr"
-
-          # GITHUB_ENV makes recovered legacy settings available to LATER steps.
-          # Do not print credentials or embed them in the YAML/source APK.
-          {
-            printf 'BANKMOVIE_SIGNING_STORE_PASSWORD=%s\n' "$BANKMOVIE_SIGNING_STORE_PASSWORD"
-            printf 'BANKMOVIE_SIGNING_KEY_ALIAS=%s\n' "$BANKMOVIE_SIGNING_KEY_ALIAS"
-            printf 'BANKMOVIE_SIGNING_KEY_PASSWORD=%s\n' "$BANKMOVIE_SIGNING_KEY_PASSWORD"
-          } >> "$GITHUB_ENV"
-          chmod 600 "$target"
-          echo "::notice::BankMovie stable signing key SHA-256, alias, and private-key password verified."
-
-      - name: Configure Firebase Cloud Messaging (optional)
-        shell: bash
+      - name: Build hardened Windows installer (${{ matrix.arch }})
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
         env:
-          GOOGLE_SERVICES_JSON_B64: ${{ secrets.BANKMOVIE_GOOGLE_SERVICES_JSON_B64 }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        # Explicit target:arch is essential! Building both in one command creates one combined installer.
+        run: npx electron-builder --win nsis:${{ matrix.arch }} --publish never
+
+      - name: Check expected architecture-specific installer
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
         run: |
-          set -euo pipefail
-          if [[ -n "${GOOGLE_SERVICES_JSON_B64:-}" ]]; then
-            printf '%s' "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > "$PROJECT_DIR/app/google-services.json"
-            python3 - <<'PYJSON'
-          import json, os
-          path=os.path.join(os.environ['PROJECT_DIR'],'app','google-services.json')
-          with open(path,'r',encoding='utf-8') as f: data=json.load(f)
-          clients=data.get('client') or []
-          if not clients: raise SystemExit('google-services.json has no client entries')
-          print('Firebase Android config injected')
-          PYJSON
-          else
-            echo "::warning::BANKMOVIE_GOOGLE_SERVICES_JSON_B64 is not set. APK will build with the existing background-poll notification fallback, but instant FCM push will stay disabled."
-          fi
-
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Resolve preinstalled Android SDK
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
-          if [[ ! -d "$sdk_root" ]]; then
-            echo "::error::Android SDK root was not found: $sdk_root"
-            echo "ANDROID_HOME=${ANDROID_HOME:-<unset>}"
-            echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-<unset>}"
-            exit 1
-          fi
-
-          sdkmanager_bin="$(command -v sdkmanager || true)"
-          if [[ -z "$sdkmanager_bin" ]]; then
-            sdkmanager_bin="$(find "$sdk_root/cmdline-tools" -type f -name sdkmanager -perm -u+x 2>/dev/null | sort -V | tail -n 1 || true)"
-          fi
-          if [[ -z "$sdkmanager_bin" || ! -x "$sdkmanager_bin" ]]; then
-            echo "::error::sdkmanager was not found in the preinstalled GitHub runner Android SDK."
-            find "$sdk_root" -maxdepth 4 -type f -name sdkmanager -print 2>/dev/null || true
-            exit 1
-          fi
-
-          echo "ANDROID_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
-          echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
-          echo "$(dirname "$sdkmanager_bin")" >> "$GITHUB_PATH"
-          echo "$sdk_root/platform-tools" >> "$GITHUB_PATH"
-          echo "$sdk_root/build-tools/35.0.0" >> "$GITHUB_PATH"
-          echo "::notice::Using preinstalled Android SDK: $sdk_root"
-          echo "::notice::Using sdkmanager: $sdkmanager_bin"
-
-      - name: Install and verify Android SDK 36
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          sdkmanager_bin="$(command -v sdkmanager)"
-          yes | "$sdkmanager_bin" --sdk_root="$ANDROID_SDK_ROOT" --licenses >/dev/null 2>&1 || true
-          "$sdkmanager_bin" --sdk_root="$ANDROID_SDK_ROOT" \
-            'platform-tools' \
-            'platforms;android-36' \
-            'build-tools;35.0.0'
-
-          test -f "$ANDROID_SDK_ROOT/platforms/android-36/android.jar"
-          test -x "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt2"
-          test -x "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner"
-          echo "::notice::Android SDK 36 and Build Tools 35.0.0 are ready."
-
-      - name: Setup Gradle 8.11.1
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.11.1'
-
-      - name: Prepare resilient Gradle artifact downloads
-        shell: bash
-        run: |
-          set -euo pipefail
-          # CI-only settings; original Android source and dependency versions stay unchanged.
-          # Kotlin compiler 2.2.20 is a large artifact and can time out while downloading.
-          cat >> "$PROJECT_DIR/gradle.properties" <<'GRADLE_PROPERTIES'
-          systemProp.org.gradle.internal.http.connectionTimeout=120000
-          systemProp.org.gradle.internal.http.socketTimeout=180000
-          GRADLE_PROPERTIES
-
-          helper="$RUNNER_TEMP/bankmovie-gradle-retry.sh"
-          cat > "$helper" <<'BASH'
-          #!/usr/bin/env bash
-          set -euo pipefail
-          max_attempts=3
-          for ((attempt=1; attempt<=max_attempts; attempt++)); do
-            log_file="$(mktemp "${RUNNER_TEMP:-/tmp}/bankmovie-gradle-log.XXXXXX")"
-            echo "::group::Gradle attempt ${attempt}/${max_attempts}: $*"
-            set +e
-            gradle --no-daemon --stacktrace "$@" 2>&1 | tee "$log_file"
-            status=${PIPESTATUS[0]}
-            set -e
-            echo '::endgroup::'
-            if (( status == 0 )); then
-              rm -f "$log_file"
-              exit 0
-            fi
-            # Retry ONLY transient network failures; never conceal source/compiler errors.
-            if (( attempt == max_attempts )) || ! grep -Eiq \
-              'Read timed out|SocketTimeoutException|Connect timed out|Connection timed out|Connection reset|Broken pipe|UnknownHostException|Temporary failure in name resolution|503 Service Unavailable|502 Bad Gateway|504 Gateway Timeout|Too Many Requests|Received status code (429|50[0-9])|HTTP (429|50[0-9])' \
-              "$log_file"; then
-              echo "::error::Gradle stopped with exit code $status (attempt $attempt/$max_attempts). See Job summary or failure log artifact for compiler diagnostics."
-              echo "::group::Gradle root-cause lines"
-              # Kotlin 2.x may format its compiler diagnostics with or without an `e:` prefix.
-              grep -n -Ei '(^e: |(^|[[:space:]])error: |Unresolved reference|^> Task .* FAILED|^FAILURE:|^\* What went wrong:|^Execution failed for task|^> .*Exception|^> Could not|^Caused by:|^\[ERROR\]' "$log_file" | tail -n 90 || true
-              echo '--- Last 120 Gradle log lines ---'
-              tail -n 120 "$log_file" || true
-              echo '::endgroup::'
-              if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
-                {
-                  echo '### BankMovie Gradle failed'
-                  echo 'Compiler / Gradle diagnosis:'
-                  echo '```text'
-                  grep -n -Ei '(^e: |(^|[[:space:]])error: |Unresolved reference|^> Task .* FAILED|^FAILURE:|^\* What went wrong:|^Execution failed for task|^> .*Exception|^> Could not|^Caused by:|^\[ERROR\]' "$log_file" | tail -n 80 || true
-                  echo '```'
-                  echo 'If that is insufficient, download artifact `Bankmovie-2.5-Media3-Gradle-Error-Log`.'
-                } >> "$GITHUB_STEP_SUMMARY"
-              fi
-              mkdir -p "$GITHUB_WORKSPACE/output"
-              cp "$log_file" "$GITHUB_WORKSPACE/output/gradle-failure.log" || true
-              rm -f "$log_file"
-              exit "$status"
-            fi
-            rm -f "$log_file"
-            pause=$((attempt * 15))
-            echo "::warning::Transient dependency download failure; retrying Gradle in ${pause}s (attempt $((attempt+1))/$max_attempts)."
-            sleep "$pause"
-          done
-          BASH
-          chmod +x "$helper"
-          echo "BANKMOVIE_GRADLE_RETRY=$helper" >> "$GITHUB_ENV"
-          echo '::notice::Gradle download timeouts set to 120s connect / 180s read; network-only retry enabled.'
-
-      - name: Warm Gradle plugin classpath before APK builds
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "$PROJECT_DIR"
-          # Fail early/retry while resolving the Kotlin 2.0.21 plugin/compiler jars.
-          "$BANKMOVIE_GRADLE_RETRY" help
-
-      # Historical VLC-specific text-pattern verifiers are not applicable to
-      # the new engine. The actual Gradle compile and APK audit below are required.
-      - name: Verify Media3 bridge and no native VLC dependency
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "$PROJECT_DIR"
-          python3 verify_media3_migration.py
-          python3 verify_media3_playback_fixes.py
-          python3 verify_media3_ui_polish.py
-          python3 verify_next_episode_glass.py
-
-      - name: Install and verify BankMovie font pack
-        shell: bash
-        run: |
-          set -euo pipefail
-          font_dir="$PROJECT_DIR/app/src/main/assets/fonts"
-          mkdir -p "$font_dir"
-          python3 -m pip install --disable-pip-version-check --quiet fonttools brotli
-
-          font_zip="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -iname 'irancell*.zip' -print -quit)"
-          if [[ -n "$font_zip" ]]; then
-            FONT_ZIP="$font_zip" FONT_DIR="$font_dir" python3 - <<'PY'
-          import os, re
-          from pathlib import Path, PurePosixPath
-          from zipfile import ZipFile
-          archive, output = Path(os.environ['FONT_ZIP']), Path(os.environ['FONT_DIR'])
-          targets = {1:'irancell_bold.ttf',2:'irancell_regular.ttf',3:'irancell_black.ttf',4:'irancell_semibold.ttf',5:'irancell_medium.ttf'}
-          with ZipFile(archive) as zf:
-              indexed = {}
-              for item in zf.infolist():
-                  if item.is_dir() or not item.filename.lower().endswith('.ttf'): continue
-                  match = re.search(r'irancell[^0-9]*([1-5])', PurePosixPath(item.filename).name, re.I)
-                  if match: indexed[int(match.group(1))] = item
-              for number, name in targets.items():
-                  if number not in indexed: raise SystemExit(f'Missing Irancell font {number}')
-                  data = zf.read(indexed[number], pwd=b'fontbazi')
-                  if len(data) < 1024: raise SystemExit(f'Invalid font: {name}')
-                  (output / name).write_bytes(data)
-          PY
-          fi
-
-          declare -A direct_fonts=(
-            [Cinema.otf]=cinema.otf
-            ['Diako Hima Regular-@Fontsplua.ttf']=diako_hima.ttf
-            ['Nic [@fontbazi].ttf']=nic.ttf
-          )
-          for source in "${!direct_fonts[@]}"; do
-            [[ -s "$GITHUB_WORKSPACE/$source" ]] && cp "$GITHUB_WORKSPACE/$source" "$font_dir/${direct_fonts[$source]}"
-          done
-
-          FONT_DIR="$font_dir" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" python3 - <<'PY'
-          import os
-          from pathlib import Path
-          from fontTools.ttLib import TTFont
-          root, out = Path(os.environ['GITHUB_WORKSPACE']), Path(os.environ['FONT_DIR'])
-          for weight in ('regular','medium','bold'):
-              source = next(iter(root.glob(f'IRANSansXFaNum-{weight}*.woff2')), None)
-              if source is None: continue
-              font = TTFont(source); font.flavor = None; font.save(out / f'iransansx_{weight}.ttf')
-          PY
-
-          filimo_source="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -iname 'filimo-demo-variable-vf.woff2' -print -quit)"
-          if [[ -z "$filimo_source" ]]; then
-            filimo_source="$RUNNER_TEMP/filimo-demo-variable-vf.woff2"
-            curl --fail --silent --show-error --location --retry 3 --connect-timeout 12 \
-              'https://bankmovie.top/assets/fonts/filimo-demo-variable-vf.woff2' \
-              --output "$filimo_source"
-          fi
-          test -s "$filimo_source"
-          FILIMO_SOURCE="$filimo_source" FONT_DIR="$font_dir" python3 - <<'PY'
-          import os
-          from pathlib import Path
-          from fontTools.ttLib import TTFont
-          from fontTools.varLib.instancer import instantiateVariableFont
-
-          src = Path(os.environ['FILIMO_SOURCE'])
-          out_dir = Path(os.environ['FONT_DIR'])
-          weights = {400:'400', 500:'500', 700:'700', 900:'900', 950:'950'}
-
-          source_font = TTFont(src)
-          if 'fvar' not in source_font or not any(axis.axisTag == 'wght' for axis in source_font['fvar'].axes):
-              raise SystemExit('Filimo source is not the expected variable wght font')
-
-          for weight, suffix in weights.items():
-              font = TTFont(src)
-              static_font = instantiateVariableFont(font, {'wght': weight}, inplace=False, optimize=True)
-              static_font.flavor = None
-
-              # Normalize metadata so Android recognizes the requested weight.
-              is_bold = weight >= 700
-              static_font['OS/2'].usWeightClass = weight
-              static_font['OS/2'].fsSelection &= ~(1 << 5)
-              static_font['OS/2'].fsSelection &= ~(1 << 6)
-              static_font['OS/2'].fsSelection |= (1 << 5) if is_bold else (1 << 6)
-              if is_bold:
-                  static_font['head'].macStyle |= 1
-              else:
-                  static_font['head'].macStyle &= ~1
-
-              family = f'BankMovie Filimo {weight}'
-              subfamily = 'Bold' if is_bold else 'Regular'
-              ps_name = f'BankMovieFilimo-{weight}'
-              for record in static_font['name'].names:
-                  value = None
-                  if record.nameID == 1:
-                      value = family
-                  elif record.nameID == 2:
-                      value = subfamily
-                  elif record.nameID == 4:
-                      value = f'{family} {subfamily}'
-                  elif record.nameID == 6:
-                      value = ps_name
-                  elif record.nameID == 17:
-                      value = subfamily
-                  if value is not None:
-                      try:
-                          record.string = value.encode(record.getEncoding())
-                      except Exception:
-                          pass
-
-              out = out_dir / f'bankmovie_filimo_{suffix}.ttf'
-              static_font.save(out)
-              if out.stat().st_size < 4096:
-                  raise SystemExit(f'Converted BankMovie font is invalid: {out.name}')
-          PY
-
-          required_fonts=(
-            bankmovie_filimo_400.ttf bankmovie_filimo_500.ttf bankmovie_filimo_700.ttf bankmovie_filimo_900.ttf bankmovie_filimo_950.ttf
-            irancell_regular.ttf irancell_medium.ttf irancell_semibold.ttf irancell_bold.ttf irancell_black.ttf
-            cinema.otf diako_hima.ttf nic.ttf
-            iransansx_regular.ttf iransansx_medium.ttf iransansx_bold.ttf
-          )
-          for font in "${required_fonts[@]}"; do
-            if [[ ! -s "$font_dir/$font" ]]; then
-              echo "::error::Required Android font asset is missing: $font"
-              exit 1
-            fi
-          done
-          echo "::notice::BankMovie + legacy font pack installed and verified."
-
-      # Keep the original ABI2-Lite/ABI4-Full edition and 8-artifact contract.
-      - name: Build ABI2 Lite releases
-        shell: bash
-        env:
-          BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a
-        run: |
-          set -euo pipefail
-          cd "$PROJECT_DIR"
-          export BANKMOVIE_SIGNING_STORE_FILE="$PROJECT_DIR/bankmovie_update.jks"
-          "$BANKMOVIE_GRADLE_RETRY" clean assembleAbi2LiteRelease
-
-      - name: Build ABI4 Full releases
-        shell: bash
-        env:
-          BANKMOVIE_ABIS: armeabi-v7a,arm64-v8a,x86,x86_64
-        run: |
-          set -euo pipefail
-          cd "$PROJECT_DIR"
-          export BANKMOVIE_SIGNING_STORE_FILE="$PROJECT_DIR/bankmovie_update.jks"
-          "$BANKMOVIE_GRADLE_RETRY" assembleAbi4FullRelease
-
-      - name: Collect exactly 8 APKs with original filenames
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p output
-          rm -f output/*.apk
-          python3 - <<'PYCOLLECT'
-          import os
-          import shutil
-          from pathlib import Path
-          from zipfile import ZipFile
-
-          apk_root = Path(os.environ['PROJECT_DIR']) / 'app/build/outputs/apk'
-          out = Path('output')
-          editions = {
-              'abi2Lite': ('ABI2-Lite', [
-                  ('Universal', 'universal'),
-                  ('Armeabi-v7a', 'armeabi-v7a'),
-                  ('Arm64-v8a', 'arm64-v8a')]),
-              'abi4Full': ('ABI4-Full', [
-                  ('Universal', 'universal'),
-                  ('Armeabi-v7a', 'armeabi-v7a'),
-                  ('Arm64-v8a', 'arm64-v8a'),
-                  ('X86', 'x86'),
-                  ('X86_64', 'x86_64')]),
+          $expected = "BankMovie-Setup-1.0.0-${{ matrix.arch }}.exe"
+          if (-not (Test-Path (Join-Path dist $expected))) { 
+            Get-ChildItem dist | Select-Object -ExpandProperty Name
+            throw "Missing separate $expected"
           }
-          for flavor, (edition, kinds) in editions.items():
-              # Gradle may use camel-case or lower-case folder names depending on version.
-              folders = [p for p in apk_root.glob('*/release') if p.parent.name.lower() == flavor.lower()]
-              if len(folders) != 1:
-                  raise SystemExit(f'Expected one release directory for {flavor}, found: {folders}')
-              files = sorted(folders[0].glob('*.apk'))
-              if not files:
-                  raise SystemExit(f'No APK generated for {flavor} in {folders[0]}')
-              def matching(token):
-                  for p in files:
-                      stem = p.stem.lower()
-                      if token == 'universal':
-                          if 'universal' in stem: return p
-                      elif token == 'x86':
-                          if '-x86-' in stem or stem.endswith('-x86'): return p
-                      elif token in stem:
-                          return p
-                  return None
-              universal = matching('universal')
-              if universal is None and len(files) == 1:
-                  # Some AGP configurations output only a normal, native-free APK.
-                  universal = files[0]
-              if universal is None:
-                  raise SystemExit(f'Universal APK missing for {edition}: {[p.name for p in files]}')
-              with ZipFile(universal) as apk:
-                  native_libs = [n for n in apk.namelist() if n.startswith('lib/') and n.endswith('.so')]
-              for label, token in kinds:
-                  candidate = universal if token == 'universal' else matching(token)
-                  if candidate is None:
-                      if native_libs:
-                          raise SystemExit(f'Cannot copy a universal APK as {edition} {label}: native libraries present {native_libs}')
-                      # With no JNI libraries, APKs are inherently multi-ABI. Preserve
-                      # original eight separate artifact names using signed universal bytes.
-                      candidate = universal
-                      print(f'Native-free edition: using universal APK for {edition} {label}')
-                  target = out / f'Bankmovie-v2.5-{edition}-{label}.apk'
-                  shutil.copy2(candidate, target)
-                  print(f'{target.name}: {target.stat().st_size:,} bytes (source: {candidate.name})')
-          assert len(list(out.glob('*.apk'))) == 8, 'Expected exactly 8 separately named APKs'
-          PYCOLLECT
+          $installers = @(Get-ChildItem dist -Filter 'BankMovie-Setup-*.exe' -File)
+          if ($installers.Count -ne 1) { throw "Expected exactly one ${{ matrix.arch }} installer per job" }
 
-      - name: Verify all 8 signed APKs, update identity and no bundled VLC
-        shell: bash
+      - name: Verify installer Authenticode signature for release tags
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
         run: |
-          set -euo pipefail
-          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
-          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
-          test -x "$apksigner"
-          test -x "$aapt_bin"
-          for apk in output/*.apk; do
-            "$apksigner" verify --verbose --print-certs "$apk"
-            version_code="$($aapt_bin dump badging "$apk" | sed -n "s/.*versionCode='\([0-9][0-9]*\)'.*/\1/p" | head -n 1)"
-            version_name="$($aapt_bin dump badging "$apk" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" | head -n 1)"
-            [[ "$version_name" == "2.5" ]] || { echo "::error::Unexpected versionName: $apk ($version_name)"; exit 1; }
-            app_label="$($aapt_bin dump badging "$apk" | sed -n "s/^application-label:'\([^']*\)'.*/\1/p" | head -n 1)"
-            [[ "$app_label" == "Bankmovie" ]] || { echo "::error::Expected original Bankmovie label, got: $app_label"; exit 1; }
-            [[ "$version_code" == "$BANKMOVIE_VERSION_CODE" ]] || { echo "::error::Unexpected versionCode: $apk ($version_code)"; exit 1; }
-            APK_FILE="$apk" python3 - <<'PYAUDIT'
-          import hashlib, os, zipfile
-          from pathlib import Path
-
-          keys = ('action', 'adventure', 'animation', 'anime', 'biography', 'comedy', 'crime',
-                  'documentary', 'drama', 'family', 'fantasy', 'history', 'horror',
-                  'music', 'musical', 'mystery', 'noir', 'romance', 'school',
-                  'sci_fi', 'science', 'short', 'sport', 'supernatural',
-                  'thriller', 'war', 'western')
-          source_drawables = (Path(os.environ['PROJECT_DIR']) / 'app/src/main/res/drawable-nodpi')
-          expected = {
-              key: hashlib.sha256((source_drawables / ('bm_genre_' + key + '.webp')).read_bytes()).digest()
-              for key in keys
+          $exes = @(Get-ChildItem dist -Filter '*.exe' -File)
+          if ($exes.Count -eq 0) { throw 'No Windows installer found for signature verification.' }
+          foreach ($exe in $exes) {
+            $signature = Get-AuthenticodeSignature -FilePath $exe.FullName
+            if ($signature.Status -ne 'Valid') {
+              throw "Invalid installer Authenticode signature: $($exe.Name) ($($signature.Status))"
+            }
           }
-          unique_digests = set(expected.values())
-          if len(unique_digests) != 25:
-              raise SystemExit('Expected 25 distinct authentic WebP originals for 27 category keys')
 
-          with zipfile.ZipFile(os.environ['APK_FILE']) as z:
-              names = z.namelist()
-              forbidden = [n for n in names if 'libvlc' in n.lower() or 'libvlccore' in n.lower()]
-              if forbidden: raise SystemExit(f'VLC native libraries still found: {forbidden}')
-              if any('ffmpeg' in n.lower() for n in names if n.startswith('lib/')):
-                  raise SystemExit('Unexpected FFmpeg native library packaged')
+      - name: Create SHA-256 checksum for this architecture
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: |
+          $installer = Get-Item "dist/BankMovie-Setup-1.0.0-${{ matrix.arch }}.exe"
+          $hash = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLower()
+          "$hash  $($installer.Name)" | Set-Content "dist/SHA256SUMS-${{ matrix.arch }}.txt" -Encoding ascii
 
-              # With shrinkResources=true, AGP/AAPT2 may rename resource paths to
-              # short names such as res/3d or res/X.webp. The basename cannot be
-              # used to audit an optimized release APK. WebP file bytes are kept
-              # intact; verify their SHA-256 instead, regardless of path/extension.
-              found = set()
-              for info in z.infolist():
-                  if not info.filename.startswith('res/') or info.file_size < 10_000:
-                      continue
-                  with z.open(info) as file:
-                      image_hash = hashlib.sha256(file.read()).digest()
-                  if image_hash in unique_digests:
-                      found.add(image_hash)
-              missing = [key for key, digest in expected.items() if digest not in found]
-              if missing:
-                  raise SystemExit('Compiled APK is genuinely missing genre image bytes: '
-                                   + ', '.join(sorted(missing)) + '. '
-                                   + 'If AGP ever re-encodes WebP payloads, update the verifier to inspect compiled resources.')
-              print('APK_ORIGINAL_GENRES_OK', len(keys), 'keys /', len(found), 'unique originals', os.environ['APK_FILE'])
-
-              expected_proof = Path('output/BANKMOVIE-SOURCE-PROOF.txt').read_bytes()
-              actual_proof = z.read('assets/bankmovie_source_proof.txt')
-              if expected_proof != actual_proof:
-                  raise SystemExit('Source stamp absent or wrong in '+os.environ['APK_FILE'])
-              print('APK_SOURCE_STAMP_OK:', os.environ['APK_FILE'])
-          PYAUDIT
-            echo "Verified $apk"
-          done
-          sha256sum output/*.apk > output/SHA256SUMS.txt
-          {
-            echo 'BankMovie 2.5 Media3 eight signed APK sizes (bytes)'
-            find output -maxdepth 1 -name '*.apk' -printf '%f %s\n' | sort
-          } > output/APK-SIZES.txt
-
-      - name: Upload ABI2 Lite Universal
+      - name: Upload separate Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Bankmovie-2.5-ABI2-Lite-Universal
-          path: output/Bankmovie-v2.5-ABI2-Lite-Universal.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI2 Lite Armeabi-v7a
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.5-ABI2-Lite-Armeabi-v7a
-          path: output/Bankmovie-v2.5-ABI2-Lite-Armeabi-v7a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI2 Lite Arm64-v8a
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.5-ABI2-Lite-Arm64-v8a
-          path: output/Bankmovie-v2.5-ABI2-Lite-Arm64-v8a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full Universal
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.5-ABI4-Full-Universal
-          path: output/Bankmovie-v2.5-ABI4-Full-Universal.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full Armeabi-v7a
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.5-ABI4-Full-Armeabi-v7a
-          path: output/Bankmovie-v2.5-ABI4-Full-Armeabi-v7a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full Arm64-v8a
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.5-ABI4-Full-Arm64-v8a
-          path: output/Bankmovie-v2.5-ABI4-Full-Arm64-v8a.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full X86
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.5-ABI4-Full-X86
-          path: output/Bankmovie-v2.5-ABI4-Full-X86.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload ABI4 Full X86_64
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.5-ABI4-Full-X86_64
-          path: output/Bankmovie-v2.5-ABI4-Full-X86_64.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload checksum and size manifests
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankmovie-2.5-Diagnostics-Source-Proof
+          name: BankMovie-Windows-v1.0.0-${{ matrix.arch }}
           path: |
-            output/SHA256SUMS.txt
-            output/APK-SIZES.txt
-            output/BANKMOVIE-SOURCE-PROOF.txt
+            ${{ env.DESKTOP_DIR }}/dist/BankMovie-Setup-1.0.0-${{ matrix.arch }}.exe
+            ${{ env.DESKTOP_DIR }}/dist/SHA256SUMS-${{ matrix.arch }}.txt
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload Gradle failure log for diagnosis
-        if: failure()
-        uses: actions/upload-artifact@v4
+  publish-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-windows
+    runs-on: windows-latest
+    steps:
+      - name: Collect the two separate installers
+        uses: actions/download-artifact@v4
         with:
-          name: Bankmovie-2.5-Media3-Gradle-Error-Log
-          path: output/gradle-failure.log
-          if-no-files-found: ignore
-          retention-days: 30
+          pattern: BankMovie-Windows-v1.0.0-*
+          path: release-files
+          merge-multiple: true
+
+      - name: Verify both installers and create release checksums
+        shell: pwsh
+        run: |
+          $expected = @('BankMovie-Setup-1.0.0-x64.exe', 'BankMovie-Setup-1.0.0-ia32.exe')
+          $lines = @()
+          foreach ($name in $expected) {
+            $path = Join-Path release-files $name
+            if (-not (Test-Path $path)) { throw "Missing release artifact: $name" }
+            $hash = (Get-FileHash $path -Algorithm SHA256).Hash.ToLower()
+            $lines += "$hash  $name"
+          }
+          $lines | Set-Content release-files/SHA256SUMS.txt -Encoding ascii
+
+      - name: Publish GitHub Release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            release-files/*.exe
+            release-files/SHA256SUMS.txt
