@@ -1,4 +1,4 @@
-name: Build BankMovie v1.0.0 Cinema Watch Party In-Player x64 and ia32
+name: Build BankMovie v1.0.0 Cinema Site IMDb Direct x64 and ia32
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.0.0-MPV-CINEMA-SITE-CSS-DIRECT-x64-ia32.zip
+  SOURCE_ZIP: BankMovie-v1.0.0-MPV-CINEMA-SITE-IMDB-DIRECT-x64-ia32.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -137,6 +137,9 @@ jobs:
           node tests/watch-party-picker.test.js
           node tests/site-profile-header.test.js
           node tests/site-visual-parity.test.js
+          node --check src/poster-drag.js
+          node tests/site-discover-drag.test.js
+          node tests/site-imdb.test.js
           node tests/watch-party-media.test.js
           node tests/watch-party.test.js
           node tests/watch-party-ui.test.js
