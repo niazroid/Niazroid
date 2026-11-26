@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.0.0-MPV-CINEMA-NATIVE-DISCOVER-WATCHLIST-x64-ia32.zip
+  SOURCE_ZIP: BankMovie-v1.0.0-MPV-CINEMA-DISCOVER-SITE-EXACT-x64-ia32.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -141,6 +141,13 @@ jobs:
           node tests/site-discover-drag.test.js
           node tests/site-imdb.test.js
           node --check src/native-discover.js
+          node --check electron/discover-protocol.js
+          node --check src/discover/desktop-adapter.js
+          node --check src/discover/assets/js/bm-discover.js
+          node --check src/discover/assets/js/bm-discover-for-you.js
+          node --check src/discover/assets/js/bm-native-explorer.js
+          node tests/native-discover-original.test.js
+          node -e "const fs=require('fs'),p=require('path');if(!fs.existsSync(p.join(p.dirname(require.resolve('hls.js')),'hls.min.js')))process.exit(1)"
           node tests/native-watchlist.test.js
           node tests/watch-party-media.test.js
           node tests/watch-party.test.js
