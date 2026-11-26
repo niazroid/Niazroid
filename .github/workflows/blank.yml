@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.0.0-MPV-CINEMA-SITE-HEADER-x64-ia32.zip
+  SOURCE_ZIP: BankMovie-v1.0.0-MPV-CINEMA-SITE-CSS-DIRECT-x64-ia32.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -136,6 +136,7 @@ jobs:
           node --check electron/watch-party-picker-renderer.js
           node tests/watch-party-picker.test.js
           node tests/site-profile-header.test.js
+          node tests/site-visual-parity.test.js
           node tests/watch-party-media.test.js
           node tests/watch-party.test.js
           node tests/watch-party-ui.test.js
