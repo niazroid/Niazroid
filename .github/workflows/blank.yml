@@ -1,4 +1,4 @@
-name: Build BankMovie v1.0.0 Cinema Site IMDb Direct x64 and ia32
+name: Build BankMovie v1.0.0 Cinema Compact Navigation x64 and ia32
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.0.0-MPV-CINEMA-DISCOVER-SITE-EXACT-x64-ia32.zip
+  SOURCE_ZIP: BankMovie-v1.0.0-MPV-CINEMA-COMPACT-NAVIGATION-x64-ia32.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -136,6 +136,10 @@ jobs:
           node --check electron/watch-party-picker-renderer.js
           node tests/watch-party-picker.test.js
           node tests/site-profile-header.test.js
+          node --check src/site-avatar-picker.js
+          node --check src/site-avatar-catalog.js
+          node tests/site-avatar-picker.test.js
+          node tests/compact-navigation.test.js
           node tests/site-visual-parity.test.js
           node --check src/poster-drag.js
           node tests/site-discover-drag.test.js
