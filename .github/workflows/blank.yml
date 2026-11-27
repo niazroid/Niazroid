@@ -1,4 +1,4 @@
-name: Build BankMovie v1.1.0 Cinema Search Archive4 Media Fix x64 and ia32
+name: Build BankMovie v1.1.0 Cinema Android Media Transport Fix x64 and ia32
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.1.0-MPV-CINEMA-PLAYBACK-DEFAULTS-x64-ia32.zip
+  SOURCE_ZIP: BankMovie-v1.1.0-MPV-CINEMA-ANDROID-MEDIA-TRANSPORT-FIX-x64-ia32.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -132,6 +132,7 @@ jobs:
           node --check electron/media-http-fallback.js
           node tests/archive4-http-search.test.js
           node tests/playback-defaults.test.js
+          node tests/media-transport-events.test.js
           node tests/desktop-policy.test.js
           node tests/comment-ui.test.js
           node tests/weekly-navigation.test.js
@@ -180,6 +181,7 @@ jobs:
           node tests/watch-party.test.js
           node tests/watch-party-ui.test.js
           node tests/mpv-windows-runtime.test.js
+          node tests/mpv-transport-windows-runtime.test.js
 
       - name: Obfuscate privileged Electron code
         shell: pwsh
