@@ -1,4 +1,4 @@
-name: Build BankMovie v1.0.0 Cinema Player Branding and Startup x64 and ia32
+name: Build BankMovie v1.0.0 Cinema Player Only Branding and Resume Fix x64 and ia32
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.0.0-MPV-CINEMA-PLAYER-BRANDING-STARTUP-x64-ia32.zip
+  SOURCE_ZIP: BankMovie-v1.0.0-MPV-CINEMA-PLAYER-ONLY-RESUME-FIX-x64-ia32.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -108,6 +108,11 @@ jobs:
         working-directory: ${{ env.DESKTOP_DIR }}
         run: ./scripts/fetch-mpv.ps1 -Arch "${{ matrix.arch }}"
 
+      - name: Compile native Player-only window icon helper
+        shell: pwsh
+        working-directory: ${{ env.DESKTOP_DIR }}
+        run: ./scripts/build-player-icon.ps1
+
       - name: Validate JavaScript before hardening
         shell: pwsh
         working-directory: ${{ env.DESKTOP_DIR }}
@@ -131,6 +136,7 @@ jobs:
           node --check electron/player-splash.js
           node --check electron/player-splash-preload.js
           node tests/player-splash.test.js
+          node tests/player-brand-isolation.test.js
           node --check electron/watch-party.js
           node --check electron/watch-party-media.js
           node --check electron/watch-party-pictures.js
