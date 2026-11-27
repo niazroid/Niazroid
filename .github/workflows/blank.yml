@@ -1,4 +1,4 @@
-name: Build BankMovie v1.0.0 Cinema Profile Themes V2 x64 and ia32
+name: Build BankMovie v1.0.0 Cinema Profile Themes Fix x64 and ia32
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.0.0-MPV-CINEMA-PROFILE-THEMES-V2-x64-ia32.zip
+  SOURCE_ZIP: BankMovie-v1.0.0-MPV-CINEMA-PROFILE-THEMES-FIX-x64-ia32.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -156,6 +156,7 @@ jobs:
           node --check electron/profile-activity.js
           node tests/profile-activity.test.js
           node tests/profile-dashboard-v2.test.js
+          node tests/appearance-settings.test.js
           node tests/site-visual-parity.test.js
           node --check src/poster-drag.js
           node tests/site-discover-drag.test.js
