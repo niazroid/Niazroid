@@ -1,4 +1,4 @@
-name: Build BankMovie v1.1.0 Cinema Android Media Transport Fix x64 and ia32
+name: Build BankMovie v1.1.0 Cinema CURL TLS Retry Fix x64 and ia32
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.1.0-MPV-CINEMA-ANDROID-MEDIA-TRANSPORT-FIX-x64-ia32.zip
+  SOURCE_ZIP: BankMovie-v1.1.0-MPV-CINEMA-CURL-TLS-RETRY-FIX-x64-ia32.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
