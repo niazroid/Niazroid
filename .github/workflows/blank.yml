@@ -1,4 +1,4 @@
-name: Build BankMovie v1.1.0 Cinema Site Movie Rebuild x64 and ia32
+name: Build BankMovie v1.1.0 Cinema Search Archive4 Media Fix x64 and ia32
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.1.0-MPV-CINEMA-SITE-MOVIE-REBUILD-x64-ia32.zip
+  SOURCE_ZIP: BankMovie-v1.1.0-MPV-CINEMA-PLAYBACK-DEFAULTS-x64-ia32.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -128,6 +128,10 @@ jobs:
           node --check scripts/obfuscate-production.js
           node --check tests/security-smoke.js
           node tests/security-smoke.js
+          node --check electron/archive4-client.js
+          node --check electron/media-http-fallback.js
+          node tests/archive4-http-search.test.js
+          node tests/playback-defaults.test.js
           node tests/desktop-policy.test.js
           node tests/comment-ui.test.js
           node tests/weekly-navigation.test.js
