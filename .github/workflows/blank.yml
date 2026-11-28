@@ -1,4 +1,4 @@
-name: Build BankMovie v1.1.0 Cinema Watch Party Room Themes x64 and ia32
+name: Build BankMovie v1.1.0 Cinema Home Slider x64 and ia32
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.1.0-MPV-CINEMA-WATCH-PARTY-ROOM-THEMES-x64-ia32.zip
+  SOURCE_ZIP: BankMovie-v1.1.0-MPV-CINEMA-CINEMATIC-HOME-SLIDER-x64-ia32.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -168,6 +168,7 @@ jobs:
           node --check src/poster-drag.js
           node tests/site-discover-drag.test.js
           node tests/site-imdb.test.js
+          node tests/cinematic-slider.test.js
           node --check src/native-discover.js
           node --check electron/discover-protocol.js
           node --check src/discover/desktop-adapter.js
