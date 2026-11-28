@@ -1,4 +1,4 @@
-name: Build BankMovie v1.1.0 Cinema Expanded Movie Links x64 and ia32
+name: Build BankMovie v1.1.0 Cinema Uiverse Language x64 and ia32
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  SOURCE_ZIP: BankMovie-v1.1.0-MPV-CINEMA-ANDROID-CINEMATIC-ENTRY-x64-ia32.zip
+  SOURCE_ZIP: BankMovie-v1.1.0-MPV-CINEMA-UIVERSE-LANGUAGE-x64-ia32.zip
   EXTRACT_DIR: _bankmovie_source
   DESKTOP_DIR: _bankmovie_source/bankmovie_desktop_v2_pack/desktop
 
@@ -174,6 +174,9 @@ jobs:
           node tests/ui-performance.test.js
           node --check src/cinematic-entry.js
           node tests/cinematic-entry.test.js
+          node --check src/ui-language.js
+          node --check src/discover/assets/js/bm-discover-language.js
+          node tests/uiverse-language.test.js
           node --check src/native-discover.js
           node --check electron/discover-protocol.js
           node --check src/discover/desktop-adapter.js
